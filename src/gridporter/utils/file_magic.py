@@ -2,7 +2,6 @@
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 from ..models.file_info import FileType
 
@@ -25,10 +24,10 @@ def detect_file_type(file_path: Path) -> FileType:
     try:
         # Try to import magic for proper detection
         import magic
-        
+
         mime_type = magic.from_file(str(file_path), mime=True)
         logger.debug(f"Detected MIME type: {mime_type} for {file_path}")
-        
+
         # Map MIME types to our FileType enum
         mime_to_type = {
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": FileType.XLSX,
@@ -38,12 +37,14 @@ def detect_file_type(file_path: Path) -> FileType:
             "text/csv": FileType.CSV,
             "text/tab-separated-values": FileType.TSV,
         }
-        
+
         if mime_type in mime_to_type:
             return mime_to_type[mime_type]
-            
+
     except ImportError:
-        logger.warning("python-magic not available, falling back to extension detection")
+        logger.warning(
+            "python-magic not available, falling back to extension detection"
+        )
     except Exception as e:
         logger.warning(f"Magic detection failed: {e}, falling back to extension")
 
@@ -58,5 +59,5 @@ def detect_file_type(file_path: Path) -> FileType:
         ".tsv": FileType.TSV,
         ".txt": FileType.TSV,  # Assume tab-separated for .txt
     }
-    
+
     return extension_to_type.get(extension, FileType.UNKNOWN)

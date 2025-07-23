@@ -3,12 +3,10 @@
 import logging
 import time
 from pathlib import Path
-from typing import Optional, Union
 
 from .config import Config
 from .models import DetectionResult, FileInfo, FileType
 from .utils import detect_file_type
-
 
 logger = logging.getLogger(__name__)
 
@@ -18,10 +16,10 @@ class GridPorter:
 
     def __init__(
         self,
-        config: Optional[Config] = None,
-        suggest_names: Optional[bool] = None,
-        use_local_llm: Optional[bool] = None,
-        confidence_threshold: Optional[float] = None,
+        config: Config | None = None,
+        suggest_names: bool | None = None,
+        use_local_llm: bool | None = None,
+        confidence_threshold: float | None = None,
         **kwargs,
     ):
         """Initialize GridPorter.
@@ -67,7 +65,7 @@ class GridPorter:
             filename=self.config.log_file,
         )
 
-    async def detect_tables(self, file_path: Union[str, Path]) -> DetectionResult:
+    async def detect_tables(self, file_path: str | Path) -> DetectionResult:
         """Detect tables in a spreadsheet file.
 
         Args:
@@ -134,16 +132,16 @@ class GridPorter:
         """Analyze file and create FileInfo object."""
         # This would use the file magic detection utility
         file_type = detect_file_type(file_path)
-        
+
         return FileInfo(
             path=file_path,
             type=file_type,
             size=file_path.stat().st_size,
             detected_mime=None,  # Would be populated by magic detection
-            encoding=None,       # Would be detected for text files
+            encoding=None,  # Would be detected for text files
         )
 
-    async def batch_detect(self, file_paths: list[Union[str, Path]]) -> list[DetectionResult]:
+    async def batch_detect(self, file_paths: list[str | Path]) -> list[DetectionResult]:
         """Detect tables in multiple files.
 
         Args:

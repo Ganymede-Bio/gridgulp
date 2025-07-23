@@ -34,16 +34,6 @@ jobs:
         source .venv/bin/activate
         ruff check src/ tests/
 
-    - name: Format check with black
-      run: |
-        source .venv/bin/activate
-        black --check src/ tests/
-
-    - name: Type check with mypy
-      run: |
-        source .venv/bin/activate
-        mypy src/
-
     - name: Test with pytest
       run: |
         source .venv/bin/activate

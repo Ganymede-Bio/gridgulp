@@ -88,7 +88,7 @@ include = '\.pyi?$'
 [tool.ruff]
 line-length = 88
 target-version = "py310"
-select = [
+lint.select = [
     "E",    # pycodestyle errors
     "W",    # pycodestyle warnings
     "F",    # pyflakes
@@ -99,7 +99,7 @@ select = [
     "ARG",  # flake8-unused-arguments
     "SIM",  # flake8-simplify
 ]
-ignore = [
+lint.ignore = [
     "E501",  # line too long (handled by black)
     "B008",  # do not perform function calls in argument defaults
 ]
