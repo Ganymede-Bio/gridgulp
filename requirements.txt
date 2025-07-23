@@ -1,0 +1,23 @@
+# Core dependencies
+pydantic>=2.0,<3.0
+openai-agents-python>=0.1.0
+openpyxl>=3.1.0
+xlrd>=2.0.0
+pandas>=2.0.0
+numpy>=1.24.0
+scikit-image>=0.20.0
+python-magic>=0.4.27
+chardet>=5.0.0
+aiofiles>=23.0.0
+rich>=13.0.0
+click>=8.1.0
+
+# Development dependencies (install with pip install -r requirements-dev.txt)
+# pytest>=7.4.0
+# pytest-asyncio>=0.21.0
+# pytest-cov>=4.1.0
+# black>=23.0.0
+# ruff>=0.1.0
+# mypy>=1.5.0
+# pre-commit>=3.3.0
+# ipykernel>=6.25.0
