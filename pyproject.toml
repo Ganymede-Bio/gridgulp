@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gridporter"
-version = "0.1.0"
+version = "0.1.1"
 description = "Intelligent spreadsheet ingestion framework with automatic table detection"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
     {name = "GridPorter Contributors"},
@@ -18,9 +18,9 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Office/Business :: Financial :: Spreadsheet",
 ]
@@ -45,6 +45,7 @@ dev = [
     "pytest>=8.4.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.1.0",
+    "pytest-xdist>=3.8.0",
     "black>=23.0.0",
     "ruff>=0.12.0",
     "mypy>=1.17.0",
@@ -82,12 +83,12 @@ packages = ["src/gridporter"]
 
 [tool.black]
 line-length = 88
-target-version = ['py310']
+target-version = ['py311']
 include = '\.pyi?$'
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py311"
 lint.select = [
     "E",    # pycodestyle errors
     "W",    # pycodestyle warnings
@@ -105,7 +106,7 @@ lint.ignore = [
 ]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -157,4 +158,11 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "raise NotImplementedError",
     "if TYPE_CHECKING:",
+]
+
+[dependency-groups]
+dev = [
+    "pytest-asyncio>=1.1.0",
+    "pytest-cov>=6.2.1",
+    "pytest-xdist>=3.8.0",
 ]
