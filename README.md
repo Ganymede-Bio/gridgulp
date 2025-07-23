@@ -20,20 +20,113 @@ GridPorter is a Python framework that automatically detects and extracts multipl
 - **Async Processing**: Built for performance with async I/O operations
 - **Extensible Architecture**: Easy to add new detection strategies or file formats
 
-## Installation
+## Repository Setup
+
+### Prerequisites
+
+- Python 3.10 or higher
+- [uv](https://github.com/astral-sh/uv) (recommended) or pip
+- Git
+
+### Quick Setup
 
 ```bash
-# Using pip
+# 1. Clone the repository
+git clone https://github.com/yourusername/gridporter.git
+cd gridporter
+
+# 2. Create and activate virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# 3. Install in development mode (recommended method)
+make dev
+# This installs dependencies, sets up pre-commit hooks, and configures the environment
+
+# 4. Verify installation
+python -c "import gridporter; print(f'GridPorter v{gridporter.__version__} installed successfully!')"
+```
+
+### Alternative Setup Methods
+
+#### Using uv (Fastest)
+```bash
+# Create virtual environment and install dependencies
+uv venv
+source .venv/bin/activate
+uv pip install -e ".[dev]"
+pre-commit install
+```
+
+#### Using pip
+```bash
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate
+
+# Install from requirements files
+pip install -r requirements-dev.txt
+pip install -e .
+pre-commit install
+```
+
+### Environment Configuration
+
+1. **Copy the example environment file:**
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Edit `.env` to add your API keys (optional for basic functionality):**
+   ```bash
+   # Required only if using LLM features
+   OPENAI_API_KEY=your_openai_api_key_here
+   OPENAI_MODEL=gpt-4o-mini
+   ```
+
+### Development Commands
+
+```bash
+# Run tests
+make test
+
+# Run linting and formatting
+make check
+
+# Build the package
+make build
+
+# Clean build artifacts
+make clean
+```
+
+## Installation (PyPI - Coming Soon)
+
+```bash
+# Once published to PyPI
 pip install gridporter
 
 # For development
-pip install -e ".[dev]"
+pip install gridporter[dev]
 
 # With visualization support
-pip install -e ".[visualization]"
+pip install gridporter[visualization]
 ```
 
+### Troubleshooting
+
+**Dependency resolution issues:**
+- Make sure you're using Python 3.10+
+- Try updating pip: `pip install --upgrade pip`
+- Use uv for faster dependency resolution: `pip install uv`
+
+**Virtual environment issues:**
+- Delete `.venv` and recreate: `rm -rf .venv && python -m venv .venv`
+- Make sure you're activating the correct environment
+
 ## Quick Start
+
+> **Note**: This is v0.1.0 (Foundation Release). The examples below show the intended API design. Core detection functionality will be implemented in upcoming releases.
 
 ```python
 import asyncio
@@ -43,19 +136,46 @@ async def main():
     # Initialize GridPorter
     porter = GridPorter()
     
-    # Detect tables in an Excel file
+    # Detect tables in an Excel file (placeholder implementation in v0.1.0)
     result = await porter.detect_tables("data/sales_report.xlsx")
     
-    # Print detected tables
-    for sheet in result.sheets:
-        print(f"\nSheet: {sheet.name}")
-        for table in sheet.tables:
-            print(f"  Table: {table.suggested_name} ({table.range})")
-            print(f"  Confidence: {table.confidence:.2f}")
-            print(f"  Method: {table.detection_method}")
+    # Print basic file information
+    print(f"File: {result.file_info.path}")
+    print(f"Type: {result.file_info.type}")
+    print(f"Size: {result.file_info.size_mb:.1f} MB")
+    print(f"Processing time: {result.detection_time:.2f}s")
+    
+    # In future versions, this will show detected tables:
+    # for sheet in result.sheets:
+    #     print(f"\nSheet: {sheet.name}")
+    #     for table in sheet.tables:
+    #         print(f"  Table: {table.suggested_name} ({table.range.excel_range})")
+    #         print(f"  Confidence: {table.confidence:.2%}")
+    #         print(f"  Method: {table.detection_method}")
 
 # Run the async function
 asyncio.run(main())
+```
+
+### Current v0.1.0 Capabilities
+
+```python
+from gridporter import GridPorter, Config
+
+# Create configuration
+config = Config(
+    suggest_names=False,  # No LLM calls
+    max_file_size_mb=10,
+    confidence_threshold=0.8
+)
+
+# Initialize with config
+porter = GridPorter(config=config)
+
+# Basic file analysis (currently implemented)
+result = await porter.detect_tables("your_file.xlsx")
+print(f"File analyzed: {result.file_info.type}")
+print(f"Ready for detection implementation!")
 ```
 
 ## CLI Usage

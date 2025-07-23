@@ -27,7 +27,7 @@ classifiers = [
 
 dependencies = [
     "pydantic>=2.0,<3.0",
-    "openai-agents-python>=0.2.0",
+    "openai-agents>=0.2.0",
     "openpyxl>=3.1.0",
     "xlrd>=2.0.0",
     "pandas>=2.0.0",
