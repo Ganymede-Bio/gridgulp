@@ -133,8 +133,7 @@ Every extracted table includes comprehensive metadata:
 
 GridPorter supports multiple vision models:
 
-- **OpenAI GPT-4V**: Best accuracy, higher cost
-- **Claude 3 Vision**: Excellent understanding, competitive pricing
+- **OpenAI GPT-4o**: Best accuracy, higher cost
 - **Qwen2-VL (Ollama)**: Local deployment, no API costs
 - **Custom Models**: Plug in any vision-capable model
 

@@ -30,6 +30,7 @@ dependencies = [
     "openai-agents>=0.2.0",
     "openpyxl>=3.1.0",
     "xlrd>=2.0.0",
+    "olefile>=0.46", # For password-protected Excel detection
     "pandas>=2.0.0",
     "numpy>=2.3.0",
     "scikit-image>=0.25.0",

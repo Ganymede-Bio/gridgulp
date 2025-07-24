@@ -25,20 +25,20 @@ GridPorter is a vision-enabled AI spreadsheet ingestion framework that uses Larg
 ### Week 2: File Reading Infrastructure
 **Goal**: Implement file readers and unified interfaces
 
-- [ ] Excel reader implementation
-  - [ ] Excel reader (openpyxl for modern, xlrd for legacy)
-  - [ ] Handle multiple sheets and formats
-  - [ ] Extract metadata and formatting
+- [x] Excel reader implementation
+  - [x] Excel reader (openpyxl for modern, xlrd for legacy)
+  - [x] Handle multiple sheets and formats
+  - [x] Extract metadata and formatting
 
-- [ ] CSV reader implementation
-  - [ ] CSV reader with encoding detection
-  - [ ] Delimiter and quote detection
-  - [ ] Handle various CSV dialects
+- [x] CSV reader implementation
+  - [x] CSV reader with encoding detection
+  - [x] Delimiter and quote detection
+  - [x] Handle various CSV dialects
 
-- [ ] Unified reader interface
-  - [ ] Abstract base reader class
-  - [ ] Factory pattern for reader selection
-  - [ ] Error handling and validation
+- [x] Unified reader interface
+  - [x] Abstract base reader class
+  - [x] Factory pattern for reader selection
+  - [x] Error handling and validation
 
 **Deliverables**: Working file readers for Excel and CSV formats
 
@@ -51,7 +51,7 @@ GridPorter is a vision-enabled AI spreadsheet ingestion framework that uses Larg
   - [ ] Resolution optimization for vision models
 
 - [ ] Vision model integration
-  - [ ] OpenAI GPT-4V integration
+  - [ ] OpenAI GPT-4o integration
   - [ ] Claude 3 Vision support
   - [ ] Ollama vision model support (qwen2-vl)
 

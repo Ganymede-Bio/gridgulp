@@ -54,6 +54,23 @@ class CellData(BaseModel):
 
         return f"{col_to_letter(self.column)}{self.row + 1}"
 
+    @property
+    def value_type(self) -> str:
+        """Alias for data_type for better clarity and pandas/polars compatibility."""
+        return self.data_type
+
+    @property
+    def formatting(self) -> dict[str, Any]:
+        """Return all formatting information as a dictionary."""
+        return {
+            "is_bold": self.is_bold,
+            "is_italic": self.is_italic,
+            "is_underline": self.is_underline,
+            "font_size": self.font_size,
+            "font_color": self.font_color,
+            "background_color": self.background_color,
+        }
+
 
 class SheetData(BaseModel):
     """Represents a complete sheet with all its data and metadata."""
@@ -130,6 +147,34 @@ class SheetData(BaseModel):
             return result
 
         return f"{col_to_letter(column)}{row + 1}"
+
+    @property
+    def data(self) -> list[list[CellData | None]]:
+        """Return sheet data as 2D list for easier access (pandas/polars style).
+
+        Returns a list of rows, where each row is a list of cells.
+        Missing cells are represented as None.
+        """
+        if self.max_row < 0 or self.max_column < 0:
+            return []
+
+        rows = []
+        for row_idx in range(self.max_row + 1):
+            row_data = []
+            for col_idx in range(self.max_column + 1):
+                cell = self.get_cell(row_idx, col_idx)
+                row_data.append(cell)
+            rows.append(row_data)
+        return rows
+
+    @property
+    def merged_cells(self) -> list[str]:
+        """Return list of unique merged cell ranges in the sheet."""
+        merge_ranges = set()
+        for cell in self.cells.values():
+            if cell.is_merged and cell.merge_range:
+                merge_ranges.add(cell.merge_range)
+        return sorted(merge_ranges)
 
 
 class FileData(BaseModel):
