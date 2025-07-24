@@ -202,7 +202,7 @@ __pycache__/
 .copilot/
 
 # Model files (if storing locally)
-models/
+/models/
 *.bin
 *.safetensors
 *.onnx
@@ -213,3 +213,4 @@ results/
 exports/
 
 .env
+test_venv

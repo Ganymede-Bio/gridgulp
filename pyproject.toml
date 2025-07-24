@@ -71,13 +71,8 @@ gridporter = "gridporter.cli:main"
 [tool.hatch.build]
 sources = ["src"]
 
-[tool.black]
-line-length = 88
-target-version = ['py311']
-include = '\.pyi?$'
-
 [tool.ruff]
-line-length = 88
+line-length = 100
 target-version = "py311"
 lint.select = [
     "E",    # pycodestyle errors
