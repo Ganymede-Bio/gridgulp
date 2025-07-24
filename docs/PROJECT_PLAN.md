@@ -52,7 +52,6 @@ GridPorter is a vision-enabled AI spreadsheet ingestion framework that uses Larg
 
 - [ ] Vision model integration
   - [ ] OpenAI GPT-4o integration
-  - [ ] Claude 3 Vision support
   - [ ] Ollama vision model support (qwen2-vl)
 
 - [ ] Basic region proposal system
@@ -127,7 +126,7 @@ GridPorter is a vision-enabled AI spreadsheet ingestion framework that uses Larg
 
 - [ ] Vision orchestrator implementation
   - [ ] Central coordination logic
-  - [ ] Multi-model support (OpenAI, Claude, Ollama)
+  - [ ] Multi-model support (OpenAI, Ollama)
   - [ ] Async processing pipeline
 
 - [ ] Tool integration

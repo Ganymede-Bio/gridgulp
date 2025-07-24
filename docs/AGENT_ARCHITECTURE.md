@@ -104,10 +104,8 @@ class VisionOrchestrator:
     """Orchestrate table detection using vision models"""
 
     def __init__(self, config: Config):
-        if config.vision_model == "gpt-4-vision":
-            self.vision_llm = OpenAIVision(model="gpt-4-vision-preview")
-        elif config.vision_model == "claude-3-vision":
-            self.vision_llm = ClaudeVision(model="claude-3-opus")
+        if config.vision_model == "gpt-4o":
+            self.vision_llm = OpenAIVision(model="gpt-4o")
         elif config.vision_model == "qwen2-vl":
             self.vision_llm = OllamaVision(model="qwen2.5-vl:7b")
 
@@ -321,7 +319,7 @@ async def process_workbook_batch(self, workbook: Workbook) -> List[TableInfo]:
 ### Vision-Enabled with GPT-4V
 ```python
 GridPorter(
-    vision_model="gpt-4-vision",
+    vision_model="gpt-4o",
     vision_confidence_threshold=0.8,
     enable_semantic_analysis=True,
     preserve_formatting=True
@@ -342,7 +340,7 @@ GridPorter(
 ```python
 GridPorter(
     detection_mode="hybrid",
-    vision_model="claude-3-opus",
+    vision_model="gpt-4o",
     fallback_to_traditional=True,
     complexity_threshold=0.7  # Use vision for complex sheets
 )

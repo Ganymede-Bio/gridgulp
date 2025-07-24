@@ -263,18 +263,6 @@ for table in result.tables:
     )
 ```
 
-## Pricing Model
-
-### Cloud (SaaS)
-- **Starter**: $0.01 per page (GPT-4V)
-- **Professional**: $0.005 per page (Claude 3)
-- **Enterprise**: Volume pricing + SLA
-
-### Self-Hosted
-- **Open Source**: Free with Ollama
-- **Commercial**: Licensed for proprietary use
-- **Enterprise**: Support + custom models
-
 ## Summary
 
 GridPorter represents a paradigm shift in spreadsheet processing:
