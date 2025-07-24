@@ -107,6 +107,17 @@ lint.ignore = [
     "B008",  # do not perform function calls in argument defaults
 ]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "ARG",   # Unused function arguments (common in test fixtures)
+    "D",     # Missing docstrings (not needed in tests)
+    "S101",  # Use of assert (expected in tests)
+    "SIM",   # Some simplifications don't apply well to test code
+    "F401",  # Unused imports (may be used for fixtures)
+    "F811",  # Redefinition of unused names (common with fixtures)
+    "I",     # Import sorting (less strict in tests)
+]
+
 [tool.mypy]
 python_version = "3.11"
 warn_return_any = true
@@ -121,6 +132,10 @@ warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
+exclude = [
+    "tests/",
+    "examples/",
+]
 
 [[tool.mypy.overrides]]
 module = [

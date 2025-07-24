@@ -25,19 +25,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Configuration System**: Comprehensive config with environment variable support
 - **Main API Structure**: GridPorter class with cost-efficient architecture design
 - **File Type Detection**: Basic file magic detection utilities (placeholder implementation)
-- **Development Tooling**: 
+- **Development Tooling**:
   - Pre-commit hooks with Black, Ruff, mypy
   - GitHub Actions CI/CD pipeline
   - uv-based build system with hatchling
   - EditorConfig and development guidelines
-- **Documentation**: 
+- **Documentation**:
   - Comprehensive README with usage examples
   - AGENT_ARCHITECTURE.md with cost-optimization strategy
   - PROJECT_PLAN.md with weekly breakdown
   - CONTRIBUTING.md with development guidelines
 - **Test Infrastructure**: Complete test structure with pytest configuration
 - **Examples**: Basic usage examples showing different configuration patterns
-- **Cost-Efficient Design**: 
+- **Cost-Efficient Design**:
   - Local-first processing architecture
   - Optional LLM integration with local model support
   - Token usage tracking and optimization
