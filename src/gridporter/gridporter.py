@@ -3,12 +3,12 @@
 import logging
 import time
 from pathlib import Path
-from typing import Optional, Union
+
+from gridporter.models import DetectionResult, FileInfo, FileType
+from gridporter.readers import ReaderError, create_reader
+from gridporter.utils.file_magic import detect_file_info
 
 from .config import Config
-from .models import DetectionResult, FileInfo, FileType
-from .utils import detect_file_type
-
 
 logger = logging.getLogger(__name__)
 
@@ -18,10 +18,10 @@ class GridPorter:
 
     def __init__(
         self,
-        config: Optional[Config] = None,
-        suggest_names: Optional[bool] = None,
-        use_local_llm: Optional[bool] = None,
-        confidence_threshold: Optional[float] = None,
+        config: Config | None = None,
+        suggest_names: bool | None = None,
+        use_local_llm: bool | None = None,
+        confidence_threshold: float | None = None,
         **kwargs,
     ):
         """Initialize GridPorter.
@@ -67,7 +67,7 @@ class GridPorter:
             filename=self.config.log_file,
         )
 
-    async def detect_tables(self, file_path: Union[str, Path]) -> DetectionResult:
+    async def detect_tables(self, file_path: str | Path) -> DetectionResult:
         """Detect tables in a spreadsheet file.
 
         Args:
@@ -93,27 +93,50 @@ class GridPorter:
         file_info = await self._analyze_file(file_path)
         logger.info(f"Detected file type: {file_info.type}")
 
-        # Create placeholder result for now
-        # In a full implementation, this would:
-        # 1. Load appropriate reader based on file type
-        # 2. Initialize detection agent
-        # 3. Run detection pipeline
-        # 4. Apply LLM naming if configured
+        # Read file data using appropriate reader
+        try:
+            reader = create_reader(file_path, file_info)
+            file_data = await reader.read()
+            logger.info(f"Successfully read {file_data.sheet_count} sheets")
+        except ReaderError as e:
+            logger.error(f"Failed to read file: {e}")
+            raise ValueError(f"Could not read file: {e}") from e
+
+        # For now, create a basic result with file data
+        # In future versions, this will run actual table detection algorithms
+        sheets = []
+        for sheet_data in file_data.sheets:
+            from gridporter.models import SheetResult
+
+            sheet_result = SheetResult(
+                name=sheet_data.name,
+                tables=[],  # Will be populated by detection algorithms
+                processing_time=0.0,
+                errors=[],
+            )
+            sheets.append(sheet_result)
 
         detection_time = time.time() - start_time
 
         result = DetectionResult(
             file_info=file_info,
-            sheets=[],  # Will be populated by actual detection
+            sheets=sheets,
             detection_time=detection_time,
-            methods_used=["placeholder"],
+            methods_used=["file_reading"],
             llm_calls=0,
             llm_tokens=0,
+            metadata={
+                "file_data_available": True,
+                "total_cells": sum(
+                    len(sheet.get_non_empty_cells()) for sheet in file_data.sheets
+                ),
+                "reader_metadata": file_data.metadata,
+            },
         )
 
         logger.info(
             f"Detection completed in {detection_time:.2f}s. "
-            f"Found {result.total_tables} tables."
+            f"Read {len(file_data.sheets)} sheets with {result.metadata.get('total_cells', 0)} non-empty cells."
         )
 
         return result
@@ -131,19 +154,32 @@ class GridPorter:
             )
 
     async def _analyze_file(self, file_path: Path) -> FileInfo:
-        """Analyze file and create FileInfo object."""
-        # This would use the file magic detection utility
-        file_type = detect_file_type(file_path)
-        
+        """Analyze file and create FileInfo object with comprehensive detection."""
+        # Use enhanced file detection
+        detection_result = detect_file_info(file_path)
+
+        # Log format mismatch warnings
+        if detection_result.format_mismatch:
+            logger.warning(
+                f"File format mismatch detected: {file_path.name} "
+                f"has extension suggesting {detection_result.extension_type} "
+                f"but content appears to be {detection_result.detected_type}"
+            )
+
         return FileInfo(
             path=file_path,
-            type=file_type,
+            type=detection_result.detected_type,
             size=file_path.stat().st_size,
-            detected_mime=None,  # Would be populated by magic detection
-            encoding=None,       # Would be detected for text files
+            detected_mime=detection_result.mime_type,
+            extension_format=detection_result.extension_type,
+            detection_confidence=detection_result.confidence,
+            format_mismatch=detection_result.format_mismatch,
+            detection_method=detection_result.method,
+            encoding=detection_result.encoding,
+            magic_bytes=detection_result.magic_bytes,
         )
 
-    async def batch_detect(self, file_paths: list[Union[str, Path]]) -> list[DetectionResult]:
+    async def batch_detect(self, file_paths: list[str | Path]) -> list[DetectionResult]:
         """Detect tables in multiple files.
 
         Args:

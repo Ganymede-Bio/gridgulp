@@ -1,8 +1,8 @@
 """GridPorter - Intelligent spreadsheet ingestion framework."""
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
-from gridporter.models import DetectionResult, TableInfo
 from gridporter.gridporter import GridPorter
+from gridporter.models import DetectionResult, TableInfo
 
 __all__ = ["GridPorter", "DetectionResult", "TableInfo"]

@@ -44,7 +44,7 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class TableInfo(BaseModel):
     model_config = ConfigDict(strict=True)
-    
+
     range: str = Field(..., description="Excel-style range (e.g., 'A1:D10')")
     suggested_name: str | None = Field(None, description="LLM-suggested name")
     confidence: float = Field(..., ge=0.0, le=1.0)
@@ -164,21 +164,21 @@ The framework should be designed for easy extension:
 async def detect_tables(file_path: str) -> DetectionResult:
     # 1. Detect file type
     file_type = await detect_file_type(file_path)
-    
+
     # 2. Load appropriate reader
     reader = get_reader(file_type)
-    
+
     # 3. Run detection pipeline
     for sheet in reader.sheets():
         if await is_single_table(sheet):
             tables = [extract_single_table(sheet)]
         else:
             tables = await detect_multiple_tables(sheet)
-        
+
         # 4. Enhance with LLM
         for table in tables:
             table.suggested_name = await suggest_name(table)
-    
+
     return DetectionResult(...)
 ```
 

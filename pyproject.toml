@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gridporter"
-version = "0.1.0"
+version = "0.1.1"
 description = "Intelligent spreadsheet ingestion framework with automatic table detection"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
     {name = "GridPorter Contributors"},
@@ -18,9 +18,9 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Office/Business :: Financial :: Spreadsheet",
 ]
@@ -34,10 +34,12 @@ dependencies = [
     "numpy>=2.3.0",
     "scikit-image>=0.25.0",
     "python-magic>=0.4.27",
+    "filetype>=1.2.0", # Fallback for file type detection
+    "magika>=0.6.1", # AI-powered file type detection
     "chardet>=5.0.0",
     "aiofiles>=23.0.0",
-    "rich>=13.0.0",  # For nice CLI output
-    "click>=8.1.0",  # For CLI
+    "rich>=13.0.0", # For nice CLI output
+    "click>=8.1.0", # For CLI
 ]
 
 [project.optional-dependencies]
@@ -45,6 +47,7 @@ dev = [
     "pytest>=8.4.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.1.0",
+    "pytest-xdist>=3.8.0",
     "black>=23.0.0",
     "ruff>=0.12.0",
     "mypy>=1.17.0",
@@ -58,37 +61,20 @@ visualization = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/gridporter"
-Documentation = "https://gridporter.readthedocs.io"
-Repository = "https://github.com/yourusername/gridporter"
-Issues = "https://github.com/yourusername/gridporter/issues"
+Homepage = "https://github.com/Ganymede-Bio/gridporter"
+Repository = "https://github.com/Ganymede-Bio/gridporter"
+Issues = "https://github.com/Ganymede-Bio/gridporter/issues"
 
 [project.scripts]
 gridporter = "gridporter.cli:main"
 
-[tool.hatch.build.targets.sdist]
-exclude = [
-    "/.github",
-    "/docs",
-    "/tests",
-    "/examples",
-    "/.gitignore",
-    "/.pre-commit-config.yaml",
-    "/Makefile",
-]
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/gridporter"]
-
-[tool.black]
-line-length = 88
-target-version = ['py310']
-include = '\.pyi?$'
+[tool.hatch.build]
+sources = ["src"]
 
 [tool.ruff]
-line-length = 88
-target-version = "py310"
-select = [
+line-length = 100
+target-version = "py311"
+lint.select = [
     "E",    # pycodestyle errors
     "W",    # pycodestyle warnings
     "F",    # pyflakes
@@ -99,13 +85,24 @@ select = [
     "ARG",  # flake8-unused-arguments
     "SIM",  # flake8-simplify
 ]
-ignore = [
+lint.ignore = [
     "E501",  # line too long (handled by black)
     "B008",  # do not perform function calls in argument defaults
 ]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "ARG",   # Unused function arguments (common in test fixtures)
+    "D",     # Missing docstrings (not needed in tests)
+    "S101",  # Use of assert (expected in tests)
+    "SIM",   # Some simplifications don't apply well to test code
+    "F401",  # Unused imports (may be used for fixtures)
+    "F811",  # Redefinition of unused names (common with fixtures)
+    "I",     # Import sorting (less strict in tests)
+]
+
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -118,6 +115,10 @@ warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
+exclude = [
+    "tests/",
+    "examples/",
+]
 
 [[tool.mypy.overrides]]
 module = [
@@ -157,4 +158,11 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "raise NotImplementedError",
     "if TYPE_CHECKING:",
+]
+
+[dependency-groups]
+dev = [
+    "pytest-asyncio>=1.1.0",
+    "pytest-cov>=6.2.1",
+    "pytest-xdist>=3.8.0",
 ]

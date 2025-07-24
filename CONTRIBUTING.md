@@ -184,13 +184,13 @@ gridporter/
 ```python
 def detect_tables(file_path: str) -> DetectionResult:
     """Detect tables in a spreadsheet file.
-    
+
     Args:
         file_path: Path to the spreadsheet file
-        
+
     Returns:
         DetectionResult containing all detected tables
-        
+
     Raises:
         FileNotFoundError: If file doesn't exist
         UnsupportedFormatError: If file format is not supported

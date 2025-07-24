@@ -135,16 +135,16 @@ from gridporter import GridPorter
 async def main():
     # Initialize GridPorter
     porter = GridPorter()
-    
+
     # Detect tables in an Excel file (placeholder implementation in v0.1.0)
     result = await porter.detect_tables("data/sales_report.xlsx")
-    
+
     # Print basic file information
     print(f"File: {result.file_info.path}")
     print(f"Type: {result.file_info.type}")
     print(f"Size: {result.file_info.size_mb:.1f} MB")
     print(f"Processing time: {result.detection_time:.2f}s")
-    
+
     # In future versions, this will show detected tables:
     # for sheet in result.sheets:
     #     print(f"\nSheet: {sheet.name}")
@@ -207,23 +207,97 @@ GridPorter uses a multi-stage detection pipeline:
 
 ## Configuration
 
+GridPorter supports both cloud-based (OpenAI) and local (Ollama) LLM providers for intelligent table naming and analysis.
+
+### Option 1: OpenAI (Cloud-based)
+
 Create a `.env` file for API keys:
 
 ```env
 OPENAI_API_KEY=your_api_key_here
+OPENAI_MODEL=gpt-4o-mini
 ```
 
-Or configure programmatically:
+### Option 2: Ollama (Local, Private, Free)
+
+**Recommended Models:**
+- **Text/Reasoning**: `deepseek-r1:7b` - Excellent at logical reasoning and tool usage
+- **Vision/Analysis**: `qwen2.5vl:7b` - Advanced vision model for spreadsheet analysis
+
+**Quick Setup:**
+
+```bash
+# 1. Install Ollama (if not already installed)
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# 2. Pull the recommended models
+ollama pull deepseek-r1:7b
+ollama pull qwen2.5vl:7b
+
+# 3. GridPorter will automatically use Ollama if no OpenAI key is configured
+```
+
+**Environment Configuration:**
+
+```env
+# Ollama Configuration (optional - these are the defaults)
+OLLAMA_URL=http://localhost:11434
+OLLAMA_TEXT_MODEL=deepseek-r1:7b
+OLLAMA_VISION_MODEL=qwen2.5vl:7b
+
+# Force local LLM usage even if OpenAI key is available
+GRIDPORTER_USE_LOCAL_LLM=true
+```
+
+### Programmatic Configuration
 
 ```python
-from gridporter import GridPorter
+from gridporter import GridPorter, Config
 
-porter = GridPorter(
-    llm_provider="openai",
-    api_key="your_api_key",
-    confidence_threshold=0.8
+# OpenAI Configuration
+config_openai = Config(
+    openai_api_key="your_api_key",
+    openai_model="gpt-4o-mini",
+    use_local_llm=False
 )
+
+# Ollama Configuration
+config_ollama = Config(
+    use_local_llm=True,
+    ollama_text_model="deepseek-r1:7b",
+    ollama_vision_model="qwen2.5vl:7b",
+    ollama_url="http://localhost:11434"
+)
+
+# Auto-detection (uses Ollama if no OpenAI key)
+config_auto = Config.from_env()
+
+porter = GridPorter(config=config_auto)
 ```
+
+### Model Capabilities & Hardware Requirements
+
+**DeepSeek-R1 (Text/Reasoning)**
+- **Strengths**: Mathematical reasoning, code generation, logical inference, tool usage
+- **Use Cases**: Table naming, data type inference, pattern recognition
+- **Hardware**:
+  - `1.5b`: 2GB RAM, CPU inference
+  - `7b`: 6GB RAM, optimal for most users
+  - `32b`: 21GB RAM, high-performance tasks
+
+**Qwen2.5-VL (Vision/Analysis)**
+- **Strengths**: Document parsing, chart analysis, visual table detection, multilingual support
+- **Use Cases**: Spreadsheet layout analysis, merged cell detection, table boundary identification
+- **Hardware**:
+  - `7b`: 6GB RAM, recommended for most users
+  - `32b`: 21GB RAM, enhanced accuracy
+  - `72b`: 71GB RAM, maximum performance
+
+**Performance Comparison**:
+- **Privacy**: Ollama keeps all data local, no cloud API calls
+- **Cost**: Free after initial setup, no per-request charges
+- **Speed**: Local inference, no network latency
+- **Accuracy**: DeepSeek-R1 matches GPT-4 performance on many reasoning tasks
 
 ## Output Format
 
@@ -283,11 +357,11 @@ from gridporter import GridPorter
 
 async def process_batch(file_paths):
     porter = GridPorter()
-    
+
     # Process files concurrently
     tasks = [porter.detect_tables(path) for path in file_paths]
     results = await asyncio.gather(*tasks)
-    
+
     return results
 ```
 
