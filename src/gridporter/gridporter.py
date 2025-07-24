@@ -4,10 +4,11 @@ import logging
 import time
 from pathlib import Path
 
+from gridporter.models import DetectionResult, FileInfo, FileType
+from gridporter.readers import ReaderError, create_reader
+from gridporter.utils.file_magic import detect_file_info
+
 from .config import Config
-from .models import DetectionResult, FileInfo, FileType
-from .readers import ReaderError, create_reader
-from .utils.file_magic import detect_file_info
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +106,7 @@ class GridPorter:
         # In future versions, this will run actual table detection algorithms
         sheets = []
         for sheet_data in file_data.sheets:
-            from .models import SheetResult
+            from gridporter.models import SheetResult
 
             sheet_result = SheetResult(
                 name=sheet_data.name,
