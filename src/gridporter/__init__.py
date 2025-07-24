@@ -2,7 +2,7 @@
 
 __version__ = "0.1.1"
 
-from gridporter.gridporter import GridPorter
-from gridporter.models import DetectionResult, TableInfo
+from .gridporter import GridPorter
+from .models import DetectionResult, TableInfo
 
 __all__ = ["GridPorter", "DetectionResult", "TableInfo"]

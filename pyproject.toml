@@ -68,8 +68,8 @@ Issues = "https://github.com/Ganymede-Bio/gridporter/issues"
 [project.scripts]
 gridporter = "gridporter.cli:main"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/gridporter"]
+[tool.hatch.build]
+sources = ["src"]
 
 [tool.black]
 line-length = 88
