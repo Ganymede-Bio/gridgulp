@@ -22,5 +22,5 @@ __all__ = [
     "ReaderError",
     "UnsupportedFileError",
     "CorruptedFileError",
-    "PasswordProtectedError"
+    "PasswordProtectedError",
 ]

@@ -107,24 +107,26 @@ class Config(BaseModel):
             # OpenAI Configuration
             openai_api_key=openai_api_key,
             openai_model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-
             # LLM Provider Selection
-            suggest_names=os.getenv("GRIDPORTER_SUGGEST_NAMES", "true").lower() == "true",
+            suggest_names=os.getenv("GRIDPORTER_SUGGEST_NAMES", "true").lower()
+            == "true",
             use_local_llm=use_local_llm,
-
             # Ollama Configuration
             ollama_url=os.getenv("OLLAMA_URL", "http://localhost:11434"),
             ollama_text_model=os.getenv("OLLAMA_TEXT_MODEL", "deepseek-r1:7b"),
             ollama_vision_model=os.getenv("OLLAMA_VISION_MODEL", "qwen2.5vl:7b"),
-
             # Legacy support
             local_model=os.getenv("GRIDPORTER_LOCAL_MODEL", "deepseek-r1:7b"),
-
             # File Detection Configuration
-            enable_magika=os.getenv("GRIDPORTER_ENABLE_MAGIKA", "true").lower() == "true",
-            strict_format_checking=os.getenv("GRIDPORTER_STRICT_FORMAT_CHECKING", "false").lower() == "true",
-            file_detection_buffer_size=int(os.getenv("GRIDPORTER_FILE_DETECTION_BUFFER_SIZE", "8192")),
-
+            enable_magika=os.getenv("GRIDPORTER_ENABLE_MAGIKA", "true").lower()
+            == "true",
+            strict_format_checking=os.getenv(
+                "GRIDPORTER_STRICT_FORMAT_CHECKING", "false"
+            ).lower()
+            == "true",
+            file_detection_buffer_size=int(
+                os.getenv("GRIDPORTER_FILE_DETECTION_BUFFER_SIZE", "8192")
+            ),
             # Other Configuration
             max_file_size_mb=float(os.getenv("GRIDPORTER_MAX_FILE_SIZE_MB", "2000")),
             timeout_seconds=int(os.getenv("GRIDPORTER_TIMEOUT_SECONDS", "300")),

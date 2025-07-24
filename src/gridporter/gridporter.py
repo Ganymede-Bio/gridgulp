@@ -106,11 +106,12 @@ class GridPorter:
         sheets = []
         for sheet_data in file_data.sheets:
             from .models import SheetResult
+
             sheet_result = SheetResult(
                 name=sheet_data.name,
                 tables=[],  # Will be populated by detection algorithms
                 processing_time=0.0,
-                errors=[]
+                errors=[],
             )
             sheets.append(sheet_result)
 
@@ -125,9 +126,11 @@ class GridPorter:
             llm_tokens=0,
             metadata={
                 "file_data_available": True,
-                "total_cells": sum(len(sheet.get_non_empty_cells()) for sheet in file_data.sheets),
-                "reader_metadata": file_data.metadata
-            }
+                "total_cells": sum(
+                    len(sheet.get_non_empty_cells()) for sheet in file_data.sheets
+                ),
+                "reader_metadata": file_data.metadata,
+            },
         )
 
         logger.info(

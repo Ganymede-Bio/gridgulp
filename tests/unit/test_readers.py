@@ -35,6 +35,7 @@ class MockReader(BaseReader):
 
     def _create_mock_file_data(self):
         from gridporter.models import FileData
+
         sheet = self._create_empty_sheet("MockSheet")
         return FileData(sheets=[sheet], metadata={}, file_format="mock")
 
@@ -67,11 +68,11 @@ class TestBaseReader:
         reader = MockReader(file_path, file_info)
 
         # Mock chardet
-        with patch('chardet.detect') as mock_detect:
-            mock_detect.return_value = {'encoding': 'utf-8', 'confidence': 0.9}
+        with patch("chardet.detect") as mock_detect:
+            mock_detect.return_value = {"encoding": "utf-8", "confidence": 0.9}
 
             encoding = reader._detect_encoding(b"test data")
-            assert encoding == 'utf-8'
+            assert encoding == "utf-8"
 
     def test_detect_encoding_without_chardet(self):
         """Test encoding detection without chardet."""
@@ -80,9 +81,9 @@ class TestBaseReader:
         reader = MockReader(file_path, file_info)
 
         # Mock ImportError for chardet
-        with patch('chardet.detect', side_effect=ImportError):
+        with patch("chardet.detect", side_effect=ImportError):
             encoding = reader._detect_encoding(b"test data")
-            assert encoding == 'utf-8'
+            assert encoding == "utf-8"
 
     def test_create_empty_sheet(self):
         """Test empty sheet creation."""
@@ -151,7 +152,9 @@ class TestReaderFactory:
     def test_can_read(self):
         """Test can_read method."""
         xlsx_info = FileInfo(path=Path("test.xlsx"), type=FileType.XLSX, size=1000)
-        unknown_info = FileInfo(path=Path("test.unknown"), type=FileType.UNKNOWN, size=1000)
+        unknown_info = FileInfo(
+            path=Path("test.unknown"), type=FileType.UNKNOWN, size=1000
+        )
 
         assert self.factory.can_read(xlsx_info) is True
         assert self.factory.can_read(unknown_info) is False

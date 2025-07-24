@@ -134,9 +134,7 @@ class ReaderFactory:
         Returns:
             List of reader class names
         """
-        return list(
-            {reader_class.__name__ for reader_class in self._readers.values()}
-        )
+        return list({reader_class.__name__ for reader_class in self._readers.values()})
 
 
 # Global factory instance

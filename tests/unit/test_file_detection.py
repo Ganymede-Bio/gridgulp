@@ -24,12 +24,14 @@ class TestFileFormatDetector:
 
     def test_detector_initialization(self):
         """Test detector initializes with library availability checks."""
-        assert hasattr(self.detector, 'magic_available')
-        assert hasattr(self.detector, 'filetype_available')
+        assert hasattr(self.detector, "magic_available")
+        assert hasattr(self.detector, "filetype_available")
 
     def test_csv_detection_by_content(self):
         """Test CSV detection by analyzing content structure."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.unknown', delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".unknown", delete=False
+        ) as f:
             f.write("Name,Age,City\n")
             f.write("Alice,25,NYC\n")
             f.write("Bob,30,LA\n")
@@ -53,7 +55,9 @@ class TestFileFormatDetector:
 
     def test_tsv_detection_by_content(self):
         """Test TSV detection by analyzing tab delimiters."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.unknown', delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".unknown", delete=False
+        ) as f:
             f.write("Name\tAge\tCity\n")
             f.write("Alice\t25\tNYC\n")
             f.write("Bob\t30\tLA\n")
@@ -65,7 +69,9 @@ class TestFileFormatDetector:
             result = self.detector.detect(file_path)
 
             assert result.detected_type == FileType.TSV
-            assert result.confidence > 0.2  # Lower threshold for TSV as it might be detected as text/plain
+            assert (
+                result.confidence > 0.2
+            )  # Lower threshold for TSV as it might be detected as text/plain
 
         finally:
             file_path.unlink()
@@ -73,7 +79,7 @@ class TestFileFormatDetector:
     def test_format_mismatch_detection(self):
         """Test detection of format mismatches."""
         # Create CSV content with .xls extension
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.xls', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".xls", delete=False) as f:
             f.write("Name,Age,Department\n")
             f.write("Alice,25,Engineering\n")
             f.write("Bob,30,Marketing\n")
@@ -93,17 +99,17 @@ class TestFileFormatDetector:
 
     def test_xlsx_zip_structure_detection(self):
         """Test XLSX detection by analyzing ZIP content."""
-        with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as f:
+        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
             zip_path = Path(f.name)
 
         try:
             # Create a ZIP file with Excel-like structure
-            with zipfile.ZipFile(zip_path, 'w') as zf:
-                zf.writestr('[Content_Types].xml', '<?xml version="1.0"?>')
-                zf.writestr('_rels/.rels', '<?xml version="1.0"?>')
-                zf.writestr('xl/workbook.xml', '<?xml version="1.0"?>')
-                zf.writestr('xl/sharedStrings.xml', '<?xml version="1.0"?>')
-                zf.writestr('xl/styles.xml', '<?xml version="1.0"?>')
+            with zipfile.ZipFile(zip_path, "w") as zf:
+                zf.writestr("[Content_Types].xml", '<?xml version="1.0"?>')
+                zf.writestr("_rels/.rels", '<?xml version="1.0"?>')
+                zf.writestr("xl/workbook.xml", '<?xml version="1.0"?>')
+                zf.writestr("xl/sharedStrings.xml", '<?xml version="1.0"?>')
+                zf.writestr("xl/styles.xml", '<?xml version="1.0"?>')
 
             result = self.detector.detect(zip_path)
 
@@ -115,16 +121,16 @@ class TestFileFormatDetector:
 
     def test_xlsm_detection_with_vba(self):
         """Test XLSM detection when VBA project is present."""
-        with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as f:
+        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
             zip_path = Path(f.name)
 
         try:
             # Create a ZIP file with Excel + VBA structure
-            with zipfile.ZipFile(zip_path, 'w') as zf:
-                zf.writestr('[Content_Types].xml', '<?xml version="1.0"?>')
-                zf.writestr('_rels/.rels', '<?xml version="1.0"?>')
-                zf.writestr('xl/workbook.xml', '<?xml version="1.0"?>')
-                zf.writestr('xl/vbaProject.bin', 'binary content')  # VBA indicator
+            with zipfile.ZipFile(zip_path, "w") as zf:
+                zf.writestr("[Content_Types].xml", '<?xml version="1.0"?>')
+                zf.writestr("_rels/.rels", '<?xml version="1.0"?>')
+                zf.writestr("xl/workbook.xml", '<?xml version="1.0"?>')
+                zf.writestr("xl/vbaProject.bin", "binary content")  # VBA indicator
 
             result = self.detector.detect(zip_path)
 
@@ -140,8 +146,8 @@ class TestFileFormatDetector:
         # Create file with XLS magic bytes (OLE2)
         with tempfile.NamedTemporaryFile(delete=False) as f:
             # Write OLE2 signature
-            f.write(b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1')
-            f.write(b'some more content to make it substantial')
+            f.write(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1")
+            f.write(b"some more content to make it substantial")
             f.flush()
 
             file_path = Path(f.name)
@@ -160,12 +166,12 @@ class TestFileFormatDetector:
         """Test classification between binary and text files."""
         # Test with binary content
         with tempfile.NamedTemporaryFile(delete=False) as f:
-            f.write(b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09')
+            f.write(b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09")
             f.flush()
             binary_path = Path(f.name)
 
         # Test with text content
-        with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
             f.write("This is plain text content\nwith multiple lines\n")
             f.flush()
             text_path = Path(f.name)
@@ -179,7 +185,11 @@ class TestFileFormatDetector:
             # Text file should potentially be detected as delimited format
             text_result = self.detector.detect(text_path)
             # May or may not be CSV/TSV depending on content, but should not crash
-            assert text_result.detected_type in [FileType.CSV, FileType.TSV, FileType.UNKNOWN]
+            assert text_result.detected_type in [
+                FileType.CSV,
+                FileType.TSV,
+                FileType.UNKNOWN,
+            ]
 
         finally:
             binary_path.unlink()
@@ -190,7 +200,9 @@ class TestFileFormatDetector:
         # Create file with UTF-8 content
         content = "Name,Ñame,Naïve\nAlice,José,François\n"
 
-        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', suffix='.csv', delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", suffix=".csv", delete=False
+        ) as f:
             f.write(content)
             f.flush()
             file_path = Path(f.name)
@@ -201,17 +213,17 @@ class TestFileFormatDetector:
             assert result.detected_type == FileType.CSV
             assert result.encoding is not None
             # Should detect UTF-8 or similar
-            assert result.encoding.lower() in ['utf-8', 'ascii']
+            assert result.encoding.lower() in ["utf-8", "ascii"]
 
         finally:
             file_path.unlink()
 
     def test_inconsistent_delimiters(self):
         """Test handling of files with inconsistent delimiters."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("Name,Age,City\n")  # CSV style
             f.write("Alice\t25\tNYC\n")  # TSV style
-            f.write("Bob,30,LA\n")       # CSV style again
+            f.write("Bob,30,LA\n")  # CSV style again
             f.flush()
 
             file_path = Path(f.name)
@@ -234,7 +246,7 @@ class TestFileFormatDetector:
 
     def test_empty_file_handling(self):
         """Test handling of empty files."""
-        with tempfile.NamedTemporaryFile(suffix='.csv', delete=False) as f:
+        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as f:
             file_path = Path(f.name)
 
         try:
@@ -263,8 +275,8 @@ class TestFileFormatDetector:
     def test_fallback_detection(self):
         """Test fallback detection when all methods fail."""
         # Create file with unknown extension and unrecognizable content
-        with tempfile.NamedTemporaryFile(suffix='.unknown', delete=False) as f:
-            f.write(b'some random binary content that does not match any pattern')
+        with tempfile.NamedTemporaryFile(suffix=".unknown", delete=False) as f:
+            f.write(b"some random binary content that does not match any pattern")
             f.flush()
             file_path = Path(f.name)
 
@@ -289,7 +301,7 @@ class TestFileFormatDetector:
         detector.magic_available = False
 
         # Should still work with other methods
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write("Name,Age\nAlice,25\nBob,30\n")
             f.flush()
             file_path = Path(f.name)
@@ -307,7 +319,7 @@ class TestConvenienceFunctions:
 
     def test_detect_file_type_function(self):
         """Test the detect_file_type convenience function."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write("Name,Age\nAlice,25\n")
             f.flush()
             file_path = Path(f.name)
@@ -321,7 +333,7 @@ class TestConvenienceFunctions:
 
     def test_detect_file_info_function(self):
         """Test the detect_file_info convenience function."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write("Name,Age\nAlice,25\n")
             f.flush()
             file_path = Path(f.name)
@@ -359,7 +371,7 @@ class TestDetectionResult:
             encoding="utf-8",
             magic_bytes="4e616d652c416765",
             format_mismatch=False,
-            extension_type=FileType.CSV
+            extension_type=FileType.CSV,
         )
 
         assert result.detected_type == FileType.CSV
@@ -379,16 +391,16 @@ class TestMagikaIntegration:
         """Test Magika availability detection."""
         detector = FileFormatDetector()
         # Should not crash even if Magika is not available
-        assert hasattr(detector, 'magika_available')
+        assert hasattr(detector, "magika_available")
         assert isinstance(detector.magika_available, bool)
 
     @pytest.mark.skipif(
         not FileFormatDetector()._check_magika_availability(),
-        reason="Magika not available"
+        reason="Magika not available",
     )
     def test_magika_csv_detection(self):
         """Test CSV detection using Magika."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write("Name,Age,Department\n")
             f.write("Alice,25,Engineering\n")
             f.write("Bob,30,Marketing\n")
@@ -414,14 +426,14 @@ class TestMagikaIntegration:
 
     @pytest.mark.skipif(
         not FileFormatDetector()._check_magika_availability(),
-        reason="Magika not available"
+        reason="Magika not available",
     )
     def test_magika_unsupported_format_detection(self):
         """Test detection of unsupported formats with Magika."""
         # Create a minimal PDF-like file
-        with tempfile.NamedTemporaryFile(mode='wb', suffix='.pdf', delete=False) as f:
-            f.write(b'%PDF-1.4\n')
-            f.write(b'1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\n%%EOF')
+        with tempfile.NamedTemporaryFile(mode="wb", suffix=".pdf", delete=False) as f:
+            f.write(b"%PDF-1.4\n")
+            f.write(b"1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\n%%EOF")
             f.flush()
             file_path = Path(f.name)
 
@@ -441,20 +453,20 @@ class TestMagikaIntegration:
 
     @pytest.mark.skipif(
         not FileFormatDetector()._check_magika_availability(),
-        reason="Magika not available"
+        reason="Magika not available",
     )
     def test_magika_xlsx_with_xlsm_detection(self):
         """Test that XLSX detected by Magika is further analyzed for XLSM."""
         # Create a ZIP file that looks like XLSM (with VBA project)
-        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as f:
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
             zip_path = Path(f.name)
 
         try:
-            with zipfile.ZipFile(zip_path, 'w') as zf:
-                zf.writestr('[Content_Types].xml', '<?xml version="1.0"?>')
-                zf.writestr('_rels/.rels', '<?xml version="1.0"?>')
-                zf.writestr('xl/workbook.xml', '<?xml version="1.0"?>')
-                zf.writestr('xl/vbaProject.bin', 'VBA binary content')  # XLSM indicator
+            with zipfile.ZipFile(zip_path, "w") as zf:
+                zf.writestr("[Content_Types].xml", '<?xml version="1.0"?>')
+                zf.writestr("_rels/.rels", '<?xml version="1.0"?>')
+                zf.writestr("xl/workbook.xml", '<?xml version="1.0"?>')
+                zf.writestr("xl/vbaProject.bin", "VBA binary content")  # XLSM indicator
 
             detector = FileFormatDetector()
             result = detector.detect(zip_path)
@@ -475,7 +487,7 @@ class TestUnsupportedFormatHandling:
 
     def test_detect_file_info_safe_with_supported_format(self):
         """Test detect_file_info_safe with supported format."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write("Name,Age\nAlice,25\n")
             f.flush()
             file_path = Path(f.name)
@@ -491,14 +503,14 @@ class TestUnsupportedFormatHandling:
 
     @pytest.mark.skipif(
         not FileFormatDetector()._check_magika_availability(),
-        reason="Magika not available"
+        reason="Magika not available",
     )
     def test_detect_file_info_safe_with_unsupported_format(self):
         """Test detect_file_info_safe raises error for unsupported format."""
         # Create a minimal PDF-like file
-        with tempfile.NamedTemporaryFile(mode='wb', suffix='.pdf', delete=False) as f:
-            f.write(b'%PDF-1.4\n')
-            f.write(b'1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\n%%EOF')
+        with tempfile.NamedTemporaryFile(mode="wb", suffix=".pdf", delete=False) as f:
+            f.write(b"%PDF-1.4\n")
+            f.write(b"1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\n%%EOF")
             f.flush()
             file_path = Path(f.name)
 
@@ -532,4 +544,6 @@ class TestUnsupportedFormatHandling:
 
         # Test default reason
         error2 = UnsupportedFormatError("docx", file_path)
-        assert error2.reason == "Format 'docx' is not supported for spreadsheet processing"
+        assert (
+            error2.reason == "Format 'docx' is not supported for spreadsheet processing"
+        )

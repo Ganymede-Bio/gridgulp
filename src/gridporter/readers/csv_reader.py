@@ -202,16 +202,13 @@ class CSVReader(SyncBaseReader):
             with open(self.file_path, encoding=self._encoding, newline="") as f:
                 reader = csv.reader(f, dialect=self._dialect)
 
-                row_idx = 0
-                for row in reader:
+                for row_idx, row in enumerate(reader):
                     for col_idx, cell_value in enumerate(row):
                         if cell_value:  # Only store non-empty cells
                             cell_data = self._create_cell_data(
                                 cell_value, row_idx, col_idx
                             )
                             sheet_data.set_cell(row_idx, col_idx, cell_data)
-
-                    row_idx += 1
 
                     # Safety limit to prevent memory issues
                     if row_idx > 1000000:  # 1M rows max
@@ -249,16 +246,13 @@ class CSVReader(SyncBaseReader):
                 with open(self.file_path, encoding=encoding, newline="") as f:
                     reader = csv.reader(f, dialect=self._dialect)
 
-                    row_idx = 0
-                    for row in reader:
+                    for row_idx, row in enumerate(reader):
                         for col_idx, cell_value in enumerate(row):
                             if cell_value:
                                 cell_data = self._create_cell_data(
                                     cell_value, row_idx, col_idx
                                 )
                                 sheet_data.set_cell(row_idx, col_idx, cell_data)
-
-                        row_idx += 1
 
                         if row_idx > 1000000:
                             break
