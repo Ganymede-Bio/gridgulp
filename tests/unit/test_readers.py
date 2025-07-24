@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+
 from gridporter.models import FileInfo, FileType, SheetData
 from gridporter.readers import (
     BaseReader,
