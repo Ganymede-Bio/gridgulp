@@ -34,10 +34,12 @@ dependencies = [
     "numpy>=2.3.0",
     "scikit-image>=0.25.0",
     "python-magic>=0.4.27",
+    "filetype>=1.2.0", # Fallback for file type detection
+    "magika>=0.6.1", # AI-powered file type detection
     "chardet>=5.0.0",
     "aiofiles>=23.0.0",
-    "rich>=13.0.0",  # For nice CLI output
-    "click>=8.1.0",  # For CLI
+    "rich>=13.0.0", # For nice CLI output
+    "click>=8.1.0", # For CLI
 ]
 
 [project.optional-dependencies]
