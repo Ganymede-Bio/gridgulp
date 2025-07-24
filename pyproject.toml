@@ -61,10 +61,9 @@ visualization = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/gridporter"
-Documentation = "https://gridporter.readthedocs.io"
-Repository = "https://github.com/yourusername/gridporter"
-Issues = "https://github.com/yourusername/gridporter/issues"
+Homepage = "https://github.com/Ganymede-Bio/gridporter"
+Repository = "https://github.com/Ganymede-Bio/gridporter"
+Issues = "https://github.com/Ganymede-Bio/gridporter/issues"
 
 [project.scripts]
 gridporter = "gridporter.cli:main"
@@ -79,9 +78,6 @@ exclude = [
     "/.pre-commit-config.yaml",
     "/Makefile",
 ]
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/gridporter"]
 
 [tool.black]
 line-length = 88
