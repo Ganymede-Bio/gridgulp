@@ -1,6 +1,6 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.7.19,<0.8.0"]
+build-backend = "uv_build"
 
 [project]
 name = "gridporter"
@@ -68,16 +68,8 @@ Issues = "https://github.com/Ganymede-Bio/gridporter/issues"
 [project.scripts]
 gridporter = "gridporter.cli:main"
 
-[tool.hatch.build.targets.sdist]
-exclude = [
-    "/.github",
-    "/docs",
-    "/tests",
-    "/examples",
-    "/.gitignore",
-    "/.pre-commit-config.yaml",
-    "/Makefile",
-]
+[tool.uv.build-backend]
+module-name = "gridporter"
 
 [tool.black]
 line-length = 88
