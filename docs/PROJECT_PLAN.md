@@ -1,7 +1,7 @@
 # GridPorter Project Plan
 
 ## Project Overview
-GridPorter is an intelligent spreadsheet ingestion framework that automatically detects and extracts multiple tables from Excel and CSV files using AI-powered agents.
+GridPorter is a vision-enabled AI spreadsheet ingestion framework that uses Large Language Models with vision capabilities to automatically detect and extract multiple tables from Excel and CSV files. By understanding spreadsheets visually, it handles complex real-world layouts that traditional parsers fail on.
 
 ## Project Timeline
 
@@ -42,125 +42,125 @@ GridPorter is an intelligent spreadsheet ingestion framework that automatically 
 
 **Deliverables**: Working file readers for Excel and CSV formats
 
-### Week 3: Single Table Detection
-**Goal**: Implement basic table detection algorithms
+### Week 3: Vision Infrastructure Foundation
+**Goal**: Build bitmap generation and vision model integration
 
-- [ ] Single table detection algorithm
-  - [ ] Fast check for simple cases
-  - [ ] Boundary detection logic
-  - [ ] Empty cell handling
+- [ ] Bitmap generation system
+  - [ ] Convert spreadsheet data to visual representation
+  - [ ] Filled cell visualization
+  - [ ] Resolution optimization for vision models
 
-- [ ] Confidence scoring system
-  - [ ] Scoring algorithm design
-  - [ ] Threshold management
-  - [ ] Result validation
+- [ ] Vision model integration
+  - [ ] OpenAI GPT-4V integration
+  - [ ] Claude 3 Vision support
+  - [ ] Ollama vision model support (qwen2-vl)
 
-- [ ] Basic testing framework
-  - [ ] Unit tests for detection
-  - [ ] Test data creation
-  - [ ] Performance benchmarks
+- [ ] Basic region proposal system
+  - [ ] Parse vision model responses
+  - [ ] Bounding box extraction
+  - [ ] Confidence scoring
 
-**Deliverables**: Single table detector with confidence scoring
+**Deliverables**: Working vision pipeline for spreadsheet analysis
 
-### Week 4: Excel-Specific Detection
-**Goal**: Leverage Excel's native table structures
+### Week 4: Region Verification & Geometry Analysis
+**Goal**: Build local verification for AI proposals
 
-- [ ] ListObjects extraction
-  - [ ] Parse Excel table objects
-  - [ ] Extract table definitions
-  - [ ] Handle structured references
+- [ ] Region verification algorithms
+  - [ ] Validate proposed bounding boxes
+  - [ ] Check data continuity
+  - [ ] Handle edge cases
 
-- [ ] Named ranges detection
-  - [ ] Enumerate named ranges
-  - [ ] Filter table-like ranges
-  - [ ] Validate range contents
+- [ ] Geometry analysis tools
+  - [ ] Rectangularness computation
+  - [ ] Filledness metrics
+  - [ ] Data density analysis
 
-- [ ] Sheet metadata analysis
-  - [ ] Parse sheet properties
-  - [ ] Detect print areas
-  - [ ] Analyze cell formatting
+- [ ] Feedback loop system
+  - [ ] Generate feedback for invalid regions
+  - [ ] Re-query vision model with context
+  - [ ] Iterative refinement
 
-**Deliverables**: Excel-native table detection capabilities
+**Deliverables**: Robust verification pipeline for AI proposals
 
-### Week 5: Island Detection Algorithm
-**Goal**: Implement mask-based multi-table detection
+### Week 5: Semantic Understanding & Complex Tables
+**Goal**: Handle complex table structures with AI assistance
 
-- [ ] Mask-based algorithm
-  - [ ] Convert data to binary mask
-  - [ ] Apply morphological operations
-  - [ ] Identify connected regions
+- [ ] Multi-row header detection
+  - [ ] Vision-based header identification
+  - [ ] Merged cell analysis
+  - [ ] Column span detection
 
-- [ ] Connected component analysis
-  - [ ] Label connected components
-  - [ ] Filter by size and shape
-  - [ ] Merge adjacent regions
+- [ ] Hierarchical data handling
+  - [ ] Indentation pattern recognition
+  - [ ] Parent-child relationships
+  - [ ] Subtotal row identification
 
-- [ ] Region optimization
-  - [ ] Boundary refinement
-  - [ ] Overlap resolution
-  - [ ] Quality metrics
+- [ ] Format preservation logic
+  - [ ] Semantic blank row detection
+  - [ ] Visual formatting analysis
+  - [ ] Structure metadata generation
 
-**Deliverables**: Island detection for complex multi-table sheets
+**Deliverables**: Complex table understanding with semantic preservation
 
-### Week 6: Format Heuristics
-**Goal**: Add intelligence through formatting analysis
+### Week 6: Excel-Specific & Traditional Integration
+**Goal**: Integrate Excel features and traditional detection as verification
 
-- [ ] Header detection
-  - [ ] Font and style analysis
-  - [ ] Position-based heuristics
-  - [ ] Content pattern matching
+- [ ] Excel metadata extraction
+  - [ ] ListObjects as verification source
+  - [ ] Named ranges validation
+  - [ ] Print areas as hints
 
-- [ ] Data type inference
-  - [ ] Column type detection
-  - [ ] Format string analysis
-  - [ ] Statistical validation
-
-- [ ] Pattern recognition
-  - [ ] Common table patterns
-  - [ ] Outlier detection
-  - [ ] Consistency checks
-
-**Deliverables**: Smart format-based table enhancement
-
-### Week 7: Agent Framework Setup
-**Goal**: Initialize AI agent infrastructure
-
-- [ ] openai-agents-python integration
-  - [ ] Configure agent framework
-  - [ ] Setup tool calling interface
-  - [ ] Handle async operations
-
-- [ ] Base agent architecture
-  - [ ] Abstract agent class
-  - [ ] Tool registration system
-  - [ ] Error handling patterns
-
-- [ ] Local LLM support
-  - [ ] Ollama integration
-  - [ ] Model management
-  - [ ] Fallback strategies
-
-**Deliverables**: Working agent framework with tool support
-
-### Week 8: TableDetectorAgent
-**Goal**: Main orchestration agent implementation
-
-- [ ] Pipeline orchestration
-  - [ ] Detection strategy selection
-  - [ ] Tool execution flow
-  - [ ] Result aggregation
-
-- [ ] Strategy selection logic
-  - [ ] File type routing
-  - [ ] Complexity assessment
-  - [ ] Performance optimization
+- [ ] Traditional algorithm integration
+  - [ ] Island detection for verification
+  - [ ] Format heuristics as fallback
+  - [ ] Hybrid decision making
 
 - [ ] Cost optimization
-  - [ ] Minimize LLM calls
-  - [ ] Batch processing
+  - [ ] Simple case detection
   - [ ] Caching implementation
+  - [ ] Batch processing logic
 
-**Deliverables**: Complete table detection orchestration
+**Deliverables**: Hybrid detection with cost optimization
+
+### Week 7: Vision Orchestrator Agent
+**Goal**: Build the main AI orchestration system
+
+- [ ] Vision orchestrator implementation
+  - [ ] Central coordination logic
+  - [ ] Multi-model support (OpenAI, Claude, Ollama)
+  - [ ] Async processing pipeline
+
+- [ ] Tool integration
+  - [ ] Bitmap generation tools
+  - [ ] Verification tools
+  - [ ] Extraction tools
+
+- [ ] Decision making logic
+  - [ ] Complexity assessment
+  - [ ] Model selection
+  - [ ] Fallback strategies
+
+**Deliverables**: Complete vision-based orchestration system
+
+### Week 8: Rich Metadata & Output Generation
+**Goal**: Generate comprehensive metadata for perfect extraction
+
+- [ ] Metadata generation system
+  - [ ] Structure analysis results
+  - [ ] Pandas parameter calculation
+  - [ ] Formatting preservation info
+
+- [ ] Output format design
+  - [ ] JSON schema definition
+  - [ ] Validation rules
+  - [ ] Documentation generation
+
+- [ ] Integration testing
+  - [ ] End-to-end workflows
+  - [ ] Complex spreadsheet tests
+  - [ ] Performance benchmarks
+
+**Deliverables**: Rich metadata output system
 
 ### Week 9: RangeNamerAgent & LLM Integration
 **Goal**: AI-powered naming and analysis
@@ -245,32 +245,37 @@ GridPorter is an intelligent spreadsheet ingestion framework that automatically 
 ## Milestones
 
 1. **M1 (Week 1)**: Project foundation complete ✅
-2. **M2 (Week 2)**: File reading infrastructure working
-3. **M3 (Week 3)**: Single table detection functional
-4. **M4 (Week 4)**: Excel-specific detection complete
-5. **M5 (Week 5)**: Island detection algorithm working
-6. **M6 (Week 6)**: Format heuristics implemented
-7. **M7 (Week 7)**: Agent framework operational
-8. **M8 (Week 9)**: AI integration complete with cost optimization
-9. **M9 (Week 10)**: Full API and CLI ready
-10. **M10 (Week 11)**: Production-ready with full testing
-11. **M11 (Week 12)**: Version 1.0 release ready
+2. **M2 (Week 2)**: File reading infrastructure working ✅
+3. **M3 (Week 3)**: Vision infrastructure operational
+4. **M4 (Week 4)**: Region verification pipeline complete
+5. **M5 (Week 5)**: Complex table understanding working
+6. **M6 (Week 6)**: Hybrid detection with optimization
+7. **M7 (Week 7)**: Vision orchestrator operational
+8. **M8 (Week 8)**: Rich metadata generation complete
+9. **M9 (Week 9)**: AI naming and refinement ready
+10. **M10 (Week 10)**: Full API and CLI ready
+11. **M11 (Week 11)**: Production-ready with full testing
+12. **M12 (Week 12)**: Version 1.0 release ready
 
 ## Success Metrics
 
 - **Accuracy**: 95%+ correct table detection on test dataset
-- **Performance**: < 5 seconds for typical spreadsheet (< 10MB)
-- **Coverage**: Support for 90%+ of common spreadsheet patterns
+- **Complex Tables**: 90%+ accuracy on multi-header, hierarchical data
+- **Performance**: < 10 seconds for typical spreadsheet (including vision processing)
+- **Semantic Preservation**: 100% preservation of hierarchical structure
+- **Coverage**: Handle 95%+ of real-world spreadsheet patterns
+- **Cost Efficiency**: < $0.01 per sheet with caching
 - **Reliability**: < 0.1% crash rate on valid files
-- **Usability**: CLI response time < 100ms for user feedback
 
 ## Risk Mitigation
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| LLM API reliability | High | Implement fallback strategies, caching |
-| Complex Excel formats | Medium | Graceful degradation, clear error messages |
-| Performance on large files | Medium | Streaming processing, progress indicators |
+| Vision API costs | High | Smart caching, resolution optimization, batch processing |
+| LLM API reliability | High | Multiple model support, fallback strategies |
+| Complex Excel formats | Medium | Hybrid approach with traditional verification |
+| Vision accuracy | Medium | Local verification, confidence thresholds |
+| Performance on large files | Medium | Adaptive resolution, progressive processing |
 | Edge case handling | Low | Comprehensive test suite, user feedback loop |
 
 ## Dependencies and Prerequisites
