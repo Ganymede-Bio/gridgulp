@@ -51,7 +51,8 @@ class FileInfo(BaseModel):
         False, description="True if extension doesn't match detected content"
     )
     detection_method: str = Field(
-        "extension", description="Method used for detection (magic, content, extension, hybrid)"
+        "extension",
+        description="Method used for detection (magic, content, extension, hybrid)",
     )
 
     # Content details

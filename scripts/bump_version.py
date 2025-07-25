@@ -154,9 +154,7 @@ def main():
 
         # Update pyproject.toml
         pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
-        if update_file(
-            pyproject_path, f'version = "{old_version}"', f'version = "{new_version}"'
-        ):
+        if update_file(pyproject_path, f'version = "{old_version}"', f'version = "{new_version}"'):
             files_updated.append("pyproject.toml")
 
         # Update __init__.py if it exists

@@ -27,12 +27,14 @@ classifiers = [
 
 dependencies = [
     "pydantic>=2.0,<3.0",
+    "openai>=1.0.0,<2.0.0",
     "openai-agents>=0.2.0",
     "openpyxl>=3.1.0",
     "xlrd>=2.0.0",
     "olefile>=0.46", # For password-protected Excel detection
     "pandas>=2.0.0",
     "numpy>=2.3.0",
+    "scipy>=1.11.0",
     "scikit-image>=0.25.0",
     "python-magic>=0.4.27",
     "filetype>=1.2.0", # Fallback for file type detection
@@ -43,6 +45,12 @@ dependencies = [
     "click>=8.1.0", # For CLI
     "Pillow>=10.0.0", # For bitmap generation in vision components
     "httpx>=0.25.0", # For HTTP requests to vision models
+    "python-dotenv>=1.0.0", # For loading environment variables from .env files
+    "python-calamine>=0.2.0", # Fast Excel/ODS reader (Rust-based)
+    "polars>=0.20.0", # High-performance DataFrame library
+    "opentelemetry-api>=1.20.0", # Telemetry API
+    "opentelemetry-sdk>=1.20.0", # Telemetry SDK
+    "opentelemetry-instrumentation-openai>=0.43.0", # OpenAI instrumentation
 ]
 
 [project.optional-dependencies]
@@ -56,15 +64,7 @@ dev = [
     "mypy>=1.17.0",
     "pre-commit>=3.3.0",
     "ipykernel>=6.25.0",  # For Jupyter examples
-]
-
-visualization = [
-    "matplotlib>=3.7.0",
-    "seaborn>=0.12.0",
-]
-
-vision = [
-    "openai>=1.0.0", # For OpenAI vision models
+    "psutil>=7.0.0"
 ]
 
 [project.urls]
@@ -152,6 +152,7 @@ addopts = [
 testpaths = ["tests"]
 pythonpath = ["src"]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
 source = ["src/gridporter"]

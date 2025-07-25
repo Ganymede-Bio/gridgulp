@@ -70,6 +70,18 @@ class Config(BaseModel):
     )
     vision_mode: str = Field("binary", description="Bitmap mode: binary, grayscale, or color")
 
+    # Performance Configuration
+    excel_reader: str = Field(
+        "calamine",
+        description="Excel reader to use: 'calamine' (fast), 'openpyxl' (full features), 'auto'",
+    )
+    max_memory_mb: int = Field(1000, ge=100, description="Maximum memory usage in MB")
+    chunk_size: int = Field(10000, ge=100, description="Rows per chunk for streaming")
+
+    # Telemetry Configuration
+    enable_telemetry: bool = Field(True, description="Enable OpenTelemetry tracking")
+    telemetry_endpoint: str | None = Field(None, description="Custom telemetry endpoint")
+
     # Caching
     enable_cache: bool = Field(True, description="Enable result caching")
     cache_dir: Path | None = Field(None, description="Cache directory path")
@@ -120,6 +132,13 @@ class Config(BaseModel):
             vision_cell_width=int(os.getenv("GRIDPORTER_VISION_CELL_WIDTH", "10")),
             vision_cell_height=int(os.getenv("GRIDPORTER_VISION_CELL_HEIGHT", "10")),
             vision_mode=os.getenv("GRIDPORTER_VISION_MODE", "binary"),
+            # Performance Configuration
+            excel_reader=os.getenv("GRIDPORTER_EXCEL_READER", "calamine"),
+            max_memory_mb=int(os.getenv("GRIDPORTER_MAX_MEMORY_MB", "1000")),
+            chunk_size=int(os.getenv("GRIDPORTER_CHUNK_SIZE", "10000")),
+            # Telemetry Configuration
+            enable_telemetry=os.getenv("GRIDPORTER_ENABLE_TELEMETRY", "true").lower() == "true",
+            telemetry_endpoint=os.getenv("GRIDPORTER_TELEMETRY_ENDPOINT"),
             # Other Configuration
             max_file_size_mb=float(os.getenv("GRIDPORTER_MAX_FILE_SIZE_MB", "2000")),
             timeout_seconds=int(os.getenv("GRIDPORTER_TIMEOUT_SECONDS", "300")),

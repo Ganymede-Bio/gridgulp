@@ -260,4 +260,9 @@ class VisionPipeline:
         Returns:
             Dictionary with cache stats
         """
-        return {"cache_size": len(self._cache), "cache_enabled": self.config.enable_cache}
+        return {
+            "hits": 0,  # TODO: Track cache hits
+            "misses": 0,  # TODO: Track cache misses
+            "cache_size": len(self._cache),
+            "cache_enabled": self.config.enable_cache,
+        }

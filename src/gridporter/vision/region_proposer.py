@@ -37,7 +37,12 @@ class RegionProposal:
     def to_dict(self) -> dict:
         """Convert to dictionary representation."""
         return {
-            "pixel_bounds": {"x1": self.x1, "y1": self.y1, "x2": self.x2, "y2": self.y2},
+            "pixel_bounds": {
+                "x1": self.x1,
+                "y1": self.y1,
+                "x2": self.x2,
+                "y2": self.y2,
+            },
             "cell_bounds": {
                 "start_row": self.start_row,
                 "start_col": self.start_col,
@@ -62,7 +67,9 @@ class RegionProposer:
             re.IGNORECASE,
         )
         self.range_pattern = re.compile(r"([A-Z]+\d+):([A-Z]+\d+)", re.IGNORECASE)
-        self.confidence_pattern = re.compile(r"confidence\s*:?\s*([\d.]+)", re.IGNORECASE)
+        self.confidence_pattern = re.compile(
+            r"confidence\s*:?\s*([\d.]+)(?:[^\d]|$)", re.IGNORECASE
+        )
 
     def parse_response(
         self, response: str, bitmap_metadata: BitmapMetadata
@@ -101,7 +108,9 @@ class RegionProposer:
         # Parse unstructured text response
         # Split by common delimiters that might separate table descriptions
         sections = re.split(
-            r"\n\n|\n(?=Table\s*\d+:?)|(?=Region\s*\d+:?)", response, flags=re.IGNORECASE
+            r"\n\n|\n(?=Table\s*\d+:?)|(?=Region\s*\d+:?)",
+            response,
+            flags=re.IGNORECASE,
         )
 
         for section in sections:
@@ -149,10 +158,28 @@ class RegionProposer:
                 return None
 
             # Convert to cell coordinates
+            if bitmap_metadata.cell_height == 0 or bitmap_metadata.cell_width == 0:
+                logger.warning("Invalid bitmap metadata with zero cell dimensions")
+                return None
+
             start_row = y1 // bitmap_metadata.cell_height
             start_col = x1 // bitmap_metadata.cell_width
-            end_row = (y2 - 1) // bitmap_metadata.cell_height
-            end_col = (x2 - 1) // bitmap_metadata.cell_width
+            end_row = max(0, (y2 - 1) // bitmap_metadata.cell_height)
+            end_col = max(0, (x2 - 1) // bitmap_metadata.cell_width)
+
+            logger.debug(
+                f"Converting bounds ({x1},{y1},{x2},{y2}) to cells: ({start_row},{start_col}) to ({end_row},{end_col})"
+            )
+
+            # Validate coordinates
+            if start_row < 0 or start_col < 0 or end_row < 0 or end_col < 0:
+                logger.warning(f"Invalid negative coordinates in proposal: {table_data}")
+                return None
+
+            # Reject degenerate regions (only when all bounds are exactly zero)
+            if x1 == 0 and y1 == 0 and x2 == 0 and y2 == 0:
+                logger.warning("Rejecting degenerate region with all zero bounds")
+                return None
 
             # Get or generate Excel range
             excel_range = table_data.get("range", table_data.get("excel_range"))
@@ -163,9 +190,16 @@ class RegionProposer:
             confidence = float(table_data.get("confidence", 0.5))
 
             # Extract characteristics
-            characteristics = {}
-            for key in ["has_headers", "header_rows", "merged_cells", "description", "type"]:
-                if key in table_data:
+            characteristics = table_data.get("characteristics", {})
+            # Also check for characteristics at top level (backward compatibility)
+            for key in [
+                "has_headers",
+                "header_rows",
+                "merged_cells",
+                "description",
+                "type",
+            ]:
+                if key in table_data and key not in characteristics:
                     characteristics[key] = table_data[key]
 
             return RegionProposal(
@@ -221,7 +255,7 @@ class RegionProposer:
 
         # Look for confidence
         confidence_match = self.confidence_pattern.search(text)
-        confidence = float(confidence_match.group(1)) if confidence_match else 0.5
+        confidence = float(confidence_match.group(1).rstrip(".")) if confidence_match else 0.5
 
         # Normalize confidence to 0-1 range if needed
         if confidence > 1.0:

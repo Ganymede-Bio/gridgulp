@@ -29,9 +29,7 @@ class TestFileFormatDetector:
 
     def test_csv_detection_by_content(self):
         """Test CSV detection by analyzing content structure."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".unknown", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".unknown", delete=False) as f:
             f.write("Name,Age,City\n")
             f.write("Alice,25,NYC\n")
             f.write("Bob,30,LA\n")
@@ -55,9 +53,7 @@ class TestFileFormatDetector:
 
     def test_tsv_detection_by_content(self):
         """Test TSV detection by analyzing tab delimiters."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".unknown", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".unknown", delete=False) as f:
             f.write("Name\tAge\tCity\n")
             f.write("Alice\t25\tNYC\n")
             f.write("Bob\t30\tLA\n")
@@ -544,6 +540,4 @@ class TestUnsupportedFormatHandling:
 
         # Test default reason
         error2 = UnsupportedFormatError("docx", file_path)
-        assert (
-            error2.reason == "Format 'docx' is not supported for spreadsheet processing"
-        )
+        assert error2.reason == "Format 'docx' is not supported for spreadsheet processing"

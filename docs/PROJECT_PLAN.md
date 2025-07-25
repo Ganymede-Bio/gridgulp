@@ -49,6 +49,11 @@ GridPorter is a vision-enabled AI spreadsheet ingestion framework that uses Larg
   - [ ] Convert spreadsheet data to visual representation
   - [ ] Filled cell visualization
   - [ ] Resolution optimization for vision models
+  - [ ] Sparse pattern detection for table recognition
+  - [ ] Quadtree-based visualization planning
+  - [ ] Memory-efficient bitmap modes (2/4-bit representation)
+  - [ ] GPT-4o size optimization (<20MB per image)
+  - [ ] Compression strategies (PNG level 6-9)
 
 - [ ] Vision model integration
   - [ ] OpenAI GPT-4o integration
@@ -59,7 +64,13 @@ GridPorter is a vision-enabled AI spreadsheet ingestion framework that uses Larg
   - [ ] Bounding box extraction
   - [ ] Confidence scoring
 
-**Deliverables**: Working vision pipeline for spreadsheet analysis
+- [ ] Large spreadsheet handling
+  - [ ] Support for full Excel limits (1M×16K cells for .xlsx, 65K×256 for .xls)
+  - [ ] Adaptive sampling for sheets exceeding memory limits
+  - [ ] Hierarchical visualization (overview + detail views)
+  - [ ] Structural pattern preservation in sparse tables
+
+**Deliverables**: Working vision pipeline for spreadsheet analysis with support for large and sparse sheets
 
 ### Week 4: Region Verification & Geometry Analysis
 **Goal**: Build local verification for AI proposals

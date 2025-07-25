@@ -191,6 +191,7 @@ class ExcelReader(SyncBaseReader):
             # Extract formatting information
             font = cell.font
             fill = cell.fill
+            alignment = cell.alignment
 
             # Handle merged cells
             is_merged = False
@@ -201,6 +202,15 @@ class ExcelReader(SyncBaseReader):
                         is_merged = True
                         merge_range = str(merged_range_obj)
                         break
+
+            # Extract indentation level and alignment
+            indentation_level = 0
+            horizontal_alignment = None
+            if alignment:
+                # openpyxl stores indent as an integer (but sometimes returns float)
+                indentation_level = int(alignment.indent) if alignment.indent is not None else 0
+                # Get horizontal alignment
+                horizontal_alignment = alignment.horizontal
 
             return CellData(
                 value=value,
@@ -216,6 +226,8 @@ class ExcelReader(SyncBaseReader):
                 merge_range=merge_range,
                 has_formula=cell.data_type == "f",
                 formula=cell.value if cell.data_type == "f" else None,
+                indentation_level=indentation_level,
+                alignment=horizontal_alignment,
                 row=cell.row - 1,  # Convert to 0-based
                 column=cell.column - 1,  # Convert to 0-based
             )
@@ -316,6 +328,9 @@ class ExcelReader(SyncBaseReader):
 
             # Get formatting information (limited in xlrd)
             format_info = {}
+            indentation_level = 0
+            alignment = None
+
             try:
                 if hasattr(self._workbook, "format_map"):
                     cell_xf = (
@@ -324,6 +339,7 @@ class ExcelReader(SyncBaseReader):
                         else None
                     )
                     if cell_xf:
+                        # Extract font information
                         font = (
                             self._workbook.font_list[cell_xf.font_index]
                             if cell_xf.font_index < len(self._workbook.font_list)
@@ -333,6 +349,16 @@ class ExcelReader(SyncBaseReader):
                             format_info["is_bold"] = font.bold
                             format_info["is_italic"] = font.italic
                             format_info["font_size"] = font.height / 20.0  # Convert from twips
+
+                        # Try to extract alignment/indentation
+                        if hasattr(cell_xf, "alignment"):
+                            align_obj = cell_xf.alignment
+                            if hasattr(align_obj, "indent_level"):
+                                indentation_level = int(align_obj.indent_level)
+                            if hasattr(align_obj, "hor_align"):
+                                # Map xlrd alignment constants to strings
+                                align_map = {0: "left", 1: "center", 2: "right"}
+                                alignment = align_map.get(align_obj.hor_align, None)
             except Exception:
                 pass  # Formatting extraction failed, continue without it
 
@@ -344,6 +370,8 @@ class ExcelReader(SyncBaseReader):
                 is_italic=format_info.get("is_italic", False),
                 font_size=format_info.get("font_size"),
                 has_formula=cell.ctype == xlrd.XL_CELL_FORMULA,
+                indentation_level=indentation_level,
+                alignment=alignment,
                 row=row_idx,
                 column=col_idx,
             )

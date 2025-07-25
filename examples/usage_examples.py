@@ -47,9 +47,7 @@ async def example_openai_configuration():
 
     porter = GridPorter(config=config)
 
-    result = await porter.detect_tables(
-        "examples/spreadsheets/financial/income_statement.csv"
-    )
+    result = await porter.detect_tables("examples/spreadsheets/financial/income_statement.csv")
 
     print(f"Model: {config.openai_model}")
     print(f"LLM calls made: {result.llm_calls}")
@@ -105,9 +103,7 @@ async def example_ollama_advanced():
 
     porter = GridPorter(config=config_advanced)
 
-    result = await porter.detect_tables(
-        "examples/spreadsheets/complex/multi_table_report.csv"
-    )
+    result = await porter.detect_tables("examples/spreadsheets/complex/multi_table_report.csv")
 
     print(
         f"Advanced Models: {config_advanced.ollama_text_model} + {config_advanced.ollama_vision_model}"
@@ -139,9 +135,7 @@ async def example_ollama_lightweight():
 
     porter = GridPorter(config=config_light)
 
-    result = await porter.detect_tables(
-        "examples/spreadsheets/financial/balance_sheet.csv"
-    )
+    result = await porter.detect_tables("examples/spreadsheets/financial/balance_sheet.csv")
 
     print(
         f"Lightweight Models: {config_light.ollama_text_model} + {config_light.ollama_vision_model}"
@@ -217,9 +211,7 @@ async def example_environment_variables():
     print(f"  Suggest Names: {config.suggest_names}")
 
     if Path("examples/spreadsheets/simple/basic_table.csv").exists():
-        result = await porter.detect_tables(
-            "examples/spreadsheets/simple/basic_table.csv"
-        )
+        result = await porter.detect_tables("examples/spreadsheets/simple/basic_table.csv")
         print(f"  Tables detected: {result.total_tables}")
     print()
 
@@ -237,9 +229,7 @@ async def example_no_llm_mode():
     porter = GridPorter(config=config)
 
     if Path("examples/spreadsheets/simple/basic_table.csv").exists():
-        result = await porter.detect_tables(
-            "examples/spreadsheets/simple/basic_table.csv"
-        )
+        result = await porter.detect_tables("examples/spreadsheets/simple/basic_table.csv")
 
         print("Table detection without LLM assistance:")
         print(f"  LLM calls made: {result.llm_calls}")
@@ -260,16 +250,12 @@ async def example_error_handling():
 
     # Try Ollama first, fallback to no-LLM mode if unavailable
     try:
-        config = Config(
-            use_local_llm=True, ollama_text_model="deepseek-r1:7b", timeout_seconds=30
-        )
+        config = Config(use_local_llm=True, ollama_text_model="deepseek-r1:7b", timeout_seconds=30)
         porter = GridPorter(config=config)
 
         # Test with a small file first
         if Path("examples/spreadsheets/simple/basic_table.csv").exists():
-            result = await porter.detect_tables(
-                "examples/spreadsheets/simple/basic_table.csv"
-            )
+            result = await porter.detect_tables("examples/spreadsheets/simple/basic_table.csv")
             print("Ollama connection successful")
             print(f"Tables detected: {result.total_tables}")
 
@@ -282,9 +268,7 @@ async def example_error_handling():
         porter = GridPorter(config=config_fallback)
 
         if Path("examples/spreadsheets/simple/basic_table.csv").exists():
-            result = await porter.detect_tables(
-                "examples/spreadsheets/simple/basic_table.csv"
-            )
+            result = await porter.detect_tables("examples/spreadsheets/simple/basic_table.csv")
             print(f"Fallback successful - Tables detected: {result.total_tables}")
     print()
 

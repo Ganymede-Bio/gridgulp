@@ -157,9 +157,7 @@ class FileFormatDetector:
         """
         self.magic_available = self._check_magic_availability()
         self.filetype_available = self._check_filetype_availability()
-        self.magika_available = (
-            self._check_magika_availability() if enable_magika else False
-        )
+        self.magika_available = self._check_magika_availability() if enable_magika else False
         self.enable_magika = enable_magika
 
     def _check_magic_availability(self) -> bool:
@@ -247,9 +245,7 @@ class FileFormatDetector:
 
                 if detected_type and confidence > best_confidence:
                     mime_type = (
-                        self._get_mime_type(file_path)
-                        if method_name == "magic_mime"
-                        else None
+                        self._get_mime_type(file_path) if method_name == "magic_mime" else None
                     )
                     encoding = (
                         self._detect_encoding(header_bytes)
@@ -279,9 +275,7 @@ class FileFormatDetector:
                                 # Check if format is supported
                                 if magika_label in self.UNSUPPORTED_FORMATS:
                                     is_supported = False
-                                    unsupported_reason = self.UNSUPPORTED_FORMATS[
-                                        magika_label
-                                    ]
+                                    unsupported_reason = self.UNSUPPORTED_FORMATS[magika_label]
                         except Exception:
                             pass  # Continue without Magika info if extraction fails
 
@@ -338,9 +332,7 @@ class FileFormatDetector:
                     if mime_type == "application/zip":
                         return self._analyze_zip_content(file_path)
                     elif mime_type == "text/plain":
-                        text_result = self._analyze_text_content(
-                            file_path, header_bytes
-                        )
+                        text_result = self._analyze_text_content(file_path, header_bytes)
                         if text_result[0]:  # If text analysis found a type
                             return text_result
                         # If text analysis failed, fall through to continue detection
@@ -418,9 +410,7 @@ class FileFormatDetector:
 
                 # Check for Excel-specific files
                 excel_indicators = sum(
-                    1
-                    for indicator in self.EXCEL_ZIP_INDICATORS
-                    if indicator in file_list
+                    1 for indicator in self.EXCEL_ZIP_INDICATORS if indicator in file_list
                 )
 
                 if excel_indicators >= 3:  # Need at least 3 indicators for confidence
@@ -474,9 +464,7 @@ class FileFormatDetector:
                 if consistent_counts:
                     # Check for consistency
                     if len(set(consistent_counts)) == 1:  # All counts are the same
-                        delimiter_scores[delimiter] = consistent_counts[0] * len(
-                            consistent_counts
-                        )
+                        delimiter_scores[delimiter] = consistent_counts[0] * len(consistent_counts)
                     elif len(set(consistent_counts)) <= 2:  # Mostly consistent
                         delimiter_scores[delimiter] = sum(consistent_counts) * 0.8
 
@@ -519,9 +507,7 @@ class FileFormatDetector:
                 return None, 0.0
 
             # Extract label and confidence
-            magika_label = (
-                result.output.label
-            )  # Use .label instead of deprecated .ct_label
+            magika_label = result.output.label  # Use .label instead of deprecated .ct_label
             confidence_score = result.score  # This is the confidence from Magika
 
             # Map Magika label to our FileType
@@ -532,9 +518,7 @@ class FileFormatDetector:
                     # Special handling for formats that need additional analysis
                     if magika_label == "txt":
                         # Text file - try content analysis
-                        text_result = self._analyze_text_content(
-                            file_path, header_bytes
-                        )
+                        text_result = self._analyze_text_content(file_path, header_bytes)
                         if text_result[0]:
                             return text_result[0], min(confidence_score, text_result[1])
                     elif magika_label == "zip":
@@ -647,9 +631,7 @@ class FileFormatDetector:
         except Exception:
             return None
 
-    def _fallback_detection(
-        self, file_path: Path, magic_hex: str | None = None
-    ) -> DetectionResult:
+    def _fallback_detection(self, file_path: Path, magic_hex: str | None = None) -> DetectionResult:
         """Fallback detection using only file extension."""
         extension_type = self._detect_by_extension(file_path)
 

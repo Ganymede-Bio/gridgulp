@@ -116,9 +116,7 @@ class BaseReader(ABC):
             encoding = result.get("encoding", "utf-8")
             confidence = result.get("confidence", 0.0)
 
-            self.logger.debug(
-                f"Detected encoding: {encoding} (confidence: {confidence:.2f})"
-            )
+            self.logger.debug(f"Detected encoding: {encoding} (confidence: {confidence:.2f})")
 
             # Use utf-8 if confidence is very low
             if confidence < 0.3:
@@ -147,9 +145,7 @@ class BaseReader(ABC):
 
     def _log_read_start(self) -> None:
         """Log the start of file reading."""
-        self.logger.info(
-            f"Starting to read {self.file_info.type.value} file: {self.file_path}"
-        )
+        self.logger.info(f"Starting to read {self.file_info.type.value} file: {self.file_path}")
         self.logger.debug(f"File size: {self.file_info.size_mb:.2f} MB")
 
     def _log_read_complete(self, data: FileData) -> None:
@@ -162,9 +158,7 @@ class BaseReader(ABC):
         for sheet in data.sheets:
             rows, cols = sheet.get_dimensions()
             non_empty = len(sheet.get_non_empty_cells())
-            self.logger.debug(
-                f"Sheet '{sheet.name}': {rows}x{cols}, {non_empty} non-empty cells"
-            )
+            self.logger.debug(f"Sheet '{sheet.name}': {rows}x{cols}, {non_empty} non-empty cells")
 
 
 class AsyncBaseReader(BaseReader):
@@ -182,6 +176,18 @@ class AsyncBaseReader(BaseReader):
     async def read(self) -> FileData:
         """Default implementation delegates to async version."""
         return await self.read_async()
+
+    async def read_all(self) -> list[SheetData]:
+        """Read all sheets from the file asynchronously.
+
+        This is a convenience method that returns sheets directly
+        instead of wrapped in FileData.
+
+        Returns:
+            List of SheetData objects
+        """
+        file_data = await self.read()
+        return file_data.sheets
 
 
 class SyncBaseReader(BaseReader):
@@ -203,3 +209,15 @@ class SyncBaseReader(BaseReader):
         # Run sync method in thread pool to avoid blocking
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self.read_sync)
+
+    def read_all(self) -> list[SheetData]:
+        """Read all sheets from the file synchronously.
+
+        This is a convenience method that returns sheets directly
+        instead of wrapped in FileData.
+
+        Returns:
+            List of SheetData objects
+        """
+        file_data = self.read_sync()
+        return file_data.sheets

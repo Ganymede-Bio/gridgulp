@@ -153,9 +153,7 @@ class TestReaderFactory:
     def test_can_read(self):
         """Test can_read method."""
         xlsx_info = FileInfo(path=Path("test.xlsx"), type=FileType.XLSX, size=1000)
-        unknown_info = FileInfo(
-            path=Path("test.unknown"), type=FileType.UNKNOWN, size=1000
-        )
+        unknown_info = FileInfo(path=Path("test.unknown"), type=FileType.UNKNOWN, size=1000)
 
         assert self.factory.can_read(xlsx_info) is True
         assert self.factory.can_read(unknown_info) is False

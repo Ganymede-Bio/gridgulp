@@ -205,16 +205,12 @@ class CSVReader(SyncBaseReader):
                 for row_idx, row in enumerate(reader):
                     for col_idx, cell_value in enumerate(row):
                         if cell_value:  # Only store non-empty cells
-                            cell_data = self._create_cell_data(
-                                cell_value, row_idx, col_idx
-                            )
+                            cell_data = self._create_cell_data(cell_value, row_idx, col_idx)
                             sheet_data.set_cell(row_idx, col_idx, cell_data)
 
                     # Safety limit to prevent memory issues
                     if row_idx > 1000000:  # 1M rows max
-                        self.logger.warning(
-                            f"Reached row limit, truncating at {row_idx}"
-                        )
+                        self.logger.warning(f"Reached row limit, truncating at {row_idx}")
                         break
 
         except UnicodeDecodeError as e:
@@ -249,17 +245,13 @@ class CSVReader(SyncBaseReader):
                     for row_idx, row in enumerate(reader):
                         for col_idx, cell_value in enumerate(row):
                             if cell_value:
-                                cell_data = self._create_cell_data(
-                                    cell_value, row_idx, col_idx
-                                )
+                                cell_data = self._create_cell_data(cell_value, row_idx, col_idx)
                                 sheet_data.set_cell(row_idx, col_idx, cell_data)
 
                         if row_idx > 1000000:
                             break
 
-                self.logger.info(
-                    f"Successfully read with fallback encoding: {encoding}"
-                )
+                self.logger.info(f"Successfully read with fallback encoding: {encoding}")
                 self._encoding = encoding
                 return sheet_data
 
@@ -371,8 +363,4 @@ class CSVReader(SyncBaseReader):
             ),
         ]
 
-        return (
-            has_separator
-            and has_digits
-            and any(pattern(value) for pattern in date_patterns)
-        )
+        return has_separator and has_digits and any(pattern(value) for pattern in date_patterns)

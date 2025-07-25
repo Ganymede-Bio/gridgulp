@@ -8,18 +8,11 @@ Week 3 introduces vision-based table detection using bitmap representations of s
 
 ## Prerequisites
 
-1. **Install Vision Dependencies**:
-   ```bash
-   pip install gridporter[vision]
-   # or install individual packages:
-   pip install Pillow>=10.0.0 httpx>=0.25.0 openai>=1.0.0
-   ```
-
-2. **Set up Vision Models** (choose one):
+1. **Set up Vision Models** (choose one):
    - **OpenAI**: Set `OPENAI_API_KEY` environment variable
    - **Ollama**: Install Ollama and pull a vision model like `qwen2.5vl:7b`
 
-3. **Test Files**: Use files from `tests/manual/` directory
+2. **Test Files**: Use files from `tests/manual/` directory
 
 ## Test Cases
 
@@ -29,11 +22,22 @@ Week 3 introduces vision-based table detection using bitmap representations of s
 ```python
 from gridporter.vision import BitmapGenerator
 from gridporter.readers import get_reader
+from gridporter.models.sheet_data import SheetData, CellData
 
-# Load a simple Excel file
-reader = get_reader("tests/manual/simple_table.xlsx")
-sheets = reader.read_all()
-sheet = sheets[0]
+# Option 1: Load from file (if available)
+try:
+    reader = get_reader("tests/manual/simple_table.xlsx")
+    sheets = reader.read_all()
+    sheet = sheets[0]
+except FileNotFoundError:
+    # Option 2: Create test data programmatically
+    sheet = SheetData(name="TestSheet")
+    sheet.cells["A1"] = CellData(value="Name", data_type="text", is_bold=True)
+    sheet.cells["B1"] = CellData(value="Age", data_type="text", is_bold=True)
+    sheet.cells["A2"] = CellData(value="Alice", data_type="text")
+    sheet.cells["B2"] = CellData(value=25, data_type="number")
+    sheet.max_row = 1
+    sheet.max_column = 1
 
 # Generate bitmap
 generator = BitmapGenerator()
@@ -49,6 +53,7 @@ print(f"Image size: {len(image_bytes)} bytes")
 
 #### Test 1.2: Different Bitmap Modes
 ```python
+# Use the sheet from Test 1.1
 from gridporter.vision import BitmapGenerator
 
 # Test binary mode (default)
@@ -75,7 +80,7 @@ print("Color mode:", len(img_color), "bytes")
 from pathlib import Path
 
 # Save bitmap to file for visual inspection
-debug_path = Path("debug_bitmap.png")
+debug_path = Path("tests/manual/debug_bitmap.png")
 with open(debug_path, "wb") as f:
     f.write(image_bytes)
 
@@ -87,9 +92,18 @@ print(f"Debug bitmap saved to {debug_path}")
 
 #### Test 1.4: Large Sheet Scaling
 ```python
-# Test with a large sheet that should trigger scaling
-reader = get_reader("tests/manual/large_table.xlsx")
-large_sheet = reader.read_all()[0]
+from gridporter.models.sheet_data import SheetData, CellData
+
+# Create a large sheet that should trigger scaling
+large_sheet = SheetData(name="LargeSheet")
+# Simulate a 200x200 sheet
+for row in range(200):
+    for col in range(200):
+        if (row + col) % 10 == 0:  # Sparse data
+            cell_addr = f"{chr(65 + col % 26)}{row + 1}"
+            large_sheet.cells[cell_addr] = CellData(value=f"R{row}C{col}", data_type="text")
+large_sheet.max_row = 199
+large_sheet.max_column = 199
 
 generator = BitmapGenerator(cell_width=20, cell_height=20)
 image_bytes, metadata = generator.generate(large_sheet)
@@ -105,7 +119,7 @@ print(f"Original cell size: 20x20, actual: {metadata.cell_width}x{metadata.cell_
 #### Test 2.1: OpenAI Vision Model (if API key available)
 ```python
 from gridporter.config import Config
-from gridporter.vision.vision_models import create_vision_model
+from gridporter.vision.vision_models import create_vision_model, VisionModelError
 
 # Configure for OpenAI
 config = Config(
@@ -117,31 +131,57 @@ try:
     model = create_vision_model(config)
     print(f"Created vision model: {model.name}")
     print(f"Supports batch: {model.supports_batch}")
+except VisionModelError as e:
+    print(f"Vision model error: {e}")
+    # Common issues: missing API key, missing openai package
+except ImportError as e:
+    print(f"Missing dependency: {e}")
+    print("Install with: pip install gridporter[vision]")
 except Exception as e:
-    print(f"OpenAI model creation failed: {e}")
+    print(f"Unexpected error: {e}")
 ```
 
 **Expected**: OpenAI model created if API key is valid
 
 #### Test 2.2: Ollama Vision Model (if Ollama available)
 ```python
-# Configure for Ollama
-config = Config(
-    use_local_llm=True,
-    ollama_url="http://localhost:11434",
-    ollama_vision_model="qwen2.5vl:7b"
-)
+import asyncio
+from gridporter.config import Config
+from gridporter.vision.vision_models import create_vision_model
 
-try:
-    model = create_vision_model(config)
-    print(f"Created vision model: {model.name}")
+async def test_ollama_model():
+    """Test Ollama vision model creation and availability."""
+    from gridporter.vision.vision_models import VisionModelError
 
-    # Check if model is available
-    if hasattr(model, 'check_model_available'):
-        available = await model.check_model_available()
-        print(f"Model available: {available}")
-except Exception as e:
-    print(f"Ollama model creation failed: {e}")
+    # Configure for Ollama
+    config = Config(
+        use_local_llm=True,
+        ollama_url="http://localhost:11434",
+        ollama_vision_model="qwen2.5vl:7b"
+    )
+
+    try:
+        model = create_vision_model(config)
+        print(f"Created vision model: {model.name}")
+
+        # Check if model is available
+        if hasattr(model, 'check_model_available'):
+            available = await model.check_model_available()
+            print(f"Model available: {available}")
+            if not available:
+                print("Model not found. Try: ollama pull qwen2.5vl:7b")
+
+    except VisionModelError as e:
+        print(f"Vision model error: {e}")
+        # Common issues: Ollama not running, model not pulled
+    except ConnectionError as e:
+        print(f"Connection error: {e}")
+        print("Is Ollama running? Start with: ollama serve")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+
+# Run the async test
+asyncio.run(test_ollama_model())
 ```
 
 **Expected**: Ollama model created if service is running and model is available
@@ -234,6 +274,16 @@ print(f"Minimum size 3x3: {len(filtered_size)} proposals")
 ```python
 from gridporter.vision import VisionPipeline
 from gridporter.config import Config
+from gridporter.models.sheet_data import SheetData, CellData
+
+# Create test sheet data
+sheet = SheetData(name="TestSheet")
+sheet.cells["A1"] = CellData(value="Product", data_type="text", is_bold=True)
+sheet.cells["B1"] = CellData(value="Price", data_type="text", is_bold=True)
+sheet.cells["A2"] = CellData(value="Apple", data_type="text")
+sheet.cells["B2"] = CellData(value=1.25, data_type="number")
+sheet.max_row = 1
+sheet.max_column = 1
 
 # Configure pipeline
 config = Config(

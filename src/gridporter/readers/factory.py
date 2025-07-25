@@ -31,9 +31,7 @@ class ReaderFactory:
         self.register_reader(FileType.CSV, CSVReader)
         self.register_reader(FileType.TSV, CSVReader)
 
-    def register_reader(
-        self, file_type: FileType, reader_class: type[BaseReader]
-    ) -> None:
+    def register_reader(self, file_type: FileType, reader_class: type[BaseReader]) -> None:
         """Register a reader for a specific file type.
 
         Args:
