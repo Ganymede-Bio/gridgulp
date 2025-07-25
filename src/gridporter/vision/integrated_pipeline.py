@@ -3,9 +3,12 @@
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..models.sheet_data import SheetData
+
+if TYPE_CHECKING:
+    from ..config import GridPorterConfig
 from .bitmap_analyzer import BitmapAnalyzer
 from .bitmap_generator import BitmapGenerator
 from .pattern_detector import (
@@ -15,6 +18,7 @@ from .pattern_detector import (
     TablePattern,
 )
 from .quadtree import QuadtreeAnalyzer, VisualizationRegion
+from .region_verifier import RegionVerifier, VerificationResult
 
 # Optional telemetry import
 try:
@@ -34,6 +38,7 @@ class PipelineResult:
     detected_tables: list[TablePattern]
     visualization_regions: list[VisualizationRegion]
     analysis_metadata: dict[str, Any]
+    verification_results: dict[str, VerificationResult] | None = None
 
 
 class IntegratedVisionPipeline:
@@ -44,6 +49,8 @@ class IntegratedVisionPipeline:
         min_table_size: tuple[int, int] = (2, 2),
         min_density: float = 0.1,
         max_regions_for_llm: int = 10,
+        enable_verification: bool = True,
+        verification_strict: bool = False,
     ):
         """Initialize integrated pipeline.
 
@@ -51,6 +58,8 @@ class IntegratedVisionPipeline:
             min_table_size: Minimum (rows, cols) to consider as table
             min_density: Minimum density for regions
             max_regions_for_llm: Maximum regions to send to LLM
+            enable_verification: Whether to enable region verification
+            verification_strict: Whether to use strict verification rules
         """
         self.bitmap_analyzer = BitmapAnalyzer(
             min_region_size=min_table_size, min_density=min_density
@@ -61,6 +70,16 @@ class IntegratedVisionPipeline:
         )
         self.quadtree_analyzer = QuadtreeAnalyzer(pattern_aware=True)
         self.max_regions_for_llm = max_regions_for_llm
+
+        # Region verification
+        self.enable_verification = enable_verification
+        self.verification_strict = verification_strict
+        if enable_verification:
+            self.region_verifier = RegionVerifier(
+                min_filledness=min_density,
+                min_rectangularness=0.7,
+                min_contiguity=0.5,
+            )
 
     def process_sheet(self, sheet_data: SheetData) -> PipelineResult:
         """Process a sheet using the bitmap-first approach.
@@ -117,6 +136,7 @@ class IntegratedVisionPipeline:
             detected_tables=patterns,
             visualization_regions=visualization_regions,
             analysis_metadata=metadata,
+            verification_results=getattr(self, "_verification_results", None),
         )
 
         if HAS_TELEMETRY:
@@ -212,6 +232,13 @@ class IntegratedVisionPipeline:
                 all_patterns.extend(region_patterns)
 
         logger.info(f"Detected {len(all_patterns)} table patterns")
+
+        # Phase 2.5: Verify detected patterns
+        if self.enable_verification:
+            verified_patterns = self._verify_patterns(sheet_data, all_patterns)
+            logger.info(f"Verified {len(verified_patterns)} of {len(all_patterns)} patterns")
+            return verified_patterns
+
         return all_patterns
 
     def _phase3_quadtree_analysis(self, sheet_data: SheetData, patterns: list[TablePattern]) -> Any:
@@ -340,3 +367,113 @@ class IntegratedVisionPipeline:
             List of bitmap results
         """
         return self.bitmap_generator.generate_from_visualization_plan(sheet_data, regions)
+
+    def _verify_patterns(
+        self, sheet_data: SheetData, patterns: list[TablePattern]
+    ) -> list[TablePattern]:
+        """Verify detected patterns using geometry analysis.
+
+        Args:
+            sheet_data: Sheet data
+            patterns: Patterns to verify
+
+        Returns:
+            List of verified patterns
+        """
+        verified_patterns = []
+        self._verification_results = {}
+
+        for pattern in patterns:
+            # Verify the pattern
+            result = self.region_verifier.verify_pattern(sheet_data, pattern)
+
+            # Store verification result
+            pattern_id = (
+                f"{pattern.start_row}_{pattern.start_col}_{pattern.end_row}_{pattern.end_col}"
+            )
+            self._verification_results[pattern_id] = result
+
+            if result.valid:
+                # Update pattern confidence based on verification
+                pattern.confidence = min(pattern.confidence, result.confidence)
+                pattern.characteristics["verification_score"] = result.confidence
+                pattern.characteristics["verification_metrics"] = result.metrics
+                verified_patterns.append(pattern)
+            else:
+                logger.debug(f"Pattern at {pattern.range} failed verification: {result.reason}")
+                if result.feedback:
+                    logger.debug(f"Feedback: {result.feedback}")
+
+        return verified_patterns
+
+    def _generate_feedback_for_invalid_regions(
+        self, invalid_results: list[tuple[TablePattern, VerificationResult]]
+    ) -> dict[str, Any]:
+        """Generate feedback for regions that failed verification.
+
+        Args:
+            invalid_results: List of (pattern, verification_result) tuples
+
+        Returns:
+            Feedback dictionary for re-querying vision model
+        """
+        feedback = {
+            "failed_regions": [],
+            "suggestions": [],
+        }
+
+        for pattern, result in invalid_results:
+            region_feedback = {
+                "range": pattern.range,
+                "reason": result.reason,
+                "metrics": result.metrics,
+                "feedback": result.feedback,
+            }
+            feedback["failed_regions"].append(region_feedback)
+
+            # Generate specific suggestions based on failure reason
+            if "Low filledness" in result.reason:
+                feedback["suggestions"].append(
+                    f"Region {pattern.range} appears too sparse. "
+                    "Look for denser data concentrations within this area."
+                )
+            elif "Low rectangularness" in result.reason:
+                feedback["suggestions"].append(
+                    f"Region {pattern.range} has irregular shape. "
+                    "Try to identify more rectangular sub-regions."
+                )
+            elif "Low contiguity" in result.reason:
+                feedback["suggestions"].append(
+                    f"Region {pattern.range} has disconnected data. "
+                    "Consider splitting into multiple smaller tables."
+                )
+
+        return feedback
+
+    @classmethod
+    def from_config(cls, config: "GridPorterConfig") -> "IntegratedVisionPipeline":
+        """Create pipeline from GridPorter configuration.
+
+        Args:
+            config: GridPorter configuration
+
+        Returns:
+            Configured pipeline instance
+        """
+        pipeline = cls(
+            min_table_size=config.min_table_size,
+            min_density=config.min_region_filledness,
+            max_regions_for_llm=config.max_tables_per_sheet,
+            enable_verification=config.enable_region_verification,
+            verification_strict=config.verification_strict_mode,
+        )
+
+        # Update region verifier with config values if enabled
+        if config.enable_region_verification and pipeline.region_verifier:
+            pipeline.region_verifier = RegionVerifier(
+                min_filledness=config.min_region_filledness,
+                min_rectangularness=config.min_region_rectangularness,
+                min_contiguity=config.min_region_contiguity,
+            )
+
+        return pipeline

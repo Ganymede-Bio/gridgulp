@@ -9,6 +9,7 @@ from ..models.sheet_data import SheetData
 from ..models.vision_result import VisionAnalysisResult, VisionRegion
 from .bitmap_generator import BitmapGenerator, BitmapMetadata
 from .region_proposer import RegionProposal, RegionProposer
+from .region_verifier import RegionVerifier
 from .vision_models import VisionModel, create_vision_model
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,7 @@ class VisionPipeline:
             mode=config.vision_mode,
         )
         self.region_proposer = RegionProposer()
+        self.region_verifier = RegionVerifier()
         self._vision_model: VisionModel | None = None
         self._cache: dict[str, VisionAnalysisResult] = {}
 
@@ -266,3 +268,119 @@ class VisionPipeline:
             "cache_size": len(self._cache),
             "cache_enabled": self.config.enable_cache,
         }
+
+    async def refine_with_feedback(
+        self,
+        sheet_data: SheetData,
+        failed_regions: list[VisionRegion],
+        max_iterations: int = 2,  # noqa: ARG002
+    ) -> VisionAnalysisResult:
+        """Refine vision analysis using feedback from failed verifications.
+
+        This implements the feedback loop system for invalid regions.
+
+        Args:
+            sheet_data: Original sheet data
+            failed_regions: Regions that failed verification
+            max_iterations: Maximum refinement iterations
+
+        Returns:
+            Updated vision analysis result
+        """
+        if not failed_regions:
+            # No failed regions, return empty result
+            return VisionAnalysisResult(regions=[])
+
+        # Generate feedback for failed regions
+        feedback_parts = []
+        for region in failed_regions:
+            feedback_parts.append(
+                f"- Region {region.range} failed verification. "
+                f"Please look for smaller, more cohesive tables within or near this area."
+            )
+
+        feedback_prompt = (
+            "The following regions were detected but failed verification:\n"
+            + "\n".join(feedback_parts)
+            + "\n\nPlease re-analyze these areas and identify valid table regions with:\n"
+            "- Higher data density (less sparse)\n"
+            "- More rectangular boundaries\n"
+            "- Contiguous data (not fragmented)\n"
+            "Focus on finding the actual data tables, not just formatting regions."
+        )
+
+        # Generate new bitmap focused on failed regions
+        # For now, regenerate full bitmap with feedback
+        image_bytes, bitmap_metadata = self.bitmap_generator.generate(sheet_data)
+
+        # Create refined prompt
+        base_prompt = self.bitmap_generator.create_prompt_description(bitmap_metadata)
+        refined_prompt = f"{base_prompt}\n\n{feedback_prompt}"
+
+        # Get vision model and analyze with feedback
+        if not self._vision_model:
+            self._vision_model = create_vision_model(self.config)
+
+        logger.info("Refining analysis with verification feedback")
+        response = await self._vision_model.analyze_image(image_bytes, refined_prompt)
+
+        # Parse refined response
+        refined_proposals = self.region_proposer.parse_response(
+            response,
+            bitmap_metadata,
+            confidence_threshold=0.7,  # Higher threshold for refinement
+        )
+
+        # Convert to regions and verify
+        refined_regions = []
+        for proposal in refined_proposals:
+            region = VisionRegion(
+                pixel_bounds={
+                    "x1": proposal.x1,
+                    "y1": proposal.y1,
+                    "x2": proposal.x2,
+                    "y2": proposal.y2,
+                },
+                cell_bounds={
+                    "start_row": proposal.start_row,
+                    "start_col": proposal.start_col,
+                    "end_row": proposal.end_row,
+                    "end_col": proposal.end_col,
+                },
+                range=proposal.excel_range,
+                confidence=proposal.confidence,
+                detection_method="vision_refined",
+                characteristics=proposal.characteristics,
+            )
+
+            # Verify the refined region
+            verification = self.region_verifier.verify_region(
+                sheet_data,
+                region.to_table_range(),
+                strict=False,  # Be less strict on refinement
+            )
+
+            if verification.valid:
+                region.confidence = min(region.confidence, verification.confidence)
+                region.characteristics["verification_metrics"] = verification.metrics
+                refined_regions.append(region)
+
+        logger.info(
+            f"Refinement produced {len(refined_regions)} verified regions "
+            f"from {len(failed_regions)} failed regions"
+        )
+
+        return VisionAnalysisResult(
+            regions=refined_regions,
+            bitmap_info={
+                "width": bitmap_metadata.width,
+                "height": bitmap_metadata.height,
+                "cell_width": bitmap_metadata.cell_width,
+                "cell_height": bitmap_metadata.cell_height,
+            },
+            metadata={
+                "refinement_iteration": 1,
+                "original_failed_count": len(failed_regions),
+                "refined_valid_count": len(refined_regions),
+            },
+        )

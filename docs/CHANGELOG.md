@@ -7,15 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Region Verification System**: AI proposal validation using geometry analysis
+  - RegionVerifier class with configurable thresholds
+  - Geometry metrics: rectangularness, filledness, density, contiguity
+  - Pattern-specific verification for header-data, matrix, and hierarchical patterns
+  - Feedback generation for invalid regions
+  - Integration with vision pipeline for automatic filtering
+- **Verification Configuration**: New config options for region verification
+  - enable_region_verification, verification_strict_mode
+  - Configurable thresholds for filledness, rectangularness, contiguity
+  - Feedback loop settings for iterative refinement
+
+### Changed
+- **Vision Infrastructure**: Complete bitmap-based vision pipeline for table detection
+  - Bitmap generation with adaptive compression (2-bit, 4-bit, sampled modes)
+  - Multi-scale visualization with quadtree optimization
+  - Pattern detection for sparse spreadsheets (header-data, matrix, form, time series)
+  - Hierarchical detector for financial statements with indentation
+  - Integrated 4-phase detection pipeline
+- **Vision Model Integration**:
+  - OpenAI GPT-4 Vision support
+  - Ollama local vision model support (qwen2-vl)
+  - Region proposal parsing with confidence scoring
+  - Batch processing and caching for performance
+- **Reader Implementations**:
+  - ExcelReader with full formatting support (openpyxl/xlrd)
+  - CSVReader with encoding detection and delimiter inference
+  - CalamineReader (Rust-based) for 10-100x faster Excel processing
+  - Factory pattern for automatic reader selection
+  - Async/sync adapters for flexible usage
+- **Telemetry System**:
+  - OpenTelemetry integration for LLM usage tracking
+  - Token usage metrics and cost tracking
+  - Performance monitoring
+- **Large File Support**:
+  - Handle full Excel limits (1M×16K cells for .xlsx)
+  - Memory-efficient processing with streaming
+  - Adaptive sampling for oversized sheets
+
 ### Planned
-- Basic file reading capabilities for Excel and CSV
-- Single table detection algorithm
-- Excel ListObjects detection
-- Mask-based island detection for multiple tables
-- Format and header heuristics
+- Region verification algorithms
+- Geometry analysis tools
+- Excel ListObjects detection integration
 - LLM-powered range naming suggestions
 - CLI tool with progress indicators
 - Full agent implementation with openai-agents-python
+
+## [0.2.0] - 2025-01-25
+
+### Added
+- **Vision Module Implementation**: Complete vision-based table detection system
+  - 9 specialized modules for different aspects of vision processing
+  - Support for sparse, hierarchical, and complex table patterns
+  - Integration with both cloud and local vision models
+- **High-Performance Readers**: CalamineReader for fast Excel processing
+- **Pattern Detection**: Automatic detection of common spreadsheet patterns
+- **Telemetry**: OpenTelemetry-based monitoring and cost tracking
+
+### Changed
+- Default Excel reader changed to CalamineReader for performance
+- Enhanced file type detection with magic byte verification
+
+### Technical Details
+- Implemented adaptive bitmap compression for large spreadsheets
+- Added quadtree spatial indexing for efficient processing
+- Created hierarchical pattern detector for financial statements
+- Built integrated pipeline coordinating multiple detection strategies
 
 ## [0.1.0] - 2025-01-23
 
