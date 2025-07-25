@@ -70,6 +70,29 @@ class Config(BaseModel):
     )
     vision_mode: str = Field("binary", description="Bitmap mode: binary, grayscale, or color")
 
+    # Region Verification Configuration
+    enable_region_verification: bool = Field(
+        True, description="Enable AI region proposal verification"
+    )
+    verification_strict_mode: bool = Field(
+        False, description="Use strict verification rules (may reject more regions)"
+    )
+    min_region_filledness: float = Field(
+        0.1, ge=0.0, le=1.0, description="Minimum filledness ratio for valid regions"
+    )
+    min_region_rectangularness: float = Field(
+        0.7, ge=0.0, le=1.0, description="Minimum rectangularness score for valid regions"
+    )
+    min_region_contiguity: float = Field(
+        0.5, ge=0.0, le=1.0, description="Minimum contiguity score for valid regions"
+    )
+    enable_verification_feedback: bool = Field(
+        True, description="Enable feedback loop for failed region verifications"
+    )
+    max_verification_iterations: int = Field(
+        2, ge=1, le=5, description="Maximum iterations for verification refinement"
+    )
+
     # Performance Configuration
     excel_reader: str = Field(
         "calamine",
