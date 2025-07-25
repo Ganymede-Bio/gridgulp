@@ -4,6 +4,7 @@ from .detection_result import DetectionResult, SheetResult
 from .file_info import FileInfo, FileType
 from .sheet_data import CellData, FileData, SheetData
 from .table import TableInfo, TableRange
+from .vision_result import VisionAnalysisResult, VisionDetectionMetrics, VisionRegion
 
 __all__ = [
     "TableInfo",
@@ -15,4 +16,7 @@ __all__ = [
     "SheetData",
     "CellData",
     "FileData",
+    "VisionRegion",
+    "VisionAnalysisResult",
+    "VisionDetectionMetrics",
 ]

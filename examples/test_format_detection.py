@@ -69,9 +69,7 @@ async def test_format_detection():
                 print("✅ Extension matches detected content")
 
             # Show processing results
-            print(
-                f"📈 Processing: {result.detection_time:.3f}s, {len(result.sheets)} sheets"
-            )
+            print(f"📈 Processing: {result.detection_time:.3f}s, {len(result.sheets)} sheets")
 
             results.append(
                 {
@@ -108,9 +106,7 @@ async def test_format_detection():
         mismatches = sum(1 for r in results if r["mismatch"])
         print(f"\nTotal files tested: {len(results)}")
         print(f"Format mismatches detected: {mismatches}")
-        print(
-            f"Average confidence: {sum(r['confidence'] for r in results) / len(results):.1%}"
-        )
+        print(f"Average confidence: {sum(r['confidence'] for r in results) / len(results):.1%}")
 
         detection_methods = {}
         for r in results:
@@ -124,9 +120,7 @@ async def test_format_detection():
     print("✅ Format detection test completed!")
 
     if any(r["mismatch"] for r in results):
-        print(
-            "\n💡 TIP: Files with format mismatches will still be processed correctly"
-        )
+        print("\n💡 TIP: Files with format mismatches will still be processed correctly")
         print("   because GridPorter uses the detected format, not the file extension.")
 
 

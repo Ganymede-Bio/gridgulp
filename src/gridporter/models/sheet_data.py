@@ -32,9 +32,13 @@ class CellData(BaseModel):
     has_formula: bool = Field(False, description="Cell contains formula")
     formula: str | None = Field(None, description="Formula text")
 
+    # Hierarchical/alignment information
+    indentation_level: int = Field(0, ge=0, description="Indentation level (0 = no indent)")
+    alignment: str | None = Field(None, description="Horizontal alignment (left/center/right)")
+
     # Position information
-    row: int = Field(..., ge=0, description="Row index (0-based)")
-    column: int = Field(..., ge=0, description="Column index (0-based)")
+    row: int = Field(0, ge=0, description="Row index (0-based)")
+    column: int = Field(0, ge=0, description="Column index (0-based)")
 
     @property
     def is_empty(self) -> bool:
@@ -53,6 +57,25 @@ class CellData(BaseModel):
             return result
 
         return f"{col_to_letter(self.column)}{self.row + 1}"
+
+    @property
+    def value_type(self) -> str:
+        """Alias for data_type for better clarity and pandas/polars compatibility."""
+        return self.data_type
+
+    @property
+    def formatting(self) -> dict[str, Any]:
+        """Return all formatting information as a dictionary."""
+        return {
+            "is_bold": self.is_bold,
+            "is_italic": self.is_italic,
+            "is_underline": self.is_underline,
+            "font_size": self.font_size,
+            "font_color": self.font_color,
+            "background_color": self.background_color,
+            "indentation_level": self.indentation_level,
+            "alignment": self.alignment,
+        }
 
 
 class SheetData(BaseModel):
@@ -79,6 +102,27 @@ class SheetData(BaseModel):
         """Get cell data by row and column indices."""
         address = self._get_address(row, column)
         return self.cells.get(address)
+
+    def __setitem__(self, address: str, cell_data: CellData) -> None:
+        """Allow sheet["A1"] = CellData(...) syntax."""
+        # Parse Excel-style address to get row and column
+        col_str = "".join(c for c in address if c.isalpha())
+        row_str = "".join(c for c in address if c.isdigit())
+
+        if not col_str or not row_str:
+            raise ValueError(f"Invalid cell address: {address}")
+
+        # Convert column letters to index (A=0, B=1, ..., Z=25, AA=26, ...)
+        col = 0
+        for char in col_str:
+            col = col * 26 + (ord(char.upper()) - ord("A") + 1)
+        col -= 1  # Convert to 0-based
+
+        # Convert row number to 0-based index
+        row = int(row_str) - 1
+
+        # Use set_cell which handles row/column assignment
+        self.set_cell(row, col, cell_data)
 
     def set_cell(self, row: int, column: int, cell_data: CellData) -> None:
         """Set cell data at specific position."""
@@ -115,6 +159,51 @@ class SheetData(BaseModel):
         """Get all non-empty cells."""
         return [cell for cell in self.cells.values() if not cell.is_empty]
 
+    def get_filled_cells_arrays(self) -> tuple[list[int], list[int], list[CellData]]:
+        """Get all filled cells as parallel arrays for efficient processing.
+
+        Returns:
+            Tuple of (row_indices, col_indices, cell_data_list)
+        """
+        rows = []
+        cols = []
+        cells = []
+
+        for _address, cell in self.cells.items():
+            if cell and not cell.is_empty:
+                rows.append(cell.row)
+                cols.append(cell.column)
+                cells.append(cell)
+
+        return rows, cols, cells
+
+    def get_cells_in_region(
+        self, start_row: int, end_row: int, start_col: int, end_col: int
+    ) -> list[CellData]:
+        """Get all non-empty cells within a region.
+
+        Args:
+            start_row: Starting row (inclusive)
+            end_row: Ending row (inclusive)
+            start_col: Starting column (inclusive)
+            end_col: Ending column (inclusive)
+
+        Returns:
+            List of CellData objects in the region
+        """
+        cells_in_region = []
+
+        for _address, cell in self.cells.items():
+            if (
+                cell
+                and not cell.is_empty
+                and start_row <= cell.row <= end_row
+                and start_col <= cell.column <= end_col
+            ):
+                cells_in_region.append(cell)
+
+        return cells_in_region
+
     def get_dimensions(self) -> tuple[int, int]:
         """Get sheet dimensions as (rows, columns)."""
         return (self.max_row + 1, self.max_column + 1)
@@ -130,6 +219,34 @@ class SheetData(BaseModel):
             return result
 
         return f"{col_to_letter(column)}{row + 1}"
+
+    @property
+    def data(self) -> list[list[CellData | None]]:
+        """Return sheet data as 2D list for easier access (pandas/polars style).
+
+        Returns a list of rows, where each row is a list of cells.
+        Missing cells are represented as None.
+        """
+        if self.max_row < 0 or self.max_column < 0:
+            return []
+
+        rows = []
+        for row_idx in range(self.max_row + 1):
+            row_data = []
+            for col_idx in range(self.max_column + 1):
+                cell = self.get_cell(row_idx, col_idx)
+                row_data.append(cell)
+            rows.append(row_data)
+        return rows
+
+    @property
+    def merged_cells(self) -> list[str]:
+        """Return list of unique merged cell ranges in the sheet."""
+        merge_ranges = set()
+        for cell in self.cells.values():
+            if cell.is_merged and cell.merge_range:
+                merge_ranges.add(cell.merge_range)
+        return sorted(merge_ranges)
 
 
 class FileData(BaseModel):

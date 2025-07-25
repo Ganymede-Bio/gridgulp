@@ -25,20 +25,20 @@ GridPorter is a vision-enabled AI spreadsheet ingestion framework that uses Larg
 ### Week 2: File Reading Infrastructure
 **Goal**: Implement file readers and unified interfaces
 
-- [ ] Excel reader implementation
-  - [ ] Excel reader (openpyxl for modern, xlrd for legacy)
-  - [ ] Handle multiple sheets and formats
-  - [ ] Extract metadata and formatting
+- [x] Excel reader implementation
+  - [x] Excel reader (openpyxl for modern, xlrd for legacy)
+  - [x] Handle multiple sheets and formats
+  - [x] Extract metadata and formatting
 
-- [ ] CSV reader implementation
-  - [ ] CSV reader with encoding detection
-  - [ ] Delimiter and quote detection
-  - [ ] Handle various CSV dialects
+- [x] CSV reader implementation
+  - [x] CSV reader with encoding detection
+  - [x] Delimiter and quote detection
+  - [x] Handle various CSV dialects
 
-- [ ] Unified reader interface
-  - [ ] Abstract base reader class
-  - [ ] Factory pattern for reader selection
-  - [ ] Error handling and validation
+- [x] Unified reader interface
+  - [x] Abstract base reader class
+  - [x] Factory pattern for reader selection
+  - [x] Error handling and validation
 
 **Deliverables**: Working file readers for Excel and CSV formats
 
@@ -49,10 +49,14 @@ GridPorter is a vision-enabled AI spreadsheet ingestion framework that uses Larg
   - [ ] Convert spreadsheet data to visual representation
   - [ ] Filled cell visualization
   - [ ] Resolution optimization for vision models
+  - [ ] Sparse pattern detection for table recognition
+  - [ ] Quadtree-based visualization planning
+  - [ ] Memory-efficient bitmap modes (2/4-bit representation)
+  - [ ] GPT-4o size optimization (<20MB per image)
+  - [ ] Compression strategies (PNG level 6-9)
 
 - [ ] Vision model integration
-  - [ ] OpenAI GPT-4V integration
-  - [ ] Claude 3 Vision support
+  - [ ] OpenAI GPT-4o integration
   - [ ] Ollama vision model support (qwen2-vl)
 
 - [ ] Basic region proposal system
@@ -60,7 +64,13 @@ GridPorter is a vision-enabled AI spreadsheet ingestion framework that uses Larg
   - [ ] Bounding box extraction
   - [ ] Confidence scoring
 
-**Deliverables**: Working vision pipeline for spreadsheet analysis
+- [ ] Large spreadsheet handling
+  - [ ] Support for full Excel limits (1M×16K cells for .xlsx, 65K×256 for .xls)
+  - [ ] Adaptive sampling for sheets exceeding memory limits
+  - [ ] Hierarchical visualization (overview + detail views)
+  - [ ] Structural pattern preservation in sparse tables
+
+**Deliverables**: Working vision pipeline for spreadsheet analysis with support for large and sparse sheets
 
 ### Week 4: Region Verification & Geometry Analysis
 **Goal**: Build local verification for AI proposals
@@ -127,7 +137,7 @@ GridPorter is a vision-enabled AI spreadsheet ingestion framework that uses Larg
 
 - [ ] Vision orchestrator implementation
   - [ ] Central coordination logic
-  - [ ] Multi-model support (OpenAI, Claude, Ollama)
+  - [ ] Multi-model support (OpenAI, Ollama)
   - [ ] Async processing pipeline
 
 - [ ] Tool integration

@@ -127,9 +127,7 @@ class GridPorter:
             llm_tokens=0,
             metadata={
                 "file_data_available": True,
-                "total_cells": sum(
-                    len(sheet.get_non_empty_cells()) for sheet in file_data.sheets
-                ),
+                "total_cells": sum(len(sheet.get_non_empty_cells()) for sheet in file_data.sheets),
                 "reader_metadata": file_data.metadata,
             },
         )
@@ -149,8 +147,7 @@ class GridPorter:
         file_size_mb = file_path.stat().st_size / (1024 * 1024)
         if file_size_mb > self.config.max_file_size_mb:
             raise ValueError(
-                f"File too large: {file_size_mb:.1f}MB "
-                f"(max: {self.config.max_file_size_mb}MB)"
+                f"File too large: {file_size_mb:.1f}MB " f"(max: {self.config.max_file_size_mb}MB)"
             )
 
     async def _analyze_file(self, file_path: Path) -> FileInfo:

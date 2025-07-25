@@ -50,6 +50,32 @@ class ExcelReader(SyncBaseReader):
         """Get supported Excel formats."""
         return ["xlsx", "xls", "xlsm", "xlsb"]
 
+    def _is_password_protected(self) -> bool:
+        """Check if Excel file is password protected.
+
+        Password-protected Excel files are stored as OLE containers
+        with EncryptedPackage and EncryptionInfo streams.
+        """
+        try:
+            import olefile
+
+            if olefile.isOleFile(str(self.file_path)):
+                with olefile.OleFileIO(str(self.file_path)) as ole:
+                    streams = ole.listdir()
+                    # Check for encryption markers
+                    for stream in streams:
+                        stream_str = "/".join(stream) if isinstance(stream, list) else str(stream)
+                        if "EncryptedPackage" in stream_str or "EncryptionInfo" in stream_str:
+                            return True
+            return False
+        except ImportError:
+            # If olefile is not available, we can't detect password protection
+            # Let it fail with the normal error later
+            return False
+        except Exception:
+            # Any error in detection, assume not password protected
+            return False
+
     def read_sync(self) -> FileData:
         """Read Excel file synchronously.
 
@@ -62,6 +88,10 @@ class ExcelReader(SyncBaseReader):
         self._log_read_start()
         self.validate_file()
 
+        # Check for password protection first
+        if self._is_password_protected():
+            raise PasswordProtectedError(f"File is password protected: {self.file_path}")
+
         try:
             if self._use_openpyxl:
                 return self._read_with_openpyxl()
@@ -69,13 +99,9 @@ class ExcelReader(SyncBaseReader):
                 return self._read_with_xlrd()
         except Exception as e:
             if "password" in str(e).lower():
-                raise PasswordProtectedError(
-                    f"File is password protected: {self.file_path}"
-                ) from e
+                raise PasswordProtectedError(f"File is password protected: {self.file_path}") from e
             elif "corrupt" in str(e).lower() or "invalid" in str(e).lower():
-                raise CorruptedFileError(
-                    f"File appears to be corrupted: {self.file_path}"
-                ) from e
+                raise CorruptedFileError(f"File appears to be corrupted: {self.file_path}") from e
             else:
                 raise ReaderError(f"Failed to read Excel file: {e}") from e
 
@@ -127,9 +153,7 @@ class ExcelReader(SyncBaseReader):
         Returns:
             SheetData with all cell information
         """
-        sheet_data = SheetData(
-            name=worksheet.title, is_visible=worksheet.sheet_state == "visible"
-        )
+        sheet_data = SheetData(name=worksheet.title, is_visible=worksheet.sheet_state == "visible")
 
         # Iterate through all cells with data
         for row in worksheet.iter_rows():
@@ -167,6 +191,7 @@ class ExcelReader(SyncBaseReader):
             # Extract formatting information
             font = cell.font
             fill = cell.fill
+            alignment = cell.alignment
 
             # Handle merged cells
             is_merged = False
@@ -177,6 +202,15 @@ class ExcelReader(SyncBaseReader):
                         is_merged = True
                         merge_range = str(merged_range_obj)
                         break
+
+            # Extract indentation level and alignment
+            indentation_level = 0
+            horizontal_alignment = None
+            if alignment:
+                # openpyxl stores indent as an integer (but sometimes returns float)
+                indentation_level = int(alignment.indent) if alignment.indent is not None else 0
+                # Get horizontal alignment
+                horizontal_alignment = alignment.horizontal
 
             return CellData(
                 value=value,
@@ -192,6 +226,8 @@ class ExcelReader(SyncBaseReader):
                 merge_range=merge_range,
                 has_formula=cell.data_type == "f",
                 formula=cell.value if cell.data_type == "f" else None,
+                indentation_level=indentation_level,
+                alignment=horizontal_alignment,
                 row=cell.row - 1,  # Convert to 0-based
                 column=cell.column - 1,  # Convert to 0-based
             )
@@ -209,9 +245,7 @@ class ExcelReader(SyncBaseReader):
             raise ReaderError("xlrd is required to read .xls files") from e
 
         try:
-            self._workbook = xlrd.open_workbook(
-                str(self.file_path), formatting_info=True
-            )
+            self._workbook = xlrd.open_workbook(str(self.file_path), formatting_info=True)
 
             sheets = []
             for sheet_idx in range(self._workbook.nsheets):
@@ -256,17 +290,13 @@ class ExcelReader(SyncBaseReader):
             for col_idx in range(worksheet.ncols):
                 cell = worksheet.cell(row_idx, col_idx)
                 if cell.value != "" or cell.ctype != 0:  # Not empty
-                    cell_data = self._convert_xlrd_cell(
-                        cell, row_idx, col_idx, worksheet
-                    )
+                    cell_data = self._convert_xlrd_cell(cell, row_idx, col_idx, worksheet)
                     if cell_data:
                         sheet_data.set_cell(row_idx, col_idx, cell_data)
 
         return sheet_data
 
-    def _convert_xlrd_cell(
-        self, cell, row_idx: int, col_idx: int, worksheet
-    ) -> CellData | None:
+    def _convert_xlrd_cell(self, cell, row_idx: int, col_idx: int, worksheet) -> CellData | None:
         """Convert xlrd cell to CellData.
 
         Args:
@@ -298,6 +328,9 @@ class ExcelReader(SyncBaseReader):
 
             # Get formatting information (limited in xlrd)
             format_info = {}
+            indentation_level = 0
+            alignment = None
+
             try:
                 if hasattr(self._workbook, "format_map"):
                     cell_xf = (
@@ -306,6 +339,7 @@ class ExcelReader(SyncBaseReader):
                         else None
                     )
                     if cell_xf:
+                        # Extract font information
                         font = (
                             self._workbook.font_list[cell_xf.font_index]
                             if cell_xf.font_index < len(self._workbook.font_list)
@@ -314,9 +348,17 @@ class ExcelReader(SyncBaseReader):
                         if font:
                             format_info["is_bold"] = font.bold
                             format_info["is_italic"] = font.italic
-                            format_info["font_size"] = (
-                                font.height / 20.0
-                            )  # Convert from twips
+                            format_info["font_size"] = font.height / 20.0  # Convert from twips
+
+                        # Try to extract alignment/indentation
+                        if hasattr(cell_xf, "alignment"):
+                            align_obj = cell_xf.alignment
+                            if hasattr(align_obj, "indent_level"):
+                                indentation_level = int(align_obj.indent_level)
+                            if hasattr(align_obj, "hor_align"):
+                                # Map xlrd alignment constants to strings
+                                align_map = {0: "left", 1: "center", 2: "right"}
+                                alignment = align_map.get(align_obj.hor_align, None)
             except Exception:
                 pass  # Formatting extraction failed, continue without it
 
@@ -328,14 +370,14 @@ class ExcelReader(SyncBaseReader):
                 is_italic=format_info.get("is_italic", False),
                 font_size=format_info.get("font_size"),
                 has_formula=cell.ctype == xlrd.XL_CELL_FORMULA,
+                indentation_level=indentation_level,
+                alignment=alignment,
                 row=row_idx,
                 column=col_idx,
             )
 
         except Exception as e:
-            self.logger.warning(
-                f"Failed to convert xlrd cell at {row_idx},{col_idx}: {e}"
-            )
+            self.logger.warning(f"Failed to convert xlrd cell at {row_idx},{col_idx}: {e}")
             return None
 
     def _get_data_type(self, value: Any) -> str:

@@ -133,8 +133,7 @@ Every extracted table includes comprehensive metadata:
 
 GridPorter supports multiple vision models:
 
-- **OpenAI GPT-4V**: Best accuracy, higher cost
-- **Claude 3 Vision**: Excellent understanding, competitive pricing
+- **OpenAI GPT-4o**: Best accuracy, higher cost
 - **Qwen2-VL (Ollama)**: Local deployment, no API costs
 - **Custom Models**: Plug in any vision-capable model
 
@@ -263,18 +262,6 @@ for table in result.tables:
         **table.pandas_import
     )
 ```
-
-## Pricing Model
-
-### Cloud (SaaS)
-- **Starter**: $0.01 per page (GPT-4V)
-- **Professional**: $0.005 per page (Claude 3)
-- **Enterprise**: Volume pricing + SLA
-
-### Self-Hosted
-- **Open Source**: Free with Ollama
-- **Commercial**: Licensed for proprietary use
-- **Enterprise**: Support + custom models
 
 ## Summary
 

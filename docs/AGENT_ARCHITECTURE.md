@@ -17,9 +17,14 @@ GridPorter uses a vision-enabled AI orchestration architecture where Large Langu
 ```mermaid
 graph TD
     Start([File Input]) --> FileTypeDetect[File Type Detection<br/>LOCAL + AI]
-    FileTypeDetect --> BitmapGen[Bitmap Generation<br/>LOCAL]
+    FileTypeDetect --> BitmapGen[Binary Bitmap Generation<br/>LOCAL]
 
-    BitmapGen --> VisionLLM[Vision-Enabled LLM<br/>ORCHESTRATOR]
+    BitmapGen --> BasicDetect[Basic Region Detection<br/>LOCAL]
+
+    BasicDetect --> QuadtreeAnalysis[Quadtree Analysis<br/>LOCAL]
+    QuadtreeAnalysis --> OptimizedBitmap[Optimized Bitmap Generation<br/>LOCAL]
+
+    OptimizedBitmap --> VisionLLM[Vision-Enabled LLM<br/>ORCHESTRATOR]
 
     VisionLLM --> RegionProposal[Region Proposals<br/>AI VISION]
     RegionProposal --> LocalVerify{Local Verification<br/>LOCAL}
@@ -49,6 +54,9 @@ graph TD
     NameGen --> Output([Rich JSON Output])
 
     style BitmapGen fill:#e1f5e1
+    style BasicDetect fill:#e1f5e1
+    style QuadtreeAnalysis fill:#e1f5e1
+    style OptimizedBitmap fill:#e1f5e1
     style FileTypeDetect fill:#e1f5e1
     style LocalVerify fill:#e1f5e1
     style GeometryCheck fill:#e1f5e1
@@ -72,42 +80,129 @@ graph TD
 
 ## Vision-Enabled Detection Pipeline
 
-### 1. Bitmap Generation
+### 1. Binary Bitmap Generation
 
-Convert spreadsheet filled cells into visual representation:
+Generate full-resolution binary bitmap for analysis:
+
+```python
+class BitmapAnalyzer:
+    """Generate and analyze bitmap representations"""
+
+    def generate_binary_bitmap(self, sheet_data: SheetData) -> Tuple[np.ndarray, dict]:
+        """Generate 1-bit bitmap at full resolution"""
+        # Efficient vectorized generation
+        # Preserves actual dimensions for accurate analysis
+```
+
+### 3. Quadtree-Based Visualization Planning
+
+Optimize bitmap generation using spatial analysis:
+
+```python
+class QuadtreeAnalyzer:
+    """Build structure-aware quadtree for efficient visualization"""
+
+    def analyze(self, sheet_data: SheetData, patterns: List[TablePattern]) -> QuadTree:
+        """Create quadtree that respects table boundaries"""
+
+        # Initialize quadtree with sheet bounds
+        quadtree = QuadTree(
+            bounds=(0, 0, sheet_data.max_row, sheet_data.max_column),
+            max_depth=8,
+            min_size=100  # Don't split below 100 cells
+        )
+
+        # Build tree respecting patterns
+        self._build_pattern_aware_tree(quadtree.root, sheet_data, patterns)
+
+        return quadtree
+
+    def plan_visualization(self, quadtree: QuadTree, max_regions: int = 10) -> List[VisualizationRegion]:
+        """Plan optimal regions for bitmap generation"""
+
+        # Get non-empty leaf nodes
+        data_nodes = quadtree.get_nodes_with_data()
+
+        # Prioritize by data density and size
+        prioritized = self._prioritize_nodes(data_nodes)
+
+        # Select top regions within GPT-4o constraints
+        selected = self._select_regions_for_visualization(
+            prioritized,
+            max_regions=max_regions,
+            max_total_size_mb=20
+        )
+
+        return selected
+```
+
+### 4. Memory-Efficient Bitmap Generation
+
+Convert spreadsheet filled cells into optimized visual representation:
 
 ```python
 class BitmapGenerator:
-    """Generate visual representation of spreadsheet structure"""
+    """Generate memory-efficient visual representation of spreadsheet structure"""
 
-    def generate_bitmap(self, sheet_data: np.ndarray) -> np.ndarray:
-        """Convert filled cells to bitmap"""
-        # Create binary mask of filled vs empty cells
-        filled_mask = ~pd.isna(sheet_data) & (sheet_data != '')
+    def __init__(self, bits_per_cell: int = None, compression_level: int = 6):
+        self.bits_per_cell = bits_per_cell  # Auto-select if None
+        self.compression_level = compression_level
+        self.max_image_size_mb = 20  # GPT-4o limit
 
-        # Optional: Add formatting information as different intensities
-        bitmap = self._add_format_intensity(filled_mask, sheet_data)
+    def generate_bitmap(self, sheet_data: SheetData,
+                       visualization_plan: VisualizationPlan) -> List[BitmapResult]:
+        """Generate optimized bitmaps based on visualization plan"""
 
-        # Resize for optimal vision model processing
-        return self._optimize_resolution(bitmap)
+        results = []
 
-    def generate_region_overlay(self, bitmap: np.ndarray,
-                              regions: List[BoundingBox]) -> np.ndarray:
-        """Overlay proposed regions for verification"""
-        return self._draw_bounding_boxes(bitmap, regions)
+        for region in visualization_plan.regions:
+            # Select appropriate representation
+            if region.total_cells > 1_000_000:
+                bitmap = self._generate_sampled(sheet_data, region)
+            elif region.total_cells > 100_000:
+                bitmap = self._generate_compressed(sheet_data, region, bits=2)
+            else:
+                bitmap = self._generate_full(sheet_data, region)
+
+            # Ensure GPT-4o compatibility
+            if len(bitmap) > self.max_image_size_mb * 1024 * 1024:
+                bitmap = self._recompress_for_size(bitmap)
+
+            results.append(BitmapResult(
+                image_data=bitmap,
+                metadata=region.metadata,
+                compression_info=self._get_compression_info(bitmap)
+            ))
+
+        return results
+
+    def _generate_compressed(self, sheet_data: SheetData, region: Region, bits: int = 2):
+        """Generate bitmap with compressed cell representation"""
+
+        # Extract region data
+        region_data = self._extract_region(sheet_data, region.bounds)
+
+        # Encode cells with reduced bits
+        if bits == 2:
+            # 2-bit: empty (00), filled (01), header (10), special (11)
+            encoded = self._encode_2bit(region_data)
+        elif bits == 4:
+            # 4-bit: more nuanced representation
+            encoded = self._encode_4bit(region_data)
+
+        # Convert to PNG with compression
+        return self._to_png(encoded, compression_level=self.compression_level)
 ```
 
-### 2. Vision Model Integration
+### 5. Vision Model Integration
 
 ```python
 class VisionOrchestrator:
     """Orchestrate table detection using vision models"""
 
     def __init__(self, config: Config):
-        if config.vision_model == "gpt-4-vision":
-            self.vision_llm = OpenAIVision(model="gpt-4-vision-preview")
-        elif config.vision_model == "claude-3-vision":
-            self.vision_llm = ClaudeVision(model="claude-3-opus")
+        if config.vision_model == "gpt-4o":
+            self.vision_llm = OpenAIVision(model="gpt-4o")
         elif config.vision_model == "qwen2-vl":
             self.vision_llm = OllamaVision(model="qwen2.5-vl:7b")
 
@@ -135,7 +230,7 @@ class VisionOrchestrator:
         return self._parse_region_proposals(response)
 ```
 
-### 3. Region Verification & Geometry Analysis
+### 6. Region Verification & Geometry Analysis
 
 ```python
 class RegionVerifier:
@@ -185,7 +280,7 @@ class RegionVerifier:
         return filled_area / rect_area if rect_area > 0 else 0.0
 ```
 
-### 4. Semantic Table Understanding
+### 7. Semantic Table Understanding
 
 ```python
 class SemanticAnalyzer:
@@ -264,6 +359,52 @@ class FormattingInfo:
     formatting_patterns: Dict[str, Any]
 ```
 
+## Handling Large and Sparse Spreadsheets
+
+### Key Challenges
+1. **Excel Size Limits**: Recent Excel supports 1M×16K cells (17B cells total)
+2. **Memory Constraints**: Full bitmap would require 17GB+ memory
+3. **GPT-4o Limits**: 20MB max image size
+4. **Sparse Data**: Most cells empty but structure must be preserved
+
+### Solution Architecture
+
+```python
+class LargeSheetPipeline:
+    """Pipeline for handling large and sparse spreadsheets"""
+
+    def process_large_sheet(self, sheet_data: SheetData) -> VisionAnalysisResult:
+        # Step 1: Generate binary bitmap
+        bitmap, metadata = self.bitmap_analyzer.generate_binary_bitmap(sheet_data)
+
+        # Step 2: Detect regions using connected components
+        regions = self.bitmap_analyzer.detect_connected_regions(bitmap)
+
+        # Step 3: Build structure-aware quadtree
+        quadtree = self.quadtree_analyzer.analyze(sheet_data, regions)
+
+        # Step 4: Plan visualization strategy
+        plan = self.visualization_planner.create_plan(
+            tables=tables,
+            quadtree=quadtree,
+            constraints=GPT4oConstraints(max_size_mb=20, max_regions=10)
+        )
+
+        # Step 5: Generate optimized bitmaps
+        bitmaps = self.bitmap_generator.generate_from_plan(sheet_data, plan)
+
+        # Step 6: Send to vision model
+        results = []
+        for bitmap in bitmaps:
+            result = await self.vision_model.analyze(
+                bitmap.image_data,
+                context=bitmap.metadata
+            )
+            results.append(result)
+
+        return self._consolidate_results(results)
+```
+
 ## Cost Optimization Strategies
 
 ### 1. Intelligent Bitmap Resolution
@@ -318,10 +459,10 @@ async def process_workbook_batch(self, workbook: Workbook) -> List[TableInfo]:
 
 ## Configuration Examples
 
-### Vision-Enabled with GPT-4V
+### Vision-Enabled with GPT-4o
 ```python
 GridPorter(
-    vision_model="gpt-4-vision",
+    vision_model="gpt-4o",
     vision_confidence_threshold=0.8,
     enable_semantic_analysis=True,
     preserve_formatting=True
@@ -342,42 +483,83 @@ GridPorter(
 ```python
 GridPorter(
     detection_mode="hybrid",
-    vision_model="claude-3-opus",
+    vision_model="gpt-4o",
     fallback_to_traditional=True,
     complexity_threshold=0.7  # Use vision for complex sheets
+)
+```
+
+### Default Mode (Best Performance)
+```python
+GridPorter(
+    vision_model="gpt-4o"
+)
+```
+
+### Large Sparse Spreadsheet Mode
+```python
+GridPorter(
+    vision_model="gpt-4o",
+    enable_sparse_detection=True,
+    enable_quadtree_optimization=True,
+    bits_per_cell=2,  # Use compressed representation
+    max_image_size_mb=20,  # GPT-4o limit
+    compression_level=6,  # PNG compression
+    max_regions_per_sheet=10  # Limit number of images
 )
 ```
 
 ## Implementation Phases
 
 ### Phase 1: Vision Infrastructure
-- Bitmap generation from spreadsheets
-- Vision model integration (OpenAI, Anthropic, Ollama)
+- Binary bitmap generation from spreadsheets
+- Basic connected component detection
+- Vision model integration (OpenAI, Ollama)
 - Basic region proposal system
+- Quadtree-based visualization planning
+- Memory-efficient bitmap modes (2/4-bit)
+- GPT-4o size optimization (<20MB)
+- Pattern-aware verification for sparse patterns
+- **COMPLETE**: Hierarchical pattern detection (PatternType.HIERARCHICAL)
 
 ### Phase 2: Verification Pipeline
 - Local verification algorithms
 - Geometry analysis (rectangularness, filledness)
 - Feedback loop implementation
+- Accuracy improvements
 
 ### Phase 3: Semantic Understanding
 - Multi-row header detection
-- Hierarchical data handling
+- **Hierarchical data handling** (fully implemented)
+  - Detects indented rows (e.g., financial statements)
+  - Identifies parent-child relationships
+  - Finds subtotal/total rows
+  - Preserves hierarchical structure for analysis
 - Format preservation logic
+- **NEW**: Sparse table structure preservation
 
 ### Phase 4: Production Optimization
 - Caching system
 - Batch processing
 - Cost monitoring
+- **NEW**: Adaptive representation selection
+- **NEW**: Hierarchical visualization for large sheets
 
 ## Summary
 
 This architecture revolutionizes spreadsheet understanding by:
 
-1. **Using visual AI** to understand table layout as humans do
-2. **Orchestrating with intelligence** rather than rigid algorithms
-3. **Preserving semantics** that traditional parsers destroy
-4. **Providing rich metadata** for perfect data extraction
-5. **Optimizing costs** through intelligent caching and batching
+This architecture revolutionizes spreadsheet understanding by:
 
-The result is a system that can handle the messiest real-world spreadsheets with the accuracy of human understanding and the reliability of automated verification.
+1. **Using visual AI** to understand table layout as humans do
+2. **Fast bitmap generation** for spatial analysis
+3. **Efficient region detection** using connected components
+4. **Quadtree optimization** for handling large sheets
+5. **Smart visualization planning** within GPT-4o's 20MB limit
+6. **Handling massive spreadsheets** up to Excel's limits (1M×16K cells)
+7. **Adaptive compression** based on sheet size and density
+8. **Pattern detection** for sparse data structures
+9. **Multi-scale analysis** from full sheet to individual regions
+10. **Robust verification** to ensure accuracy
+
+The result is a system that can handle the messiest real-world spreadsheets with the accuracy of human understanding and the reliability of automated verification, while efficiently processing even the largest Excel files.

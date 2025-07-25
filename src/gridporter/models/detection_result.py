@@ -40,8 +40,6 @@ class DetectionResult(BaseModel):
     timestamp: datetime = Field(
         default_factory=datetime.now, description="When detection was performed"
     )
-    llm_calls: int = Field(0, ge=0, description="Number of LLM calls made")
-    llm_tokens: int = Field(0, ge=0, description="Total LLM tokens used")
 
     def __init__(self, **data):
         """Initialize and calculate total tables."""
@@ -66,9 +64,5 @@ class DetectionResult(BaseModel):
             "total_tables": self.total_tables,
             "detection_time": f"{self.detection_time:.2f}s",
             "success_rate": f"{self.success_rate * 100:.1f}%",
-            "llm_usage": {
-                "calls": self.llm_calls,
-                "tokens": self.llm_tokens,
-            },
             "tables_by_sheet": {sheet.name: len(sheet.tables) for sheet in self.sheets},
         }
