@@ -9,6 +9,8 @@ from ..models.sheet_data import SheetData
 
 if TYPE_CHECKING:
     from ..config import GridPorterConfig
+from ..detectors.format_analyzer import SemanticFormatAnalyzer, TableStructure
+from ..detectors.multi_header_detector import MultiHeaderDetector
 from .bitmap_analyzer import BitmapAnalyzer
 from .bitmap_generator import BitmapGenerator
 from .pattern_detector import (
@@ -39,6 +41,8 @@ class PipelineResult:
     visualization_regions: list[VisualizationRegion]
     analysis_metadata: dict[str, Any]
     verification_results: dict[str, VerificationResult] | None = None
+    semantic_structures: dict[str, TableStructure] | None = None
+    multi_row_headers: dict[str, Any] | None = None
 
 
 class IntegratedVisionPipeline:
@@ -70,6 +74,10 @@ class IntegratedVisionPipeline:
         )
         self.quadtree_analyzer = QuadtreeAnalyzer(pattern_aware=True)
         self.max_regions_for_llm = max_regions_for_llm
+
+        # Semantic analysis components
+        self.format_analyzer = SemanticFormatAnalyzer()
+        self.multi_header_detector = MultiHeaderDetector()
 
         # Region verification
         self.enable_verification = enable_verification
@@ -122,6 +130,10 @@ class IntegratedVisionPipeline:
         logger.info("Phase 4: Visualization planning")
         visualization_regions = self._phase4_visualization_planning(quadtree)
 
+        # Phase 5: Semantic analysis (Week 5 enhancement)
+        logger.info("Phase 5: Semantic analysis")
+        semantic_structures, multi_headers = self._phase5_semantic_analysis(sheet_data, patterns)
+
         # Compile results
         metadata = {
             "sheet_dimensions": (sheet_data.max_row + 1, sheet_data.max_column + 1),
@@ -130,6 +142,8 @@ class IntegratedVisionPipeline:
             "visualization_regions": len(visualization_regions),
             "pattern_types": self._count_pattern_types(patterns),
             "orientations": self._count_orientations(patterns),
+            "has_multi_row_headers": bool(multi_headers),
+            "semantic_tables_found": len(semantic_structures),
         }
 
         result = PipelineResult(
@@ -137,6 +151,8 @@ class IntegratedVisionPipeline:
             visualization_regions=visualization_regions,
             analysis_metadata=metadata,
             verification_results=getattr(self, "_verification_results", None),
+            semantic_structures=semantic_structures,
+            multi_row_headers=multi_headers,
         )
 
         if HAS_TELEMETRY:
@@ -449,6 +465,76 @@ class IntegratedVisionPipeline:
                 )
 
         return feedback
+
+    def _phase5_semantic_analysis(
+        self, sheet_data: SheetData, patterns: list[TablePattern]
+    ) -> tuple[dict[str, TableStructure], dict[str, Any]]:
+        """Phase 5: Perform semantic analysis on detected patterns.
+
+        Args:
+            sheet_data: Sheet data
+            patterns: Detected table patterns
+
+        Returns:
+            Tuple of (semantic_structures, multi_row_headers)
+        """
+        semantic_structures = {}
+        multi_headers = {}
+
+        for i, pattern in enumerate(patterns):
+            pattern_id = f"table_{i}"
+
+            # Convert pattern bounds to TableRange
+            from ..models.table import TableRange
+
+            table_range = TableRange(
+                start_row=pattern.bounds.start_row,
+                start_col=pattern.bounds.start_col,
+                end_row=pattern.bounds.end_row,
+                end_col=pattern.bounds.end_col,
+            )
+
+            # Detect multi-row headers if pattern indicates headers
+            if pattern.multi_row_headers or len(pattern.header_rows) > 1:
+                multi_header = self.multi_header_detector.detect_multi_row_headers(
+                    sheet_data, table_range
+                )
+                if multi_header:
+                    multi_headers[pattern_id] = {
+                        "header_rows": list(
+                            range(multi_header.start_row, multi_header.end_row + 1)
+                        ),
+                        "column_mappings": multi_header.column_mappings,
+                        "confidence": multi_header.confidence,
+                    }
+                    header_row_count = multi_header.end_row - multi_header.start_row + 1
+                else:
+                    header_row_count = len(pattern.header_rows) if pattern.header_rows else 1
+            else:
+                header_row_count = len(pattern.header_rows) if pattern.header_rows else 1
+
+            # Analyze semantic structure
+            structure = self.format_analyzer.analyze_table_structure(
+                sheet_data, table_range, header_row_count
+            )
+            semantic_structures[pattern_id] = structure
+
+            # Update pattern characteristics with semantic info
+            pattern.characteristics.update(
+                {
+                    "has_subtotals": structure.has_subtotals,
+                    "has_grand_total": structure.has_grand_total,
+                    "section_count": len(structure.sections),
+                    "semantic_blank_rows": len(structure.preserve_blank_rows),
+                }
+            )
+
+        logger.info(
+            f"Semantic analysis complete: {len(multi_headers)} multi-row headers, "
+            f"{sum(1 for s in semantic_structures.values() if s.has_subtotals)} tables with subtotals"
+        )
+
+        return semantic_structures, multi_headers
 
     @classmethod
     def from_config(cls, config: "GridPorterConfig") -> "IntegratedVisionPipeline":

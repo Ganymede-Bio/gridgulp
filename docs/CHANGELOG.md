@@ -5,7 +5,83 @@ All notable changes to GridPorter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.1] - 2025-07-27
+
+### Added
+- **Complex Table Detection**: New agent-based system for detecting complex spreadsheet structures
+  - `ComplexTableAgent`: Orchestrates multi-row header detection, semantic analysis, and format preservation
+  - Handles financial reports, pivot tables, and hierarchical data structures
+  - Confidence scoring based on multiple detection strategies
+  - Format-aware detection preserving semantic meaning
+
+- **Multi-Row Header Detection**: Advanced header analysis with merged cell support
+  - `MultiHeaderDetector`: Identifies hierarchical headers spanning multiple rows
+  - Column hierarchy mapping for nested headers
+  - Merged cell analysis with span detection
+  - Support for complex pivot table structures
+  - Header confidence scoring based on formatting and content
+
+- **Semantic Structure Analysis**: Understanding table meaning beyond layout
+  - `SemanticFormatAnalyzer`: Detects sections, subtotals, and grand totals
+  - Row type classification (header, data, total, separator, section)
+  - Format pattern detection for consistent styling
+  - Preserves semantic blank rows and formatting
+  - Section boundary detection for grouped data
+
+- **Merged Cell Analysis**: Comprehensive merged cell handling
+  - `MergedCellAnalyzer`: Detects and maps merged cell regions
+  - Column span calculation for proper data alignment
+  - Header cell hierarchy construction
+  - Support for both Excel native and custom merge formats
+
+- **Feature Collection System**: Telemetry for continuous improvement
+  - `FeatureCollector`: Records detailed detection metrics
+  - SQLite-based feature storage with 40+ metrics
+  - Geometric features (rectangularness, density, contiguity)
+  - Pattern features (type, orientation, headers)
+  - Format features (bold headers, totals, sections)
+  - Export to CSV for analysis in pandas/Excel
+  - Configurable retention and privacy-preserving
+
+- **Comprehensive Test Suite**: 100% test coverage for semantic features
+  - 20 test scenarios covering all detection strategies
+  - Integration tests for complex real-world patterns
+  - Performance benchmarks for large files
+  - Feature collection validation tests
+
+### Changed
+- **Configuration System**: Enhanced with new options
+  - `use_vision`: Toggle vision-based detection (default: True)
+  - `enable_feature_collection`: Enable telemetry (default: False)
+  - `feature_db_path`: SQLite database location
+  - `feature_retention_days`: Data retention period (default: 30)
+  - All options configurable via environment variables
+
+- **GridPorter Core**: Enhanced with semantic understanding
+  - Integrated ComplexTableAgent into main detection pipeline
+  - Added metadata fields for tracking LLM usage
+  - Improved confidence scoring with multi-factor analysis
+  - Better handling of sparse and complex spreadsheets
+
+### Fixed
+- Improved handling of sparse spreadsheets with many empty cells
+- Better detection of table boundaries in complex layouts
+- More accurate confidence scoring for multi-table sheets
+- Fixed edge cases in merged cell detection
+- Resolved issues with format preservation in detection results
+
+### Examples
+- `week5_complex_tables_with_features.py`: Demonstrates complex financial report detection
+- `week5_feature_collection_example.py`: Shows feature collection and analysis workflow
+- `feature_collection_example.py`: Basic feature collection usage
+
+### Developer Experience
+- All code now passes ruff linting standards
+- Improved type hints throughout the codebase
+- Better error messages for debugging
+- Comprehensive docstrings for all new components
+
+## [0.2.0] - 2025-07-25
 
 ### Added
 - **Region Verification System**: AI proposal validation using geometry analysis
@@ -54,7 +130,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI tool with progress indicators
 - Full agent implementation with openai-agents-python
 
-## [0.2.0] - 2025-01-25
+## [0.2.0] - 2025-07-25
 
 ### Added
 - **Vision Module Implementation**: Complete vision-based table detection system
@@ -75,7 +151,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Created hierarchical pattern detector for financial statements
 - Built integrated pipeline coordinating multiple detection strategies
 
-## [0.1.0] - 2025-01-23
+## [0.1.0] - 2025-07-23
 
 ### Added
 - **Project Foundation**: Complete project structure and build system
@@ -112,13 +188,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Roadmap
 
-### [0.2.0] - Planned
-- Google Sheets API integration
-- Improved merged cell handling
-- Performance optimizations for large files
-- WebSocket support for real-time updates
-
 ### [0.3.0] - Planned
+- Google Sheets API integration
+- WebSocket support for real-time updates
+- Real-time collaboration features
+- Cloud storage integration
+
+### [0.4.0] - Planned
 - ML-based table detection using table-transformer
 - Automatic data type inference
 - Table relationship detection
@@ -131,5 +207,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Performance guarantees
 - Enterprise features
 
-[Unreleased]: https://github.com/yourusername/gridporter/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/yourusername/gridporter/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/yourusername/gridporter/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/yourusername/gridporter/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/yourusername/gridporter/releases/tag/v0.1.0

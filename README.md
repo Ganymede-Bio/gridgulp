@@ -6,19 +6,49 @@ An intelligent spreadsheet ingestion framework with automatic multi-table detect
 
 GridPorter is a Python framework that automatically detects and extracts multiple tables from complex spreadsheets (Excel and CSV files). It uses a hierarchical detection strategy combined with LLM-powered naming suggestions to provide a robust solution for spreadsheet data extraction.
 
+### What's New in v0.2.1
+
+- **Semantic Understanding**: GridPorter now understands the meaning and structure of complex tables, not just their layout
+- **Multi-Row Headers**: Automatic detection of hierarchical headers with merged cells
+- **Financial Reports**: Built-in support for financial statements, pivot tables, and reports with subtotals
+- **Feature Collection**: Optional telemetry system to help improve detection accuracy
+- **100% Test Coverage**: Comprehensive test suite ensuring reliability
+
 ## Features
 
 - **Multi-format Support**: Handles Excel files (.xlsx, .xls, .xlsm, .xlsb) and CSV files
 - **Intelligent Table Detection**: Multiple detection strategies including:
   - Single table fast check
   - Excel ListObjects detection
-  - Mask-based island detection
-  - Format and header heuristics
-- **AI-Powered Naming**: Uses LLMs to suggest meaningful names for detected ranges
-- **File Type Detection**: Uses file magic to correctly identify file types
-- **Confidence Scoring**: Every detection includes confidence metrics
-- **Async Processing**: Built for performance with async I/O operations
-- **Extensible Architecture**: Easy to add new detection strategies or file formats
+  - Vision-based detection with bitmap analysis
+  - Complex table agent for semantic understanding
+  - Multi-row header detection with merged cells
+  - Format and semantic structure analysis
+- **Semantic Understanding** (New in v0.2.1):
+  - Multi-row header detection with column hierarchy
+  - Merged cell analysis and mapping
+  - Section and subtotal detection
+  - Format pattern recognition
+  - Preservation of semantic blank rows
+- **AI-Powered Features**:
+  - Table naming suggestions using LLMs
+  - Vision model integration for complex layouts
+  - Confidence scoring with multi-factor analysis
+- **Feature Collection System**:
+  - Telemetry for continuous improvement
+  - 40+ detection metrics tracked
+  - Privacy-preserving local storage
+  - Export capabilities for analysis
+- **Performance & Reliability**:
+  - Async processing for better performance
+  - High-speed CalamineReader for Excel files
+  - Memory-efficient processing of large files
+  - Comprehensive error handling
+- **Developer Experience**:
+  - Type-safe with Pydantic 2 models
+  - Extensive configuration options
+  - Easy to extend with new detectors
+  - Well-documented API
 
 ## Repository Setup
 
@@ -126,8 +156,6 @@ pip install gridporter[visualization]
 
 ## Quick Start
 
-> **Note**: This is v0.1.0 (Foundation Release). The examples below show the intended API design. Core detection functionality will be implemented in upcoming releases.
-
 ```python
 import asyncio
 from gridporter import GridPorter
@@ -136,28 +164,88 @@ async def main():
     # Initialize GridPorter
     porter = GridPorter()
 
-    # Detect tables in an Excel file (placeholder implementation in v0.1.0)
+    # Detect tables in an Excel file
     result = await porter.detect_tables("data/sales_report.xlsx")
 
-    # Print basic file information
+    # Print file information
     print(f"File: {result.file_info.path}")
     print(f"Type: {result.file_info.type}")
     print(f"Size: {result.file_info.size_mb:.1f} MB")
-    print(f"Processing time: {result.detection_time:.2f}s")
+    print(f"Processing time: {result.metadata['detection_time']:.2f}s")
 
-    # In future versions, this will show detected tables:
-    # for sheet in result.sheets:
-    #     print(f"\nSheet: {sheet.name}")
-    #     for table in sheet.tables:
-    #         print(f"  Table: {table.suggested_name} ({table.range.excel_range})")
-    #         print(f"  Confidence: {table.confidence:.2%}")
-    #         print(f"  Method: {table.detection_method}")
+    # Show detected tables
+    for sheet in result.sheets:
+        print(f"\nSheet: {sheet.name}")
+        for table in sheet.tables:
+            print(f"  Table: {table.suggested_name or table.range}")
+            print(f"  Range: {table.range}")
+            print(f"  Confidence: {table.confidence:.2%}")
+            print(f"  Method: {table.detection_method}")
+            if table.multi_row_headers:
+                print(f"  Header rows: {table.multi_row_headers}")
 
 # Run the async function
 asyncio.run(main())
 ```
 
-### Current v0.1.0 Capabilities
+### Advanced Features (v0.2.1)
+
+#### Multi-Row Header Detection
+
+```python
+from gridporter import GridPorter, Config
+
+# Enable all advanced features
+config = Config(
+    use_vision=True,  # Use vision-based detection
+    suggest_names=True,  # Use LLM for table naming
+    confidence_threshold=0.7
+)
+
+porter = GridPorter(config=config)
+
+# Detect complex financial report
+result = await porter.detect_tables("financial_report.xlsx")
+
+# The system automatically detects:
+# - Multi-row headers with merged cells
+# - Hierarchical column structures
+# - Subtotals and grand totals
+# - Section boundaries
+```
+
+#### Semantic Structure Analysis
+
+```python
+# GridPorter understands semantic meaning
+for table in result.sheets[0].tables:
+    if table.semantic_features:
+        print(f"Table has {table.semantic_features['section_count']} sections")
+        print(f"Contains subtotals: {table.semantic_features['has_subtotals']}")
+        print(f"Has grand total: {table.semantic_features['has_grand_total']}")
+```
+
+#### Feature Collection for Continuous Improvement
+
+```python
+# Enable feature collection to help improve detection
+config = Config(
+    enable_feature_collection=True,
+    feature_db_path="~/.gridporter/features.db"
+)
+
+porter = GridPorter(config=config)
+
+# Features are automatically collected during detection
+result = await porter.detect_tables("complex_spreadsheet.xlsx")
+
+# Export features for analysis
+from gridporter.telemetry import get_feature_collector
+collector = get_feature_collector()
+collector.export_features("detection_features.csv")
+```
+
+### Basic Configuration
 
 ```python
 from gridporter import GridPorter, Config
@@ -319,8 +407,20 @@ GridPorter returns structured data using Pydantic models:
                     "range": "A1:E100",
                     "suggested_name": "sales_data",
                     "confidence": 0.95,
-                    "detection_method": "island_detection",
+                    "detection_method": "complex_detection",
                     "headers": ["Date", "Product", "Quantity", "Price", "Total"],
+                    "multi_row_headers": 2,  // Number of header rows
+                    "column_hierarchy": {  // Hierarchical header mapping
+                        "2": ["Sales", "Quantity"],
+                        "3": ["Sales", "Price"],
+                        "4": ["Sales", "Total"]
+                    },
+                    "semantic_features": {
+                        "has_subtotals": true,
+                        "has_grand_total": true,
+                        "section_count": 3,
+                        "has_merged_cells": true
+                    },
                     "data_preview": [...]
                 }
             ]
@@ -328,7 +428,10 @@ GridPorter returns structured data using Pydantic models:
     ],
     "metadata": {
         "detection_time": 1.23,
-        "methods_used": ["single_table", "island_detection", "llm_naming"]
+        "methods_used": ["single_table", "complex_detection", "semantic_analysis"],
+        "llm_calls": 2,
+        "llm_tokens": 450,
+        "feature_collection_enabled": true
     }
 }
 ```
@@ -363,6 +466,47 @@ async def process_batch(file_paths):
     results = await asyncio.gather(*tasks)
 
     return results
+```
+
+### Complex Table Detection
+
+```python
+from gridporter.agents import ComplexTableAgent
+from gridporter.config import Config
+
+# Direct usage of ComplexTableAgent for advanced control
+agent = ComplexTableAgent(Config())
+
+# Detect complex tables with semantic understanding
+tables = await agent.detect_complex_tables(sheet_data)
+
+for table in tables:
+    print(f"Table: {table.range}")
+    print(f"Header rows: {table.multi_row_headers}")
+    print(f"Has sections: {table.semantic_features.get('section_count', 0) > 0}")
+    print(f"Confidence: {table.confidence:.2%}")
+```
+
+### Feature Analysis
+
+```python
+from gridporter.telemetry import get_feature_collector
+import pandas as pd
+
+# Analyze collected features
+collector = get_feature_collector()
+if collector.enabled:
+    # Get summary statistics
+    stats = collector.get_summary_statistics()
+    print(f"Total detections: {stats['total_records']}")
+    print(f"Average confidence: {stats['avg_confidence']:.3f}")
+
+    # Export for detailed analysis
+    collector.export_features("features.csv")
+
+    # Load in pandas for analysis
+    df = pd.read_csv("features.csv")
+    print(df.groupby('pattern_type')['confidence'].mean())
 ```
 
 ### Visualization
@@ -444,7 +588,20 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Roadmap
 
+### Completed (v0.2.1)
+- [x] Multi-row header detection
+- [x] Merged cell analysis
+- [x] Semantic structure understanding
+- [x] Feature collection system
+- [x] Complex table detection agent
+
+### Upcoming (v0.3.0)
 - [ ] Support for Google Sheets API
+- [ ] WebSocket support for real-time updates
+- [ ] Cloud storage integration
+- [ ] Real-time collaboration features
+
+### Future (v0.4.0+)
 - [ ] ML-based table detection using table-transformer
 - [ ] Automatic data type inference
 - [ ] Table relationship detection

@@ -8,7 +8,9 @@ from gridporter.models import DetectionResult, FileInfo, FileType
 from gridporter.readers import ReaderError, create_reader
 from gridporter.utils.file_magic import detect_file_info
 
+from .agents.complex_table_agent import ComplexTableAgent
 from .config import Config
+from .vision.integrated_pipeline import IntegratedVisionPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -52,9 +54,13 @@ class GridPorter:
 
         self.config = config
         self._setup_logging()
+        self._setup_telemetry()
 
-        # Initialize components (will be implemented in later phases)
-        self._detector_agent = None
+        # Initialize components
+        self._complex_table_agent = ComplexTableAgent(config)
+        self._vision_pipeline = (
+            IntegratedVisionPipeline.from_config(config) if config.use_vision else None
+        )
         self._readers = {}
 
         logger.info(f"GridPorter initialized with config: {config}")
@@ -66,6 +72,20 @@ class GridPorter:
             format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             filename=self.config.log_file,
         )
+
+    def _setup_telemetry(self) -> None:
+        """Setup telemetry and feature collection."""
+        # Initialize feature collection if enabled
+        if self.config.enable_feature_collection:
+            try:
+                from .telemetry import get_feature_collector
+
+                feature_collector = get_feature_collector()
+                feature_collector.initialize(enabled=True, db_path=self.config.feature_db_path)
+                logger.info("Feature collection initialized")
+            except Exception as e:
+                logger.error(f"Failed to initialize feature collection: {e}")
+                # Don't fail the entire initialization
 
     async def detect_tables(self, file_path: str | Path) -> DetectionResult:
         """Detect tables in a spreadsheet file.
@@ -102,33 +122,88 @@ class GridPorter:
             logger.error(f"Failed to read file: {e}")
             raise ValueError(f"Could not read file: {e}") from e
 
-        # For now, create a basic result with file data
-        # In future versions, this will run actual table detection algorithms
+        # Run table detection using complex table agent
         sheets = []
+        total_llm_calls = 0
+        total_llm_tokens = 0
+
         for sheet_data in file_data.sheets:
             from gridporter.models import SheetResult
 
-            sheet_result = SheetResult(
-                name=sheet_data.name,
-                tables=[],  # Will be populated by detection algorithms
-                processing_time=0.0,
-                errors=[],
-            )
+            sheet_start_time = time.time()
+            sheet_errors = []
+
+            # Set file path and type for feature collection
+            sheet_data.file_path = str(file_path)
+            sheet_data.file_type = file_info.type.value
+
+            try:
+                # Run vision pipeline if enabled
+                vision_result = None
+                if self.config.use_vision and self._vision_pipeline:
+                    pipeline_result = self._vision_pipeline.process_sheet(sheet_data)
+                    # Convert pipeline result to vision result format
+                    # (This is simplified - real implementation would do proper conversion)
+                    vision_result = pipeline_result
+
+                # Detect complex tables
+                detection_result = await self._complex_table_agent.detect_complex_tables(
+                    sheet_data,
+                    vision_result=vision_result,
+                    simple_tables=None,  # Could pass simple tables from initial detection
+                )
+
+                # Track LLM usage if applicable
+                if hasattr(detection_result, "llm_calls"):
+                    total_llm_calls += detection_result.llm_calls
+                if hasattr(detection_result, "llm_tokens"):
+                    total_llm_tokens += detection_result.llm_tokens
+
+                sheet_result = SheetResult(
+                    name=sheet_data.name,
+                    tables=detection_result.tables,
+                    processing_time=time.time() - sheet_start_time,
+                    errors=sheet_errors,
+                    metadata=detection_result.detection_metadata,
+                )
+            except Exception as e:
+                logger.error(f"Error processing sheet {sheet_data.name}: {e}")
+                sheet_errors.append(str(e))
+                sheet_result = SheetResult(
+                    name=sheet_data.name,
+                    tables=[],
+                    processing_time=time.time() - sheet_start_time,
+                    errors=sheet_errors,
+                )
+
             sheets.append(sheet_result)
 
         detection_time = time.time() - start_time
+
+        # Collect methods used
+        methods_used = ["file_reading", "complex_detection"]
+        if self.config.use_vision:
+            methods_used.extend(["vision_analysis", "bitmap_detection"])
 
         result = DetectionResult(
             file_info=file_info,
             sheets=sheets,
             detection_time=detection_time,
-            methods_used=["file_reading"],
-            llm_calls=0,
-            llm_tokens=0,
+            methods_used=methods_used,
             metadata={
                 "file_data_available": True,
                 "total_cells": sum(len(sheet.get_non_empty_cells()) for sheet in file_data.sheets),
                 "reader_metadata": file_data.metadata,
+                "total_tables": sum(len(sheet.tables) for sheet in sheets),
+                "vision_enabled": self.config.use_vision,
+                "multi_row_headers_detected": sum(
+                    1
+                    for sheet in sheets
+                    for table in sheet.tables
+                    if table.header_info and table.header_info.is_multi_row
+                ),
+                "llm_calls": total_llm_calls,
+                "llm_tokens": total_llm_tokens,
             },
         )
 

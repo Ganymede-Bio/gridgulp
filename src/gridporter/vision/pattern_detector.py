@@ -17,6 +17,14 @@ try:
 except ImportError:
     HAS_TELEMETRY = False
 
+# Optional feature collection import
+try:
+    from ..telemetry import get_feature_collector
+
+    HAS_FEATURE_COLLECTION = True
+except ImportError:
+    HAS_FEATURE_COLLECTION = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -75,6 +83,8 @@ class TablePattern:
     header_cols: list[int] = None
     characteristics: dict[str, Any] = None
     orientation: TableOrientation = TableOrientation.UNKNOWN
+    multi_row_headers: bool = False
+    header_end_row: int = None
 
     def __post_init__(self):
         if self.header_rows is None:
@@ -83,6 +93,10 @@ class TablePattern:
             self.header_cols = []
         if self.characteristics is None:
             self.characteristics = {}
+        # Auto-detect multi-row headers
+        if len(self.header_rows) > 1:
+            self.multi_row_headers = True
+            self.header_end_row = max(self.header_rows) if self.header_rows else None
 
 
 class SparsePatternDetector:
@@ -139,6 +153,56 @@ class SparsePatternDetector:
             duration = time.time() - start_time
             metrics.record_duration("pattern_detection", duration)
             metrics.record_value("patterns_detected", len(patterns))
+
+        # Record features if collection is enabled
+        if HAS_FEATURE_COLLECTION:
+            try:
+                feature_collector = get_feature_collector()
+                if feature_collector.enabled:
+                    for pattern in patterns:
+                        # Build pattern features
+                        pattern_features = {
+                            "pattern_type": pattern.pattern_type.value,
+                            "orientation": pattern.orientation.value
+                            if pattern.orientation
+                            else None,
+                            "has_multi_headers": len(pattern.header_rows) > 1
+                            if pattern.header_rows
+                            else False,
+                            "header_row_count": len(pattern.header_rows)
+                            if pattern.header_rows
+                            else 0,
+                            "fill_ratio": pattern.characteristics.get("fill_ratio")
+                            if pattern.characteristics
+                            else None,
+                            "header_density": pattern.characteristics.get("header_density")
+                            if pattern.characteristics
+                            else None,
+                        }
+
+                        # Build content features
+                        content_features = {
+                            "total_cells": pattern.bounds.total_cells,
+                            "aspect_ratio": pattern.characteristics.get("aspect_ratio")
+                            if pattern.characteristics
+                            else None,
+                        }
+
+                        # Record the detection
+                        feature_collector.record_detection(
+                            file_path=getattr(sheet_data, "file_path", "unknown"),
+                            file_type=getattr(sheet_data, "file_type", "unknown"),
+                            sheet_name=getattr(sheet_data, "name", None),
+                            table_range=pattern.range,
+                            detection_method="pattern_detection",
+                            confidence=pattern.confidence,
+                            success=True,
+                            pattern_features=pattern_features,
+                            content_features=content_features,
+                            processing_time_ms=int(duration * 1000) if HAS_TELEMETRY else None,
+                        )
+            except Exception as e:
+                logger.debug(f"Failed to record pattern features: {e}")
 
         return patterns
 
@@ -237,6 +301,10 @@ class SparsePatternDetector:
         Name  | Age | City    <- Dense header row
         Alice | 25  |         <- Sparse data
         Bob   |     | London  <- Sparse data
+
+        Also supports multi-row headers:
+        Department | Sales         | Support       <- Row 1
+                   | Q1   | Q2     | Q1   | Q2     <- Row 2
         """
         patterns = []
 
@@ -250,12 +318,30 @@ class SparsePatternDetector:
             if header_start_col is None:
                 continue
 
-            # Look for data below the header
+            # Check for multi-row headers
+            header_rows = [header_row]
+            header_end_row = header_row
+
+            # Look for additional header rows
+            if self._has_merged_cells_in_row(
+                sheet_data, header_row, header_start_col, header_end_col
+            ):
+                # Likely multi-row header, check subsequent rows
+                for next_row in range(header_row + 1, min(header_row + 5, sheet_data.max_row + 1)):
+                    if self._is_likely_header_row(
+                        sheet_data, next_row, header_start_col, header_end_col
+                    ):
+                        header_rows.append(next_row)
+                        header_end_row = next_row
+                    else:
+                        break
+
+            # Look for data below the header(s)
             data_end_row = self._find_data_end_row(
-                sheet_data, header_row + 1, header_start_col, header_end_col
+                sheet_data, header_end_row + 1, header_start_col, header_end_col
             )
 
-            if data_end_row is None or data_end_row - header_row < self.min_table_size[0]:
+            if data_end_row is None or data_end_row - header_end_row < self.min_table_size[0]:
                 continue
 
             # Check if there's enough data
@@ -280,16 +366,19 @@ class SparsePatternDetector:
                     pattern_type=PatternType.HEADER_DATA,
                     bounds=bounds,
                     confidence=self._calculate_pattern_confidence(sheet_data, bounds, header_row),
-                    header_rows=[header_row],
+                    header_rows=header_rows,
                     characteristics={
                         "fill_ratio": fill_ratio,
                         "has_headers": True,
                         "aspect_ratio": aspect_ratio,
+                        "multi_row_headers": len(header_rows) > 1,
                     },
                     orientation=orientation,
                 )
                 patterns.append(pattern)
-                logger.debug(f"Found header-data pattern at {bounds}")
+                logger.debug(
+                    f"Found header-data pattern at {bounds} with {len(header_rows)} header rows"
+                )
 
         return patterns
 
@@ -658,6 +747,38 @@ class SparsePatternDetector:
         confidence += label_density * 0.3
 
         return min(confidence, 1.0)
+
+    def _has_merged_cells_in_row(
+        self, sheet_data: SheetData, row: int, start_col: int, end_col: int
+    ) -> bool:
+        """Check if a row contains merged cells."""
+        for col in range(start_col, end_col + 1):
+            cell = sheet_data.get_cell(row, col)
+            if cell and hasattr(cell, "is_merged") and cell.is_merged:
+                return True
+        return False
+
+    def _is_likely_header_row(
+        self, sheet_data: SheetData, row: int, start_col: int, end_col: int
+    ) -> bool:
+        """Check if a row is likely to be a header row."""
+        # Count filled cells
+        filled = 0
+        total = 0
+        has_formatting = False
+
+        for col in range(start_col, end_col + 1):
+            cell = sheet_data.get_cell(row, col)
+            total += 1
+            if cell and not cell.is_empty:
+                filled += 1
+                # Check for header-like formatting
+                if cell.is_bold or cell.background_color:
+                    has_formatting = True
+
+        # High density or formatting suggests header
+        fill_ratio = filled / total if total > 0 else 0
+        return fill_ratio >= self.header_density_threshold or has_formatting
 
     def _merge_overlapping_patterns(self, patterns: list[TablePattern]) -> list[TablePattern]:
         """Merge overlapping patterns, keeping the highest confidence one."""
