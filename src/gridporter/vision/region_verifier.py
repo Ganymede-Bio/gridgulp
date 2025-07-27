@@ -11,6 +11,14 @@ from ..vision.pattern_detector import TablePattern
 
 logger = logging.getLogger(__name__)
 
+# Optional feature collection import
+try:
+    from ..telemetry import get_feature_collector
+
+    HAS_FEATURE_COLLECTION = True
+except ImportError:
+    HAS_FEATURE_COLLECTION = False
+
 
 @dataclass
 class VerificationResult:
@@ -138,6 +146,50 @@ class RegionVerifier:
             # Generate feedback if invalid
             if not verification_result.valid:
                 verification_result.feedback = self._generate_feedback(metrics, region_data)
+
+            # Record features if collection is enabled
+            if HAS_FEATURE_COLLECTION:
+                try:
+                    feature_collector = get_feature_collector()
+                    if feature_collector.enabled and hasattr(sheet, "name"):
+                        # Build geometric features from metrics
+                        geometric_features = {
+                            "rectangularness": metrics.rectangularness,
+                            "filledness": metrics.filledness,
+                            "density": metrics.density,
+                            "contiguity": metrics.contiguity,
+                            "edge_quality": metrics.edge_quality,
+                            "aspect_ratio": metrics.aspect_ratio,
+                            "size_ratio": metrics.size_ratio,
+                        }
+
+                        # Determine table range string
+                        if isinstance(region, TablePattern):
+                            table_range = (
+                                region.range
+                                if hasattr(region, "range")
+                                else f"{start_row}:{start_col}-{end_row}:{end_col}"
+                            )
+                        else:
+                            table_range = f"{start_row}:{start_col}-{end_row}:{end_col}"
+
+                        # Record the detection
+                        feature_collector.record_detection(
+                            file_path=getattr(sheet, "file_path", "unknown"),
+                            file_type=getattr(sheet, "file_type", "unknown"),
+                            sheet_name=getattr(sheet, "name", None),
+                            table_range=table_range,
+                            detection_method="region_verification",
+                            confidence=verification_result.confidence,
+                            success=verification_result.valid,
+                            geometric_features=geometric_features,
+                            content_features={
+                                "filled_cells": int(filled_count),
+                                "total_cells": int(region_data.size),
+                            },
+                        )
+                except Exception as e:
+                    logger.debug(f"Failed to record features: {e}")
 
             return verification_result
 

@@ -98,6 +98,10 @@ class SheetData(BaseModel):
     creation_time: datetime | None = Field(None, description="Sheet creation time")
     modification_time: datetime | None = Field(None, description="Last modification")
 
+    # Optional fields for feature collection tracking
+    file_path: str | None = Field(None, description="Source file path (for tracking)")
+    file_type: str | None = Field(None, description="File type (xlsx, csv, etc.)")
+
     def get_cell(self, row: int, column: int) -> CellData | None:
         """Get cell data by row and column indices."""
         address = self._get_address(row, column)

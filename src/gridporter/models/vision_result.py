@@ -152,3 +152,7 @@ class VisionDetectionMetrics(BaseModel):
             Minimum confidence, or 0.0 if no scores
         """
         return min(self.confidence_scores) if self.confidence_scores else 0.0
+
+
+# Alias for backwards compatibility
+VisionResult = VisionAnalysisResult

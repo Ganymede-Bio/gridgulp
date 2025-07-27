@@ -42,6 +42,28 @@ class TableRange(BaseModel):
         return self.end_col - self.start_col + 1
 
 
+class HeaderInfo(BaseModel):
+    """Information about table headers."""
+
+    model_config = ConfigDict(strict=True)
+
+    row_count: int = Field(..., ge=1, description="Number of header rows")
+    headers: list[str] | None = Field(
+        None, description="Simple header values (for single-row headers)"
+    )
+    multi_row_headers: dict[int, list[str]] | None = Field(
+        None, description="Column index to header hierarchy mapping (for multi-row headers)"
+    )
+    merged_regions: list[dict[str, Any]] | None = Field(
+        None, description="Merged cell regions in headers"
+    )
+
+    @property
+    def is_multi_row(self) -> bool:
+        """Check if headers span multiple rows."""
+        return self.row_count > 1
+
+
 class TableInfo(BaseModel):
     """Information about a detected table."""
 
@@ -51,13 +73,22 @@ class TableInfo(BaseModel):
     suggested_name: str | None = Field(None, description="LLM-suggested name for the table")
     confidence: float = Field(..., ge=0.0, le=1.0, description="Detection confidence score")
     detection_method: str = Field(..., description="Method used to detect this table")
-    headers: list[str] | None = Field(None, description="Detected header row values")
+    headers: list[str] | None = Field(
+        None, description="Detected header row values (deprecated, use header_info)"
+    )
+    header_info: HeaderInfo | None = Field(None, description="Detailed header information")
     data_preview: list[dict[str, Any]] | None = Field(
         None, description="Preview of table data (first few rows)"
     )
     has_headers: bool = Field(True, description="Whether table has headers")
     data_types: dict[str, str] | None = Field(
         None, description="Inferred data types for each column"
+    )
+    semantic_structure: dict[str, Any] | None = Field(
+        None, description="Semantic structure information (sections, totals, etc.)"
+    )
+    format_preservation: dict[str, Any] | None = Field(
+        None, description="Formatting that should be preserved"
     )
 
     @property

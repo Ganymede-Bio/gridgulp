@@ -5,7 +5,7 @@ All notable changes to GridPorter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - 2025-07-25
 
 ### Added
 - **Region Verification System**: AI proposal validation using geometry analysis
@@ -54,7 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI tool with progress indicators
 - Full agent implementation with openai-agents-python
 
-## [0.2.0] - 2025-01-25
+## [0.2.0] - 2025-07-25
 
 ### Added
 - **Vision Module Implementation**: Complete vision-based table detection system
@@ -75,7 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Created hierarchical pattern detector for financial statements
 - Built integrated pipeline coordinating multiple detection strategies
 
-## [0.1.0] - 2025-01-23
+## [0.1.0] - 2025-07-23
 
 ### Added
 - **Project Foundation**: Complete project structure and build system

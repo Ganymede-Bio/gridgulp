@@ -62,6 +62,7 @@ class Config(BaseModel):
     max_sheets: int = Field(10, ge=1, description="Maximum sheets to process")
 
     # Vision Configuration
+    use_vision: bool = Field(False, description="Enable vision-based table detection")
     vision_cell_width: int = Field(
         10, ge=3, le=50, description="Cell width in pixels for bitmap generation"
     )
@@ -104,6 +105,17 @@ class Config(BaseModel):
     # Telemetry Configuration
     enable_telemetry: bool = Field(True, description="Enable OpenTelemetry tracking")
     telemetry_endpoint: str | None = Field(None, description="Custom telemetry endpoint")
+
+    # Feature Collection Configuration
+    enable_feature_collection: bool = Field(
+        False, description="Enable collection of detection features to SQLite database"
+    )
+    feature_db_path: str = Field(
+        "~/.gridporter/features.db", description="Path to feature collection database"
+    )
+    feature_retention_days: int = Field(
+        30, ge=1, description="Days to retain feature data before cleanup"
+    )
 
     # Caching
     enable_cache: bool = Field(True, description="Enable result caching")
@@ -152,6 +164,7 @@ class Config(BaseModel):
                 os.getenv("GRIDPORTER_FILE_DETECTION_BUFFER_SIZE", "8192")
             ),
             # Vision Configuration
+            use_vision=os.getenv("GRIDPORTER_USE_VISION", "false").lower() == "true",
             vision_cell_width=int(os.getenv("GRIDPORTER_VISION_CELL_WIDTH", "10")),
             vision_cell_height=int(os.getenv("GRIDPORTER_VISION_CELL_HEIGHT", "10")),
             vision_mode=os.getenv("GRIDPORTER_VISION_MODE", "binary"),
@@ -162,6 +175,13 @@ class Config(BaseModel):
             # Telemetry Configuration
             enable_telemetry=os.getenv("GRIDPORTER_ENABLE_TELEMETRY", "true").lower() == "true",
             telemetry_endpoint=os.getenv("GRIDPORTER_TELEMETRY_ENDPOINT"),
+            # Feature Collection Configuration
+            enable_feature_collection=os.getenv(
+                "GRIDPORTER_ENABLE_FEATURE_COLLECTION", "false"
+            ).lower()
+            == "true",
+            feature_db_path=os.getenv("GRIDPORTER_FEATURE_DB_PATH", "~/.gridporter/features.db"),
+            feature_retention_days=int(os.getenv("GRIDPORTER_FEATURE_RETENTION_DAYS", "30")),
             # Other Configuration
             max_file_size_mb=float(os.getenv("GRIDPORTER_MAX_FILE_SIZE_MB", "2000")),
             timeout_seconds=int(os.getenv("GRIDPORTER_TIMEOUT_SECONDS", "300")),
