@@ -120,7 +120,8 @@ class SemanticFormatAnalyzer:
 
     def __init__(self):
         self.blank_row_threshold = 0.9  # % of cells that must be empty
-        self.subtotal_keywords = ["subtotal", "total", "sum", "итого", "всего"]
+        self.subtotal_keywords = ["subtotal", "sub-total", "подытог"]
+        self.grand_total_keywords = ["grand total", "total", "sum", "итого", "всего"]
         self.section_keywords = ["section", "category", "group", "раздел", "категория"]
 
     def analyze_table_structure(
@@ -199,7 +200,17 @@ class SemanticFormatAnalyzer:
         # Check for totals/subtotals
         row_text = " ".join(str(cell.value).lower() for cell in row_cells if cell and cell.value)
 
+        # Check for subtotal keywords first
         for keyword in self.subtotal_keywords:
+            if keyword in row_text:
+                return SemanticRow(
+                    row_index=row_offset,
+                    row_type=RowType.SUBTOTAL,
+                    confidence=0.9,
+                )
+
+        # Then check for grand total keywords
+        for keyword in self.grand_total_keywords:
             if keyword in row_text:
                 # Check if grand total (last data row with total formatting)
                 # A total is only a grand total if it's at the end or clearly final

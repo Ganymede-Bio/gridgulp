@@ -145,6 +145,7 @@ class ComplexTableAgent:
         vision_result: VisionResult | None,
     ) -> TableInfo | None:
         """Analyze a single table for complex structures."""
+        start_time = time.time()  # Start timing here
         try:
             # Detect multi-row headers
             multi_header = self.multi_header_detector.detect_multi_row_headers(
@@ -195,7 +196,6 @@ class ComplexTableAgent:
             # Record features if collection is enabled
             if HAS_FEATURE_COLLECTION:
                 try:
-                    start_time = time.time()
                     feature_collector = get_feature_collector()
                     if feature_collector.enabled:
                         logger.debug(f"Recording features for table at {table.range.excel_range}")
@@ -243,7 +243,9 @@ class ComplexTableAgent:
                         }
 
                         # Record the detection
-                        processing_time = int((time.time() - start_time) * 1000)
+                        processing_time = max(
+                            1, int((time.time() - start_time) * 1000)
+                        )  # Ensure at least 1ms
                         feature_collector.record_detection(
                             file_path=getattr(sheet_data, "file_path", "unknown"),
                             file_type=getattr(sheet_data, "file_type", "unknown"),

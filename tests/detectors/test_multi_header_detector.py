@@ -147,7 +147,6 @@ class TestMultiHeaderDetector:
                 end_col=2,
                 value="Sales",
                 is_header=True,
-                col_span=2,
             )
         ]
 
