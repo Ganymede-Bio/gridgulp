@@ -98,16 +98,14 @@ class MergedCellAnalyzer:
         header_cells = []
 
         for cell in merged_cells:
-            if cell.start_row < max_header_row:
-                # Check if this looks like a header
-                if self._is_likely_header(cell):
-                    cell.is_header = True
-                    header_cells.append(cell)
+            if cell.start_row < max_header_row and self._is_likely_header(cell):
+                cell.is_header = True
+                header_cells.append(cell)
 
         return header_cells
 
     def build_column_spans(
-        self, merged_cells: list[MergedCell], table_range: TableRange
+        self, merged_cells: list[MergedCell], _table_range: TableRange
     ) -> dict[int, list[tuple[int, int]]]:
         """
         Build column span information from merged cells.
@@ -153,9 +151,8 @@ class MergedCellAnalyzer:
                     merged = self._parse_merge_range(cell, row_idx, col_idx)
                     if merged:
                         # Check if within table range
-                        if table_range:
-                            if not self._is_in_range(merged, table_range):
-                                continue
+                        if table_range and not self._is_in_range(merged, table_range):
+                            continue
 
                         merged_cells.append(merged)
 
@@ -166,7 +163,7 @@ class MergedCellAnalyzer:
 
         return merged_cells
 
-    def _parse_merge_range(self, cell: CellData, row_idx: int, col_idx: int) -> MergedCell | None:
+    def _parse_merge_range(self, cell: CellData, _row_idx: int, _col_idx: int) -> MergedCell | None:
         """Parse merge range string to create MergedCell object."""
         if not cell.merge_range:
             return None
@@ -259,10 +256,7 @@ class MergedCellAnalyzer:
             return True
 
         # If it's in the first few rows and spans rows, might be hierarchical
-        if cell.start_row < 5 and cell.spans_rows:
-            return True
-
-        return False
+        return cell.start_row < 5 and cell.spans_rows
 
     def _is_in_range(self, merged: MergedCell, table_range: TableRange) -> bool:
         """Check if merged cell is within table range."""

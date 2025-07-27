@@ -257,11 +257,7 @@ class SemanticFormatAnalyzer:
                 return True
 
         # Check for section keywords
-        for keyword in self.section_keywords:
-            if keyword in row_text:
-                return True
-
-        return False
+        return any(keyword in row_text for keyword in self.section_keywords)
 
     def _is_separator_row(self, row_cells: list[CellData]) -> bool:
         """Check if row is a separator (formatting only)."""

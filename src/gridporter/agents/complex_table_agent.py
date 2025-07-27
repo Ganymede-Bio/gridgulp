@@ -385,8 +385,8 @@ class ComplexTableAgent:
 
     async def _suggest_table_name(
         self,
-        sheet_data: SheetData,
-        table_range: TableRange,
+        _sheet_data: SheetData,
+        _table_range: TableRange,
         header_info: HeaderInfo | None,
     ) -> str | None:
         """Suggest a name for the table based on its content."""

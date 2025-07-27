@@ -237,7 +237,7 @@ class TestWeek5ComplexTablesWithFeatures:
     ):
         """Test feature recording for multi-row headers."""
         agent = ComplexTableAgent(config_with_features)
-        result = await agent.detect_complex_tables(multi_header_sheet)
+        await agent.detect_complex_tables(multi_header_sheet)
 
         # Query features
         store = FeatureStore(config_with_features.feature_db_path)
@@ -257,7 +257,7 @@ class TestWeek5ComplexTablesWithFeatures:
     async def test_pattern_features(self, config_with_features, feature_collector, pattern_sheet):
         """Test recording of format pattern features."""
         agent = ComplexTableAgent(config_with_features)
-        result = await agent.detect_complex_tables(pattern_sheet)
+        await agent.detect_complex_tables(pattern_sheet)
 
         # Query features
         store = FeatureStore(config_with_features.feature_db_path)
@@ -358,7 +358,7 @@ class TestWeek5ComplexTablesWithFeatures:
         invalid_sheet.file_type = "xlsx"
 
         # This should handle gracefully
-        result = await agent.detect_complex_tables(invalid_sheet)
+        await agent.detect_complex_tables(invalid_sheet)
 
         # Even with empty sheet, should record attempt
         store = FeatureStore(config_with_features.feature_db_path)

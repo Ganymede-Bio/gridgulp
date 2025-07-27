@@ -127,7 +127,7 @@ class FeatureStore:
             data = features.to_db_dict()
 
             # Build column names and placeholders
-            columns = [k for k in data.keys() if k != "timestamp"]
+            columns = [k for k in data if k != "timestamp"]
             values = [data[k] for k in columns]
             placeholders = ",".join(["?" for _ in columns])
             column_list = ",".join(columns)

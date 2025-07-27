@@ -15,15 +15,15 @@ import sys
 
 sys.path.insert(0, "src")
 
-from gridporter import GridPorter
-from gridporter.config import Config
-from gridporter.models.sheet_data import SheetData, CellData
-from gridporter.models.table import TableRange
-from gridporter.detectors.multi_header_detector import MultiHeaderDetector
-from gridporter.detectors.format_analyzer import SemanticFormatAnalyzer, RowType
-from gridporter.agents.complex_table_agent import ComplexTableAgent
-from gridporter.telemetry import get_feature_collector
-from gridporter.telemetry.feature_store import FeatureStore
+from gridporter import GridPorter  # noqa: E402
+from gridporter.config import Config  # noqa: E402
+from gridporter.models.sheet_data import SheetData, CellData  # noqa: E402
+from gridporter.models.table import TableRange  # noqa: E402
+from gridporter.detectors.multi_header_detector import MultiHeaderDetector  # noqa: E402
+from gridporter.detectors.format_analyzer import SemanticFormatAnalyzer, RowType  # noqa: E402
+from gridporter.agents.complex_table_agent import ComplexTableAgent  # noqa: E402
+from gridporter.telemetry import get_feature_collector  # noqa: E402
+from gridporter.telemetry.feature_store import FeatureStore  # noqa: E402
 
 
 def test_multi_row_headers():

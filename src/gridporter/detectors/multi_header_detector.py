@@ -69,7 +69,7 @@ class MultiHeaderDetector:
         self,
         sheet_data: SheetData,
         table_range: TableRange,
-        data: pd.DataFrame | None = None,
+        _data: pd.DataFrame | None = None,
     ) -> MultiRowHeader | None:
         """
         Detect multi-row headers in a table.
@@ -115,9 +115,7 @@ class MultiHeaderDetector:
         self._enhance_column_mappings(column_mappings, header_cells, header_row_count, table_range)
 
         # Detect column spans
-        column_spans = self.merged_cell_analyzer.build_column_spans(
-            header_merged_cells, table_range
-        )
+        self.merged_cell_analyzer.build_column_spans(header_merged_cells, table_range)
 
         # Calculate confidence
         confidence = self._calculate_confidence_from_sheet(
@@ -177,20 +175,22 @@ class MultiHeaderDetector:
                         bold_count += 1
 
             # If majority of cells are bold and non-numeric, likely still headers
-            if non_empty_count > 0:
-                if bold_count / non_empty_count > 0.5 and numeric_count / non_empty_count < 0.2:
-                    continue  # This is likely still a header row
+            if (
+                non_empty_count > 0
+                and bold_count / non_empty_count > 0.5
+                and numeric_count / non_empty_count < 0.2
+            ):
+                continue  # This is likely still a header row
 
             # If 80% of non-empty cells are numeric, likely data row
             if non_empty_count > 0 and numeric_count / non_empty_count > 0.8:
                 return row_offset
 
             # Check for significant formatting changes
-            if row_offset > 0:
-                if self._has_format_boundary_in_sheet(
-                    sheet_data, table_range, row_idx - 1, row_idx
-                ):
-                    return row_offset
+            if row_offset > 0 and self._has_format_boundary_in_sheet(
+                sheet_data, table_range, row_idx - 1, row_idx
+            ):
+                return row_offset
 
         # Return at least initial_header_rows if we found merged cells
         if initial_header_rows > 0:
@@ -264,24 +264,23 @@ class MultiHeaderDetector:
         self,
         column_mappings: dict[int, list[str]],
         header_cells: list[HeaderCell],
-        header_row_count: int,
-        table_range: TableRange,
+        _header_row_count: int,
+        _table_range: TableRange,
     ) -> None:
         """Enhance column mappings with non-merged header values."""
         # Add regular (non-merged) header values
         for cell in header_cells:
-            if not cell.is_merged and cell.value:
-                if cell.col < len(column_mappings):
-                    # Insert at appropriate position based on row
-                    existing = column_mappings[cell.col]
-                    if len(existing) <= cell.row:
-                        # Extend list if needed
-                        while len(existing) < cell.row:
-                            existing.append("")
-                        existing.append(cell.value)
-                    elif not existing[cell.row]:
-                        # Replace empty value
-                        existing[cell.row] = cell.value
+            if not cell.is_merged and cell.value and cell.col < len(column_mappings):
+                # Insert at appropriate position based on row
+                existing = column_mappings[cell.col]
+                if len(existing) <= cell.row:
+                    # Extend list if needed
+                    while len(existing) < cell.row:
+                        existing.append("")
+                    existing.append(cell.value)
+                elif not existing[cell.row]:
+                    # Replace empty value
+                    existing[cell.row] = cell.value
 
     def _has_format_boundary_in_sheet(
         self,
@@ -316,7 +315,7 @@ class MultiHeaderDetector:
         self,
         header_cells: list[HeaderCell],
         column_mappings: dict[int, list[str]],
-        sheet_data: SheetData,
+        _sheet_data: SheetData,
         header_merged_cells: list[MergedCell],
     ) -> float:
         """Calculate confidence score for multi-row header detection using sheet data."""
@@ -461,10 +460,12 @@ class MultiHeaderDetector:
                         covering_cell = cell
                         break
 
-                if covering_cell and covering_cell.value:
-                    # Only add to hierarchy if not already present (from row span)
-                    if not hierarchy or hierarchy[-1] != covering_cell.value:
-                        hierarchy.append(covering_cell.value)
+                if (
+                    covering_cell
+                    and covering_cell.value
+                    and (not hierarchy or hierarchy[-1] != covering_cell.value)
+                ):
+                    hierarchy.append(covering_cell.value)
 
             mappings[col_idx] = hierarchy
 
@@ -474,7 +475,7 @@ class MultiHeaderDetector:
         self,
         header_cells: list[HeaderCell],
         column_mappings: dict[int, list[str]],
-        data: pd.DataFrame,
+        _data: pd.DataFrame,
     ) -> float:
         """Calculate confidence score for multi-row header detection."""
         scores = []
@@ -504,7 +505,7 @@ class MultiHeaderDetector:
         """Check if a value is numeric."""
         if pd.isna(value):
             return False
-        if isinstance(value, (int, float)):
+        if isinstance(value, int | float):
             return True
         if isinstance(value, str):
             try:

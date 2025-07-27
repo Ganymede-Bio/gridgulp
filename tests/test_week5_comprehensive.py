@@ -16,27 +16,27 @@ import sys
 
 sys.path.insert(0, "src")
 
-import asyncio
-import pytest
-import tempfile
-import time
-import random
-import psutil
-import os
-from pathlib import Path
-from typing import Any
+import asyncio  # noqa: E402
+import pytest  # noqa: E402
+import tempfile  # noqa: E402
+import time  # noqa: E402
+import random  # noqa: E402
+import psutil  # noqa: E402
+import os  # noqa: E402
+from pathlib import Path  # noqa: E402
+from typing import Any  # noqa: E402
 
-from gridporter import GridPorter
-from gridporter.config import Config
-from gridporter.models.sheet_data import SheetData, CellData
-from gridporter.models.table import TableRange, TableInfo
-from gridporter.detectors.multi_header_detector import MultiHeaderDetector
-from gridporter.detectors.merged_cell_analyzer import MergedCellAnalyzer
-from gridporter.detectors.format_analyzer import SemanticFormatAnalyzer, RowType
-from gridporter.agents.complex_table_agent import ComplexTableAgent
-from gridporter.vision.integrated_pipeline import IntegratedVisionPipeline
-from gridporter.telemetry import get_feature_collector
-from gridporter.telemetry.feature_store import FeatureStore
+from gridporter import GridPorter  # noqa: E402
+from gridporter.config import Config  # noqa: E402
+from gridporter.models.sheet_data import SheetData, CellData  # noqa: E402
+from gridporter.models.table import TableRange, TableInfo  # noqa: E402
+from gridporter.detectors.multi_header_detector import MultiHeaderDetector  # noqa: E402
+from gridporter.detectors.merged_cell_analyzer import MergedCellAnalyzer  # noqa: E402
+from gridporter.detectors.format_analyzer import SemanticFormatAnalyzer, RowType  # noqa: E402
+from gridporter.agents.complex_table_agent import ComplexTableAgent  # noqa: E402
+from gridporter.vision.integrated_pipeline import IntegratedVisionPipeline  # noqa: E402
+from gridporter.telemetry import get_feature_collector  # noqa: E402
+from gridporter.telemetry.feature_store import FeatureStore  # noqa: E402
 
 
 # ================================================================================
@@ -827,7 +827,7 @@ class TestSection7Performance:
         # Run async detection in sync context
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        result = loop.run_until_complete(agent.detect_complex_tables(sheet))
+        loop.run_until_complete(agent.detect_complex_tables(sheet))
         loop.close()
 
         final_memory = get_memory_usage()
@@ -929,14 +929,6 @@ class TestSection9FeatureCollection:
         # Create test configuration with feature collection enabled
         with tempfile.TemporaryDirectory() as tmpdir:
             feature_db = Path(tmpdir) / "test_features.db"
-
-            config = Config(
-                use_vision=False,
-                suggest_names=False,
-                confidence_threshold=0.5,
-                enable_feature_collection=True,
-                feature_db_path=str(feature_db),
-            )
 
             # Initialize feature collector
             feature_collector = get_feature_collector()
@@ -1188,7 +1180,7 @@ class TestSection9FeatureCollection:
             )
 
             # Detect tables
-            result = await gridporter.detect_tables(test_file)
+            await gridporter.detect_tables(test_file)
 
             # Verify features were collected
             feature_collector = get_feature_collector()
