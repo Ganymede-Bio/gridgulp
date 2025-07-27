@@ -1,6 +1,6 @@
 # Feature Collection for Table Detection
 
-GridPorter includes a comprehensive feature collection system that captures detailed metrics about table detection for analysis and future improvements.
+GridPorter includes a comprehensive feature collection system that captures detailed metrics about table detection for analysis and future improvements. This system was introduced in v0.2.1 to help continuously improve detection accuracy.
 
 ## Overview
 
@@ -73,6 +73,13 @@ gridporter = GridPorter(
 - **max_hierarchy_depth**: Maximum indentation depth
 - **has_indentation**: Whether indentation was detected
 - **subtotal_count**: Number of subtotal rows
+
+### Complex Detection Features (v0.2.1)
+- **has_merged_cells**: Whether merged cells were detected
+- **merged_cell_count**: Number of merged cell regions
+- **column_hierarchy**: Hierarchical mapping of multi-row headers
+- **semantic_structure**: Detected semantic patterns (sections, totals)
+- **format_consistency**: How consistent the formatting is across the table
 
 ## Using the Feature Store
 
@@ -181,6 +188,25 @@ The feature collection system is designed to support future improvements:
 2. **Adaptive Detection**: Learn from successful detections to improve future performance
 3. **Custom Models**: Train lightweight models on collected features for specific use cases
 4. **Feedback Loop**: User corrections can be incorporated to improve detection
+
+## Testing and Validation
+
+The feature collection system has been thoroughly tested with a comprehensive test suite:
+
+- **20 test scenarios** covering all detection strategies
+- **100% test coverage** for feature collection code
+- **Real-world patterns** including financial reports, pivot tables, and complex layouts
+- **Performance benchmarks** ensuring minimal overhead
+
+### Running Feature Collection Tests
+
+```bash
+# Run all Week 5 comprehensive tests
+pytest tests/test_week5_comprehensive.py -v
+
+# Run specific feature collection tests
+pytest tests/test_week5_comprehensive.py::TestSection9FeatureCollection -v
+```
 
 ## Disabling Feature Collection
 

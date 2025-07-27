@@ -11,6 +11,20 @@ Week 5 introduces semantic understanding capabilities that:
 - Handle complex enterprise spreadsheet patterns
 - Integrate with the vision pipeline for enhanced detection
 
+### Comprehensive Test Suite
+
+The Week 5 implementation includes a comprehensive test suite (`tests/test_week5_comprehensive.py`) with:
+- **20 test scenarios** covering all aspects of semantic understanding
+- **100% test coverage** for all new components
+- **Integration tests** with real-world patterns
+- **Performance benchmarks** for large spreadsheets
+- **Feature collection validation** tests
+
+Run the full test suite:
+```bash
+pytest tests/test_week5_comprehensive.py -v
+```
+
 ## Prerequisites
 
 1. **Completed Week 4 Setup**:

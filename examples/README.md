@@ -5,11 +5,16 @@ This directory contains sample spreadsheet files to test and demonstrate GridPor
 ## Directory Structure
 
 ```
-examples/spreadsheets/
-├── simple/          # Single-table files with clear structure
-├── sales/           # Sales and business data examples
-├── financial/       # Financial statements and accounting data
-└── complex/         # Multi-table layouts and complex structures
+examples/
+├── spreadsheets/    # Test spreadsheet files
+│   ├── simple/      # Single-table files with clear structure
+│   ├── sales/       # Sales and business data examples
+│   ├── financial/   # Financial statements and accounting data
+│   └── complex/     # Multi-table layouts and complex structures
+├── basic_usage.py   # Basic GridPorter usage
+├── feature_collection_example.py  # Feature collection demo
+├── week5_complex_tables_with_features.py  # Complex table detection (v0.2.1)
+└── week5_feature_collection_example.py   # Advanced feature analysis (v0.2.1)
 ```
 
 ## File Categories
@@ -51,6 +56,50 @@ examples/spreadsheets/
 - Multiple distinct tables in one file
 - Different table structures and purposes
 - Tests ability to separate and identify multiple tables
+
+## New in v0.2.1: Semantic Understanding Examples
+
+### Complex Table Detection with Multi-Row Headers
+
+**`week5_complex_tables_with_features.py`**
+
+Demonstrates GridPorter's new semantic understanding capabilities:
+- Multi-row header detection with merged cells
+- Financial report analysis with sections and subtotals
+- Hierarchical data structure recognition
+- Feature collection for continuous improvement
+
+```python
+# Run the example
+python examples/week5_complex_tables_with_features.py
+```
+
+This example creates and analyzes:
+1. Complex financial report with multi-level headers
+2. Sales dashboard with pivot-table structure
+3. Hierarchical financial statements
+4. Multi-section reports with subtotals
+
+### Feature Collection and Analysis
+
+**`week5_feature_collection_example.py`**
+
+Shows how to use the feature collection system:
+- Enable telemetry collection
+- Analyze detection patterns
+- Export features for analysis
+- Improve detection accuracy over time
+
+```python
+# Run the example
+python examples/week5_feature_collection_example.py
+```
+
+Features collected include:
+- Geometric properties (rectangularness, density)
+- Pattern characteristics (headers, orientation)
+- Format features (bold headers, totals)
+- Performance metrics
 
 ## Usage Examples
 
@@ -177,6 +226,31 @@ Examples:
 - financial_income_statement_standard.xlsx
 - complex_multi_region_sales_advanced.xlsx
 ```
+
+## Running All Examples
+
+To run all example scripts:
+
+```bash
+# Basic usage
+python examples/basic_usage.py
+
+# Feature collection
+python examples/feature_collection_example.py
+
+# Week 5 complex tables (requires pandas)
+python examples/week5_complex_tables_with_features.py
+
+# Week 5 feature analysis
+python examples/week5_feature_collection_example.py
+```
+
+### Requirements
+
+- Python 3.10+
+- GridPorter installed (`pip install -e .`)
+- For Week 5 examples: `pip install pandas openpyxl`
+- Optional: Ollama with models for enhanced detection
 
 ## Troubleshooting
 
