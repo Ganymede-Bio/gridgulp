@@ -7,6 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..core.constants import FORMAT_ANALYSIS, KEYWORDS
 from ..models.sheet_data import CellData, SheetData
 from ..models.table import TableRange
 
@@ -119,10 +120,10 @@ class SemanticFormatAnalyzer:
     """Analyzes formatting to understand table semantics."""
 
     def __init__(self):
-        self.blank_row_threshold = 0.9  # % of cells that must be empty
-        self.subtotal_keywords = ["subtotal", "sub-total", "подытог"]
-        self.grand_total_keywords = ["grand total", "total", "sum", "итого", "всего"]
-        self.section_keywords = ["section", "category", "group", "раздел", "категория"]
+        self.blank_row_threshold = FORMAT_ANALYSIS.BLANK_ROW_THRESHOLD
+        self.subtotal_keywords = list(KEYWORDS.SUBTOTAL_KEYWORDS)
+        self.grand_total_keywords = list(KEYWORDS.GRAND_TOTAL_KEYWORDS)
+        self.section_keywords = list(KEYWORDS.SECTION_KEYWORDS)
 
     def analyze_table_structure(
         self, sheet_data: SheetData, table_range: TableRange, header_rows: int = 1
@@ -138,6 +139,19 @@ class SemanticFormatAnalyzer:
         Returns:
             TableStructure with semantic analysis
         """
+        if sheet_data is None:
+            raise ValueError("sheet_data cannot be None")
+        if table_range is None:
+            raise ValueError("table_range cannot be None")
+        if header_rows < 0:
+            raise ValueError(f"header_rows must be non-negative, got {header_rows}")
+        if header_rows > table_range.row_count:
+            raise ValueError(
+                f"header_rows ({header_rows}) cannot exceed table row count ({table_range.row_count}). "
+                f"Table range: {table_range.excel_range}. Consider reducing header_rows or "
+                f"checking if the table range is correct."
+            )
+
         logger.info(f"Analyzing table structure for range {table_range.excel_range}")
 
         # Analyze each row
@@ -198,7 +212,11 @@ class SemanticFormatAnalyzer:
             return SemanticRow(row_index=row_offset, row_type=RowType.HEADER, confidence=1.0)
 
         # Check for totals/subtotals
-        row_text = " ".join(str(cell.value).lower() for cell in row_cells if cell and cell.value)
+        row_text_parts = []
+        for cell in row_cells:
+            if cell and cell.value:
+                row_text_parts.append(str(cell.value).lower())
+        row_text = " ".join(row_text_parts)
 
         # Check for subtotal keywords first
         for keyword in self.subtotal_keywords:
@@ -251,7 +269,10 @@ class SemanticFormatAnalyzer:
         )
 
         # Totals often have bold text or top borders
-        return bold_count > len(row_cells) * 0.5 or has_top_border
+        return (
+            bold_count > len(row_cells) * FORMAT_ANALYSIS.TOTAL_FORMATTING_THRESHOLD
+            or has_top_border
+        )
 
     def _is_section_header(self, row_cells: list[CellData], row_text: str) -> bool:
         """Check if row is a section header."""
@@ -301,7 +322,8 @@ class SemanticFormatAnalyzer:
             elif row.row_type in [RowType.BLANK, RowType.SEPARATOR]:
                 # Might indicate section boundary
                 if (
-                    current_section_start is not None and i > current_section_start + 1
+                    current_section_start is not None
+                    and i > current_section_start + FORMAT_ANALYSIS.SECTION_BOUNDARY_MIN_ROWS - 1
                 ):  # Not immediately after header
                     sections.append((current_section_start, i - 1))
                     current_section_start = None
@@ -341,12 +363,12 @@ class SemanticFormatAnalyzer:
         """Detect alternating row background colors."""
         # Check data rows only
         data_rows = [r for r in semantic_rows if r.row_type == RowType.DATA]
-        if len(data_rows) < 4:  # Need at least 4 rows to detect pattern
+        if len(data_rows) < FORMAT_ANALYSIS.MIN_DATA_ROWS_FOR_PATTERN:
             return None
 
         # Get background colors for data rows
         colors = []
-        for row in data_rows[:10]:  # Check first 10 data rows
+        for row in data_rows[: FORMAT_ANALYSIS.FIRST_ROWS_TO_CHECK]:
             row_idx = table_range.start_row + row.row_index
             # Get color from first cell
             cell = sheet_data.get_cell(row_idx, table_range.start_col)
@@ -389,7 +411,7 @@ class SemanticFormatAnalyzer:
             alignments = []
             bold_count = 0
 
-            for row in data_rows[:20]:  # Sample first 20 data rows
+            for row in data_rows[: FORMAT_ANALYSIS.MAX_ROWS_TO_SAMPLE]:
                 row_idx = table_range.start_row + row.row_index
                 cell = sheet_data.get_cell(row_idx, col_idx)
                 if cell:
@@ -411,7 +433,7 @@ class SemanticFormatAnalyzer:
                 )
 
             # Check for consistently bold column
-            if bold_count > len(data_rows) * 0.8:
+            if bold_count > len(data_rows) * FORMAT_ANALYSIS.CONSISTENT_COLUMN_THRESHOLD:
                 patterns.append(
                     FormatPattern(
                         pattern_type="column_bold",

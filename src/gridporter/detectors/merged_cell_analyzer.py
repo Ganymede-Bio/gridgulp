@@ -65,6 +65,9 @@ class MergedCellAnalyzer:
         Returns:
             List of MergedCell objects
         """
+        if sheet_data is None:
+            raise ValueError("sheet_data cannot be None")
+
         logger.info("Analyzing merged cells in sheet")
 
         # Extract merged cells from sheet data
@@ -117,20 +120,17 @@ class MergedCellAnalyzer:
         Returns:
             Dict mapping row index to list of (start_col, end_col) spans
         """
-        spans_by_row = {}
+        from collections import defaultdict
+
+        spans_by_row = defaultdict(list)
 
         for cell in merged_cells:
             if cell.spans_columns:
                 for row in range(cell.start_row, cell.end_row + 1):
-                    if row not in spans_by_row:
-                        spans_by_row[row] = []
                     spans_by_row[row].append((cell.start_col, cell.end_col))
 
-        # Sort spans within each row
-        for row in spans_by_row:
-            spans_by_row[row].sort()
-
-        return spans_by_row
+        # Sort spans within each row and convert to regular dict
+        return {row: sorted(spans) for row, spans in spans_by_row.items()}
 
     def _extract_merged_cells(
         self, sheet_data: SheetData, table_range: TableRange | None
@@ -248,7 +248,8 @@ class MergedCellAnalyzer:
         # 3. Have non-empty values
         # 4. May span rows for hierarchical headers
 
-        if not cell.value or not cell.value.strip():
+        value = cell.value
+        if not value or not value.strip():
             return False
 
         # If it spans columns, it's likely a header
@@ -279,20 +280,17 @@ class MergedCellAnalyzer:
         Returns:
             Dict mapping header level (row) to merged cells at that level
         """
-        hierarchy = {}
+        from collections import defaultdict
+
+        hierarchy = defaultdict(list)
 
         # Group by starting row
         for cell in merged_cells:
             if cell.is_header:
-                if cell.start_row not in hierarchy:
-                    hierarchy[cell.start_row] = []
                 hierarchy[cell.start_row].append(cell)
 
-        # Sort cells within each level by column
-        for row in hierarchy:
-            hierarchy[row].sort(key=lambda c: c.start_col)
-
-        return hierarchy
+        # Sort cells within each level by column and convert to regular dict
+        return {row: sorted(cells, key=lambda c: c.start_col) for row, cells in hierarchy.items()}
 
     def get_column_header_mapping(
         self, merged_cells: list[MergedCell], total_columns: int, table_start_col: int = 0

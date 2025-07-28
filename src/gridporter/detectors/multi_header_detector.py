@@ -82,6 +82,17 @@ class MultiHeaderDetector:
         Returns:
             MultiRowHeader if detected, None otherwise
         """
+        if sheet_data is None:
+            raise ValueError("sheet_data cannot be None")
+        if table_range is None:
+            raise ValueError("table_range cannot be None")
+        if table_range.row_count <= 0 or table_range.col_count <= 0:
+            raise ValueError(
+                f"table_range must have positive dimensions, got "
+                f"{table_range.row_count} rows x {table_range.col_count} columns. "
+                f"Range: {table_range.excel_range}"
+            )
+
         logger.info(f"Detecting multi-row headers for range {table_range.excel_range}")
 
         # First, analyze merged cells in the table range
@@ -143,13 +154,7 @@ class MultiHeaderDetector:
             return 0
 
         # Check for merged cells in top rows
-        initial_header_rows = 0
-        if header_merged_cells:
-            max_merged_row = 0
-            for cell in header_merged_cells:
-                max_merged_row = max(max_merged_row, cell.end_row - table_range.start_row)
-            # Start checking from after merged cells
-            initial_header_rows = min(max_merged_row + 1, self.max_header_rows)
+        initial_header_rows = self._calculate_initial_header_rows(header_merged_cells, table_range)
 
         # Analyze data patterns to find where headers end
         # Start from initial_header_rows to check for additional non-merged headers
@@ -158,32 +163,19 @@ class MultiHeaderDetector:
         ):
             row_idx = table_range.start_row + row_offset
 
-            # Check if this row looks like data
-            numeric_count = 0
-            non_empty_count = 0
-            bold_count = 0
+            # Analyze the row
+            row_stats = self._analyze_row_statistics(sheet_data, table_range, row_idx)
 
-            for col_offset in range(table_range.col_count):
-                col_idx = table_range.start_col + col_offset
-                cell = sheet_data.get_cell(row_idx, col_idx)
-
-                if cell and cell.value is not None:
-                    non_empty_count += 1
-                    if cell.data_type == "number":
-                        numeric_count += 1
-                    if cell.is_bold:
-                        bold_count += 1
+            # Skip empty rows
+            if row_stats["non_empty_count"] == 0:
+                continue
 
             # If majority of cells are bold and non-numeric, likely still headers
-            if (
-                non_empty_count > 0
-                and bold_count / non_empty_count > 0.5
-                and numeric_count / non_empty_count < 0.2
-            ):
-                continue  # This is likely still a header row
+            if self._is_header_row(row_stats):
+                continue
 
             # If 80% of non-empty cells are numeric, likely data row
-            if non_empty_count > 0 and numeric_count / non_empty_count > 0.8:
+            if self._is_data_row(row_stats):
                 return row_offset
 
             # Check for significant formatting changes
@@ -193,11 +185,65 @@ class MultiHeaderDetector:
                 return row_offset
 
         # Return at least initial_header_rows if we found merged cells
-        if initial_header_rows > 0:
-            return initial_header_rows
+        return initial_header_rows if initial_header_rows > 0 else 1
 
-        # Default to single row if no multi-row pattern found
-        return 1
+    def _calculate_initial_header_rows(
+        self, header_merged_cells: list[MergedCell], table_range: TableRange
+    ) -> int:
+        """Calculate initial header rows based on merged cells."""
+        if not header_merged_cells:
+            return 0
+
+        max_merged_row = 0
+        for cell in header_merged_cells:
+            max_merged_row = max(max_merged_row, cell.end_row - table_range.start_row)
+        # Start checking from after merged cells
+        return min(max_merged_row + 1, self.max_header_rows)
+
+    def _analyze_row_statistics(
+        self, sheet_data: SheetData, table_range: TableRange, row_idx: int
+    ) -> dict[str, int]:
+        """Analyze statistics for a row."""
+        numeric_count = 0
+        non_empty_count = 0
+        bold_count = 0
+
+        for col_offset in range(table_range.col_count):
+            col_idx = table_range.start_col + col_offset
+            cell = sheet_data.get_cell(row_idx, col_idx)
+
+            if not cell or cell.value is None:
+                continue
+
+            non_empty_count += 1
+            if cell.data_type == "number":
+                numeric_count += 1
+            if cell.is_bold:
+                bold_count += 1
+
+        return {
+            "numeric_count": numeric_count,
+            "non_empty_count": non_empty_count,
+            "bold_count": bold_count,
+        }
+
+    def _is_header_row(self, row_stats: dict[str, int]) -> bool:
+        """Check if row statistics indicate a header row."""
+        if row_stats["non_empty_count"] == 0:
+            return False
+
+        bold_ratio = row_stats["bold_count"] / row_stats["non_empty_count"]
+        numeric_ratio = row_stats["numeric_count"] / row_stats["non_empty_count"]
+
+        return bold_ratio > 0.5 and numeric_ratio < 0.2
+
+    def _is_data_row(self, row_stats: dict[str, int]) -> bool:
+        """Check if row statistics indicate a data row."""
+        if row_stats["non_empty_count"] == 0:
+            return False
+
+        numeric_ratio = row_stats["numeric_count"] / row_stats["non_empty_count"]
+        return numeric_ratio > 0.8
 
     def _extract_header_cells_from_sheet(
         self,
@@ -225,40 +271,69 @@ class MultiHeaderDetector:
                 cells.append(cell)
 
                 # Mark all positions covered by this merged cell
-                for r in range(merged.start_row, merged.end_row + 1):
-                    for c in range(merged.start_col, merged.end_col + 1):
-                        if (
-                            r < table_range.start_row + header_row_count
-                            and r >= table_range.start_row
-                        ):
-                            processed_positions.add((r, c))
+                self._mark_merged_cell_positions(
+                    merged, table_range, header_row_count, processed_positions
+                )
 
         # Process regular cells
+        self._process_regular_cells(
+            sheet_data, header_row_count, table_range, processed_positions, cells
+        )
+
+        return cells
+
+    def _mark_merged_cell_positions(
+        self,
+        merged: MergedCell,
+        table_range: TableRange,
+        header_row_count: int,
+        processed_positions: set[tuple[int, int]],
+    ) -> None:
+        """Mark positions covered by a merged cell."""
+        for r in range(merged.start_row, merged.end_row + 1):
+            if r < table_range.start_row or r >= table_range.start_row + header_row_count:
+                continue
+
+            for c in range(merged.start_col, merged.end_col + 1):
+                processed_positions.add((r, c))
+
+    def _process_regular_cells(
+        self,
+        sheet_data: SheetData,
+        header_row_count: int,
+        table_range: TableRange,
+        processed_positions: set[tuple[int, int]],
+        cells: list[HeaderCell],
+    ) -> None:
+        """Process non-merged cells in the header."""
         for row_offset in range(header_row_count):
             row_idx = table_range.start_row + row_offset
+
             for col_offset in range(table_range.col_count):
                 col_idx = table_range.start_col + col_offset
 
-                if (row_idx, col_idx) not in processed_positions:
-                    cell_data = sheet_data.get_cell(row_idx, col_idx)
-                    if cell_data:
-                        cell = HeaderCell(
-                            row=row_offset,
-                            col=col_offset,
-                            value=(str(cell_data.value) if cell_data.value is not None else ""),
-                            formatting=(
-                                {
-                                    "bold": cell_data.is_bold,
-                                    "background_color": cell_data.background_color,
-                                    "font_size": cell_data.font_size,
-                                }
-                                if cell_data
-                                else None
-                            ),
-                        )
-                        cells.append(cell)
+                if (row_idx, col_idx) in processed_positions:
+                    continue
 
-        return cells
+                cell_data = sheet_data.get_cell(row_idx, col_idx)
+                if not cell_data:
+                    continue
+
+                cell = self._create_header_cell(cell_data, row_offset, col_offset)
+                cells.append(cell)
+
+    def _create_header_cell(self, cell_data: Any, row_offset: int, col_offset: int) -> HeaderCell:
+        """Create a HeaderCell from cell data."""
+        return HeaderCell(
+            row=row_offset,
+            col=col_offset,
+            value=(str(cell_data.value) if cell_data.value is not None else ""),
+            formatting={
+                "bold": cell_data.is_bold,
+                "background_color": cell_data.background_color,
+                "font_size": cell_data.font_size,
+            },
+        )
 
     def _enhance_column_mappings(
         self,
@@ -278,7 +353,7 @@ class MultiHeaderDetector:
                     while len(existing) < cell.row:
                         existing.append("")
                     existing.append(cell.value)
-                elif not existing[cell.row]:
+                elif cell.row < len(existing) and not existing[cell.row]:
                     # Replace empty value
                     existing[cell.row] = cell.value
 

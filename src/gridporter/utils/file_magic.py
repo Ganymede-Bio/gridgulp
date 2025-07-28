@@ -4,6 +4,7 @@ import logging
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from ..models.file_info import FileType, UnsupportedFormatError
 
@@ -243,63 +244,38 @@ class FileFormatDetector:
             try:
                 detected_type, confidence = method_func(file_path, header_bytes)
 
-                if detected_type and confidence > best_confidence:
-                    mime_type = (
-                        self._get_mime_type(file_path) if method_name == "magic_mime" else None
-                    )
-                    encoding = (
-                        self._detect_encoding(header_bytes)
-                        if detected_type in [FileType.CSV, FileType.TSV]
-                        else None
-                    )
+                if not detected_type or confidence <= best_confidence:
+                    continue
 
-                    # Check for Magika-specific information
-                    magika_label = None
-                    magika_score = None
-                    is_supported = True
-                    unsupported_reason = None
+                mime_type = self._get_mime_type(file_path) if method_name == "magic_mime" else None
+                encoding = (
+                    self._detect_encoding(header_bytes)
+                    if detected_type in [FileType.CSV, FileType.TSV]
+                    else None
+                )
 
-                    if method_name == "magika":
-                        # Extract Magika information if this was a Magika detection
-                        try:
-                            from magika import Magika
+                # Get Magika-specific information
+                magika_info = self._get_magika_info(file_path, method_name)
 
-                            magika = Magika()
-                            result = magika.identify_path(file_path)
-                            if result:
-                                magika_label = (
-                                    result.output.label
-                                )  # Use .label instead of deprecated .ct_label
-                                magika_score = result.score
+                best_result = DetectionResult(
+                    detected_type=detected_type,
+                    confidence=confidence,
+                    method=method_name,
+                    mime_type=mime_type,
+                    encoding=encoding,
+                    magic_bytes=magic_hex,
+                    extension_type=extension_type,
+                    format_mismatch=detected_type != extension_type if extension_type else False,
+                    magika_label=magika_info["label"],
+                    magika_score=magika_info["score"],
+                    is_supported=magika_info["is_supported"],
+                    unsupported_reason=magika_info["unsupported_reason"],
+                )
+                best_confidence = confidence
 
-                                # Check if format is supported
-                                if magika_label in self.UNSUPPORTED_FORMATS:
-                                    is_supported = False
-                                    unsupported_reason = self.UNSUPPORTED_FORMATS[magika_label]
-                        except Exception:
-                            pass  # Continue without Magika info if extraction fails
-
-                    best_result = DetectionResult(
-                        detected_type=detected_type,
-                        confidence=confidence,
-                        method=method_name,
-                        mime_type=mime_type,
-                        encoding=encoding,
-                        magic_bytes=magic_hex,
-                        extension_type=extension_type,
-                        format_mismatch=detected_type != extension_type
-                        if extension_type
-                        else False,
-                        magika_label=magika_label,
-                        magika_score=magika_score,
-                        is_supported=is_supported,
-                        unsupported_reason=unsupported_reason,
-                    )
-                    best_confidence = confidence
-
-                    # If we have high confidence, stop here
-                    if confidence >= 0.9:
-                        break
+                # If we have high confidence, stop here
+                if confidence >= 0.9:
+                    break
 
             except Exception as e:
                 logger.debug(f"Detection method {method_name} failed: {e}")
@@ -566,18 +542,48 @@ class FileFormatDetector:
             logger.debug(f"Magika detection failed: {e}")
             return None, 0.0
 
+    def _get_magika_info(self, file_path: Path, method_name: str) -> dict[str, Any]:
+        """Get Magika-specific information if applicable."""
+        default_info = {
+            "label": None,
+            "score": None,
+            "is_supported": True,
+            "unsupported_reason": None,
+        }
+
+        if method_name != "magika":
+            return default_info
+
+        try:
+            from magika import Magika
+
+            magika = Magika()
+            result = magika.identify_path(file_path)
+            if not result:
+                return default_info
+
+            magika_label = result.output.label  # Use .label instead of deprecated .ct_label
+            magika_score = result.score
+
+            # Check if format is supported
+            is_supported = magika_label not in self.UNSUPPORTED_FORMATS
+            unsupported_reason = (
+                self.UNSUPPORTED_FORMATS.get(magika_label) if not is_supported else None
+            )
+
+            return {
+                "label": magika_label,
+                "score": magika_score,
+                "is_supported": is_supported,
+                "unsupported_reason": unsupported_reason,
+            }
+        except Exception:
+            return default_info  # Continue without Magika info if extraction fails
+
     def _is_likely_text(self, header_bytes: bytes) -> bool:
         """Check if the file appears to be text-based."""
         if not header_bytes:
             return False
-
-        # Check for binary indicators
-        # binary_indicators = [
-        #     b'\x00',  # Null bytes
-        #     b'\xff\xfe',  # UTF-16 BOM
-        #     b'\xfe\xff',  # UTF-16 BE BOM
-        #     b'\xef\xbb\xbf',  # UTF-8 BOM (but still text)
-        # ]
 
         # Count non-printable characters
         printable_count = sum(

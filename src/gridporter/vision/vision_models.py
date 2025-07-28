@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 
 from ..config import GridPorterConfig
+from ..utils.openai_pricing import get_pricing_instance
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +146,20 @@ class OpenAIVisionModel(VisionModel):
                 "total_tokens": response.usage.total_tokens if response.usage else 0,
             }
 
-            logger.info(f"OpenAI vision analysis completed. Tokens used: {usage['total_tokens']}")
+            # Calculate cost using pricing module
+            pricing = get_pricing_instance()
+            cost = pricing.calculate_cost(
+                model_id=self.name,
+                prompt_tokens=usage["prompt_tokens"],
+                completion_tokens=usage["completion_tokens"],
+            )
+            usage["cost_usd"] = cost
+
+            logger.info(
+                f"OpenAI vision analysis completed. "
+                f"Tokens: {usage['total_tokens']} "
+                f"Cost: ${cost:.6f}"
+            )
 
             return VisionModelResponse(content=content, model=self.name, usage=usage)
 

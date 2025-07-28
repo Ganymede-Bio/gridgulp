@@ -6,30 +6,49 @@ An intelligent spreadsheet ingestion framework with automatic multi-table detect
 
 GridPorter is a Python framework that automatically detects and extracts multiple tables from complex spreadsheets (Excel and CSV files). It uses a hierarchical detection strategy combined with LLM-powered naming suggestions to provide a robust solution for spreadsheet data extraction.
 
-### What's New in v0.2.1
+### What's New in v0.2.2
 
-- **Semantic Understanding**: GridPorter now understands the meaning and structure of complex tables, not just their layout
-- **Multi-Row Headers**: Automatic detection of hierarchical headers with merged cells
-- **Financial Reports**: Built-in support for financial statements, pivot tables, and reports with subtotals
-- **Feature Collection**: Optional telemetry system to help improve detection accuracy
-- **100% Test Coverage**: Comprehensive test suite ensuring reliability
+- **Zero-Cost Detection**: New traditional methods for cost-free table detection
+  - `SimpleCaseDetector`: Fast detection for single tables starting near A1
+  - `IslandDetector`: Multi-table detection using connected component analysis
+  - Excel metadata extraction from ListObjects and named ranges
+- **Cost Optimization Framework**: Intelligent routing between detection methods
+  - Budget management with session and per-file limits
+  - Real-time cost tracking and reporting
+  - Automatic fallback to free methods when budget is exceeded
+- **Hybrid Detection Pipeline**: Best-of-both-worlds approach
+  - Try free methods first, use vision only when needed
+  - Confidence-based routing for optimal cost/quality balance
+  - Early termination when high-confidence results are achieved
+- **Code Organization Improvements**: Major refactoring for better maintainability
+  - Centralized constants in `core/constants.py`
+  - Custom exception classes and type definitions
+  - Enhanced contextual logging throughout the codebase
 
 ## Features
 
 - **Multi-format Support**: Handles Excel files (.xlsx, .xls, .xlsm, .xlsb) and CSV files
 - **Intelligent Table Detection**: Multiple detection strategies including:
-  - Single table fast check
-  - Excel ListObjects detection
-  - Vision-based detection with bitmap analysis
-  - Complex table agent for semantic understanding
-  - Multi-row header detection with merged cells
-  - Format and semantic structure analysis
+  - **Traditional Methods** (Zero Cost):
+    - Simple case detection for single tables
+    - Island detection for multi-table sheets
+    - Excel metadata extraction (ListObjects, named ranges)
+  - **Vision-Based Detection** (Cost-Aware):
+    - Bitmap analysis with adaptive compression
+    - Complex table agent for semantic understanding
+    - Multi-row header detection with merged cells
+    - Format and semantic structure analysis
 - **Semantic Understanding** (New in v0.2.1):
   - Multi-row header detection with column hierarchy
   - Merged cell analysis and mapping
   - Section and subtotal detection
   - Format pattern recognition
   - Preservation of semantic blank rows
+- **Cost Optimization Framework** (New in v0.2.2):
+  - Budget management with session and per-file limits
+  - Real-time cost tracking and reporting
+  - Intelligent method selection based on complexity
+  - Automatic fallback to free methods
 - **AI-Powered Features**:
   - Table naming suggestions using LLMs
   - Vision model integration for complex layouts
@@ -186,6 +205,66 @@ async def main():
 
 # Run the async function
 asyncio.run(main())
+```
+
+### Cost-Aware Detection (v0.2.2)
+
+```python
+from gridporter import GridPorter, Config
+
+# Configure cost limits and detection preferences
+config = Config(
+    # Budget management
+    max_cost_per_session=1.0,  # Max $1.00 per session
+    max_cost_per_file=0.10,    # Max $0.10 per file
+
+    # Enable free detection methods
+    enable_simple_case_detection=True,  # Fast single-table detection
+    enable_island_detection=True,       # Multi-table detection
+    use_excel_metadata=True,           # Excel ListObjects/named ranges
+
+    # Vision used only when needed
+    use_vision=True,
+    confidence_threshold=0.8  # High confidence required to skip vision
+)
+
+porter = GridPorter(config=config)
+
+# The system automatically:
+# 1. Tries simple case detection (free)
+# 2. Uses Excel metadata if available (free)
+# 3. Tries island detection for multi-table sheets (free)
+# 4. Falls back to vision only if needed and budget allows
+result = await porter.detect_tables("complex_spreadsheet.xlsx")
+
+# Check cost report
+cost_report = result.metadata.get('cost_report', {})
+print(f"Total cost: ${cost_report.get('total_cost_usd', 0):.3f}")
+print(f"Methods used: {cost_report.get('method_usage', {})}")
+```
+
+### Zero-Cost Detection Methods
+
+```python
+from gridporter.detectors import SimpleCaseDetector, IslandDetector
+from gridporter.utils import load_sheet_data
+
+# Load sheet data
+sheet_data = await load_sheet_data("simple_table.xlsx")
+
+# Simple case detection (single table near A1)
+simple_detector = SimpleCaseDetector()
+result = simple_detector.detect_simple_table(sheet_data)
+if result.is_simple_table:
+    print(f"Simple table found: {result.table_range}")
+    print(f"Confidence: {result.confidence:.2f}")
+
+# Island detection (multiple disconnected tables)
+island_detector = IslandDetector()
+islands = island_detector.detect_islands(sheet_data)
+print(f"Found {len(islands)} data islands")
+for island in islands:
+    print(f"  Island at {island.to_range()} with {len(island.cells)} cells")
 ```
 
 ### Advanced Features (v0.2.1)

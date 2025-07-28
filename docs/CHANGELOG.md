@@ -5,6 +5,92 @@ All notable changes to GridPorter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2025-07-28
+
+### Added
+- **Excel Metadata Extraction**: Leverage Excel's built-in table definitions
+  - `ExcelMetadataExtractor`: Extract ListObjects (Excel tables) with high confidence
+  - Named ranges detection for better table boundaries
+  - Zero API cost for Excel native table detection
+  - Integration with hybrid detection pipeline
+
+- **Traditional Detection Methods**: Fast, zero-cost table detection
+  - `SimpleCaseDetector`: Optimized for single tables starting near A1
+  - `IslandDetector`: Connected component analysis for multi-table sheets
+  - Flood-fill algorithm for finding disconnected data regions
+  - Confidence scoring based on density, shape, and header patterns
+  - Both methods completely free (no API calls)
+
+- **Cost Optimization Framework**: Intelligent routing and budget management
+  - `CostOptimizer`: Track API usage and costs per session/file
+  - Budget limits with automatic fallback to free methods
+  - Real-time cost tracking and reporting
+  - Intelligent method selection based on complexity and budget
+  - `OpenAIPricing`: Real OpenAI cost calculation with current pricing
+  - `OpenAICostsAPI`: Integration with OpenAI's costs endpoint (admin key required)
+
+- **Code Organization Improvements**: Major refactoring for maintainability
+  - **Centralized Constants**: All constants moved to `src/gridporter/core/constants.py`
+  - **Core Module**: New organizational structure with:
+    - `constants.py` - Categorized constants (Island Detection, Format Analysis, etc.)
+    - `exceptions.py` - Custom exception classes for better error handling
+    - `types.py` - Shared type definitions and aliases
+    - `configurable_constants.py` - Mechanism for config overrides
+  - **Contextual Logging**: New logging framework with file/sheet/table context
+  - Better separation of concerns and cleaner imports
+
+- **Enhanced Detection Pipeline**: Hybrid approach for optimal cost/quality
+  - Try free methods first (Simple Case, Island Detection, Excel Metadata)
+  - Fall back to vision processing only when needed
+  - Confidence-based routing and early termination
+  - Methods used tracking in detection results
+  - Cost reporting in metadata
+
+### Changed
+- **Configuration System**: New options for cost control and traditional methods
+  - `max_cost_per_session`: Budget limit for entire session (default: $1.00)
+  - `max_cost_per_file`: Budget limit per file (default: $0.10)
+  - `enable_simple_case_detection`: Enable fast single-table detection (default: True)
+  - `enable_island_detection`: Enable multi-table detection (default: True)
+  - `use_excel_metadata`: Use Excel ListObjects/named ranges (default: True)
+  - `openai_admin_key`: Optional admin key for cost API access
+  - Configurable detection thresholds for fine-tuning
+
+- **GridPorter Core**: Enhanced with hybrid detection and cost tracking
+  - Integrated traditional methods into main detection pipeline
+  - Added cost tracking to all detection results
+  - Enhanced metadata with methods used and performance metrics
+  - Better handling of budget constraints
+
+- **ComplexTableAgent**: Updated with cost-aware routing
+  - Intelligent fallback from expensive to free methods
+  - Enhanced confidence scoring combining multiple detection strategies
+  - Better integration with Excel metadata extraction
+  - Contextual logging throughout detection process
+
+### Fixed
+- Improved constants organization reduces code duplication
+- Better error handling with custom exception classes
+- Enhanced logging provides better debugging information
+- More robust detection with multiple fallback strategies
+- Fixed magic number scattered throughout codebase
+
+### Examples
+- `week6_excel_metadata_example.py`: Demonstrates Excel ListObjects extraction
+- `week6_hybrid_detection_example.py`: Shows hybrid detection approach with cost tracking
+
+### Documentation
+- `docs/WEEK6_SUMMARY.md`: Comprehensive overview of Week 6 features
+- `docs/testing/WEEK6_TESTING_GUIDE.md`: Manual testing procedures for new features
+- `CONSTANTS_REFACTORING.md`: Details of code organization improvements
+
+### Developer Experience
+- Constants centralization improves maintainability
+- Better type safety with custom types module
+- Enhanced debugging with contextual logging
+- Cleaner code organization with core module structure
+- All code continues to pass strict linting standards
+
 ## [0.2.1] - 2025-07-27
 
 ### Added
@@ -185,29 +271,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - File size limits and processing timeouts
 - Safe file type detection before processing
 - No execution of Excel macros (by design)
-
-## Roadmap
-
-### [0.3.0] - Planned
-- Google Sheets API integration
-- WebSocket support for real-time updates
-- Real-time collaboration features
-- Cloud storage integration
-
-### [0.4.0] - Planned
-- ML-based table detection using table-transformer
-- Automatic data type inference
-- Table relationship detection
-- Plugin system for custom detectors
-
-### [1.0.0] - Planned
-- Production-ready release
-- Stable API
-- Full documentation
-- Performance guarantees
-- Enterprise features
-
-[Unreleased]: https://github.com/yourusername/gridporter/compare/v0.2.1...HEAD
-[0.2.1]: https://github.com/yourusername/gridporter/compare/v0.2.0...v0.2.1
-[0.2.0]: https://github.com/yourusername/gridporter/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/yourusername/gridporter/releases/tag/v0.1.0

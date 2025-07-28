@@ -117,6 +117,48 @@ class Config(BaseModel):
         30, ge=1, description="Days to retain feature data before cleanup"
     )
 
+    # Cost Optimization Configuration (Week 6)
+    max_cost_per_session: float = Field(
+        1.0, ge=0.0, description="Maximum cost allowed per session in USD"
+    )
+    max_cost_per_file: float = Field(
+        0.1, ge=0.0, description="Maximum cost allowed per file in USD"
+    )
+    enable_simple_case_detection: bool = Field(
+        True, description="Enable simple case detection to avoid vision costs"
+    )
+    enable_island_detection: bool = Field(
+        True, description="Enable traditional island detection as fallback"
+    )
+    use_excel_metadata: bool = Field(
+        True, description="Use Excel metadata (ListObjects, named ranges) for detection hints"
+    )
+
+    # Detection Thresholds (Configurable Constants)
+    island_min_cells: int = Field(
+        20, ge=1, description="Minimum cells for good confidence in island detection"
+    )
+    island_density_threshold: float = Field(
+        0.8, ge=0.0, le=1.0, description="High density threshold for island detection"
+    )
+    format_blank_row_threshold: float = Field(
+        0.9,
+        ge=0.0,
+        le=1.0,
+        description="Percentage of cells that must be empty to consider row blank",
+    )
+    format_total_formatting_threshold: float = Field(
+        0.5,
+        ge=0.0,
+        le=1.0,
+        description="Percentage of cells that must be bold for total formatting",
+    )
+
+    # OpenAI Admin Configuration
+    openai_admin_key: str | None = Field(
+        None, description="OpenAI admin API key for accessing costs endpoint"
+    )
+
     # Caching
     enable_cache: bool = Field(True, description="Enable result caching")
     cache_dir: Path | None = Field(None, description="Cache directory path")
@@ -182,6 +224,18 @@ class Config(BaseModel):
             == "true",
             feature_db_path=os.getenv("GRIDPORTER_FEATURE_DB_PATH", "~/.gridporter/features.db"),
             feature_retention_days=int(os.getenv("GRIDPORTER_FEATURE_RETENTION_DAYS", "30")),
+            # Cost Optimization Configuration (Week 6)
+            max_cost_per_session=float(os.getenv("GRIDPORTER_MAX_COST_PER_SESSION", "1.0")),
+            max_cost_per_file=float(os.getenv("GRIDPORTER_MAX_COST_PER_FILE", "0.1")),
+            enable_simple_case_detection=os.getenv(
+                "GRIDPORTER_ENABLE_SIMPLE_CASE_DETECTION", "true"
+            ).lower()
+            == "true",
+            enable_island_detection=os.getenv("GRIDPORTER_ENABLE_ISLAND_DETECTION", "true").lower()
+            == "true",
+            use_excel_metadata=os.getenv("GRIDPORTER_USE_EXCEL_METADATA", "true").lower() == "true",
+            # OpenAI Admin Configuration
+            openai_admin_key=os.getenv("OPENAI_ADMIN_KEY"),
             # Other Configuration
             max_file_size_mb=float(os.getenv("GRIDPORTER_MAX_FILE_SIZE_MB", "2000")),
             timeout_seconds=int(os.getenv("GRIDPORTER_TIMEOUT_SECONDS", "300")),

@@ -1,6 +1,5 @@
 """Feature models for table detection telemetry."""
 
-
 from pydantic import BaseModel, ConfigDict, Field
 
 

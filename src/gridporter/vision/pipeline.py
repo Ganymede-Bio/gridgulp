@@ -137,6 +137,10 @@ class VisionPipeline:
             },
             raw_response=model_response.content,
             cached=False,
+            metadata={
+                "model": model_response.model,
+                "usage": model_response.usage,
+            },
         )
 
         # Cache result if enabled
@@ -326,7 +330,7 @@ class VisionPipeline:
 
         # Parse refined response
         refined_proposals = self.region_proposer.parse_response(
-            response,
+            response.content,
             bitmap_metadata,
             confidence_threshold=0.7,  # Higher threshold for refinement
         )
@@ -382,5 +386,7 @@ class VisionPipeline:
                 "refinement_iteration": 1,
                 "original_failed_count": len(failed_regions),
                 "refined_valid_count": len(refined_regions),
+                "model": response.model,
+                "usage": response.usage,
             },
         )
