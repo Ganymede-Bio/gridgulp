@@ -287,6 +287,10 @@ class CostOptimizer:
 
         return cached["result"]
 
+    def get_session_cost(self) -> float:
+        """Get the total cost for the current session."""
+        return self.tracker.total_cost_usd
+
     def get_cost_report(self) -> dict[str, Any]:
         """Get a report of current costs and usage.
 

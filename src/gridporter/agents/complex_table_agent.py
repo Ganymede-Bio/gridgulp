@@ -18,7 +18,11 @@ from ..models.sheet_data import SheetData
 from ..models.table import HeaderInfo, TableInfo, TableRange
 from ..models.vision_result import VisionResult
 from ..utils.cost_optimizer import CostOptimizer, DetectionMethod
-from ..utils.logging_context import OperationContext, TableContext, get_contextual_logger
+from ..utils.logging_context import (
+    OperationContext,
+    TableContext,
+    get_contextual_logger,
+)
 from ..vision.pattern_detector import SparsePatternDetector
 
 logger = get_contextual_logger(__name__)
@@ -61,15 +65,15 @@ class ComplexTableAgent:
 
         # Week 6: Initialize cost optimizer
         self.cost_optimizer = CostOptimizer(
-            max_cost_per_session=config.max_cost_per_session
-            if hasattr(config, "max_cost_per_session")
-            else 1.0,
-            max_cost_per_file=config.max_cost_per_file
-            if hasattr(config, "max_cost_per_file")
-            else 0.1,
-            confidence_threshold=config.confidence_threshold
-            if hasattr(config, "confidence_threshold")
-            else 0.8,
+            max_cost_per_session=(
+                config.max_cost_per_session if hasattr(config, "max_cost_per_session") else 1.0
+            ),
+            max_cost_per_file=(
+                config.max_cost_per_file if hasattr(config, "max_cost_per_file") else 0.1
+            ),
+            confidence_threshold=(
+                config.confidence_threshold if hasattr(config, "confidence_threshold") else 0.8
+            ),
             enable_caching=config.enable_cache,
         )
 
@@ -128,21 +132,53 @@ class ComplexTableAgent:
     ) -> list[TableInfo]:
         """Week 6: Hybrid detection with cost optimization."""
 
-        # Step 1: Check for simple case (single table)
+        # Step 1: Check for simple case (single table) - FAST PATH for high confidence
         simple_result = self.simple_case_detector.detect_simple_table(sheet_data)
-        if (
-            simple_result.is_simple_table
-            and simple_result.confidence >= self.cost_optimizer.confidence_threshold
-        ):
+        if simple_result.is_simple_table:
             logger.info(f"Simple case detected with confidence {simple_result.confidence}")
             self.cost_optimizer.tracker.add_usage(DetectionMethod.SIMPLE_CASE)
 
-            # Convert to TableInfo and enhance
-            table_range = self._parse_range(simple_result.table_range)
-            table = await self._analyze_single_table(sheet_data, table_range, None)
-            if table:
-                table.detection_method = "simple_case"
-                return [table]
+            # ULTRA-FAST path: For very large dense tables, skip all heavy processing
+            cell_count = (sheet_data.max_row + 1) * (sheet_data.max_column + 1)
+            if simple_result.confidence >= 0.89 and cell_count > 10000:
+                logger.info(
+                    f"Ultra-fast path: Large dense table ({cell_count} cells) with perfect confidence"
+                )
+                table_range = self._parse_range(simple_result.table_range)
+                if table_range:
+                    # Create ultra-minimal TableInfo for performance
+                    table = TableInfo(
+                        id=f"ultra_fast_{table_range.start_row}_{table_range.start_col}",
+                        range=table_range,
+                        confidence=simple_result.confidence,
+                        detection_method="ultra_fast",
+                        has_headers=True,
+                        # Skip all optional fields for maximum speed
+                    )
+                    return [table]
+
+            # Fast path: For very high confidence simple cases, skip complex analysis
+            elif simple_result.confidence >= 0.95:
+                logger.info("High confidence simple case - using fast path")
+                table_range = self._parse_range(simple_result.table_range)
+                if table_range:
+                    # Create minimal TableInfo without heavy analysis
+                    table = TableInfo(
+                        id=f"simple_{table_range.start_row}_{table_range.start_col}",
+                        range=table_range,
+                        confidence=simple_result.confidence,
+                        detection_method="simple_case_fast",
+                        has_headers=True,  # Simple case typically has headers
+                    )
+                    return [table]
+
+            # Normal path for medium confidence simple cases
+            elif simple_result.confidence >= self.cost_optimizer.confidence_threshold:
+                table_range = self._parse_range(simple_result.table_range)
+                table = await self._analyze_single_table(sheet_data, table_range, None)
+                if table:
+                    table.detection_method = "simple_case"
+                    return [table]
 
         # Step 2: Use Excel metadata if available
         if excel_metadata:
@@ -182,14 +218,73 @@ class ComplexTableAgent:
                 min_confidence=COMPLEX_TABLE.MIN_CONFIDENCE_FOR_ISLAND,
             )
 
-            # If island detection gives good results, use them
-            if table_infos and all(
-                t.confidence >= COMPLEX_TABLE.MIN_CONFIDENCE_FOR_GOOD_ISLAND for t in table_infos
-            ):
-                # Enhance with complex detection
+            # Use island detection results if they meet quality thresholds
+            good_islands = [
+                t
+                for t in table_infos
+                if t.confidence >= COMPLEX_TABLE.MIN_CONFIDENCE_FOR_GOOD_ISLAND
+            ]
+            acceptable_islands = [
+                t for t in table_infos if t.confidence >= COMPLEX_TABLE.MIN_CONFIDENCE_FOR_ISLAND
+            ]
+
+            logger.info(
+                f"Island analysis: {len(good_islands)} good islands (≥{COMPLEX_TABLE.MIN_CONFIDENCE_FOR_GOOD_ISLAND}), {len(acceptable_islands)} acceptable (≥{COMPLEX_TABLE.MIN_CONFIDENCE_FOR_ISLAND})"
+            )
+
+            # Fast path: If we have multiple high-confidence islands, trust them completely
+            if len(good_islands) >= 2:
+                logger.info(
+                    f"Multiple high-confidence islands detected - using fast path for {len(good_islands)} tables"
+                )
+                fast_tables = []
+                for table_info in good_islands:
+                    # table_info.range is already a TableRange object from island detector
+                    table_range = (
+                        table_info.range
+                        if isinstance(table_info.range, TableRange)
+                        else self._parse_range(table_info.range)
+                    )
+                    if table_range:
+                        # Create fast TableInfo to preserve boundaries
+                        fast_table = TableInfo(
+                            id=table_info.id,
+                            range=table_range,
+                            confidence=table_info.confidence,
+                            detection_method="island_detection_fast",
+                            has_headers=True,  # Islands typically include headers
+                        )
+                        fast_tables.append(fast_table)
+                return fast_tables
+
+            # Also use fast path for single high-confidence island
+            elif len(good_islands) == 1:
+                logger.info("Single high-confidence island detected - using fast path")
+                table_info = good_islands[0]
+                table_range = (
+                    table_info.range
+                    if isinstance(table_info.range, TableRange)
+                    else self._parse_range(table_info.range)
+                )
+                if table_range:
+                    fast_table = TableInfo(
+                        id=table_info.id,
+                        range=table_range,
+                        confidence=table_info.confidence,
+                        detection_method="island_detection_fast",
+                        has_headers=True,
+                    )
+                    return [fast_table]
+
+            # Normal path: Use enhanced analysis for fewer or lower-confidence islands
+            elif acceptable_islands:
                 enhanced_tables = []
-                for table_info in table_infos:
-                    table_range = self._parse_range(table_info.range)
+                for table_info in acceptable_islands:
+                    table_range = (
+                        table_info.range
+                        if isinstance(table_info.range, TableRange)
+                        else self._parse_range(table_info.range)
+                    )
                     if table_range:
                         enhanced = await self._analyze_single_table(sheet_data, table_range, None)
                         if enhanced:
@@ -298,6 +393,7 @@ class ComplexTableAgent:
 
                 # Build table info
                 table = TableInfo(
+                    id=f"table_{table_range.start_row}_{table_range.start_col}",
                     range=table_range,
                     confidence=self._calculate_table_confidence(
                         multi_header, structure, pattern_info
@@ -350,10 +446,10 @@ class ComplexTableAgent:
                             hierarchical_features = {
                                 "has_multi_headers": multi_header is not None,
                                 "max_hierarchy_depth": (
-                                    multi_header.end_row - multi_header.start_row + 1
-                                )
-                                if multi_header
-                                else header_row_count,
+                                    (multi_header.end_row - multi_header.start_row + 1)
+                                    if multi_header
+                                    else header_row_count
+                                ),
                                 "has_indentation": False,  # Multi-header is different from indentation
                             }
 

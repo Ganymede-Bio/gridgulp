@@ -1,0 +1,132 @@
+{
+  "Sheet1": {
+    "files": [
+      {
+        "name": "proprietary/EXP25001399_Ganymede RiboGreen Gen5v12-3_Plate 1.xlsx",
+        "row": 1,
+        "col": 0
+      },
+      {
+        "name": "proprietary/EXP25001399_Ganymede RiboGreen Gen5v12-3_Plate 1.xlsx",
+        "row": 2,
+        "col": 0
+      },
+      {
+        "name": "proprietary/EXP25001399_Ganymede RiboGreen Gen5v12-3_Plate 1.xlsx",
+        "row": 3,
+        "col": 0
+      },
+      {
+        "name": "proprietary/EXP25001399_Ganymede RiboGreen Gen5v12-3_Plate 1.xlsx",
+        "row": 4,
+        "col": 0
+      },
+      {
+        "name": "proprietary/EXP25001399_Ganymede RiboGreen Gen5v12-3_Plate 1.xlsx",
+        "row": 5,
+        "col": 0
+      },
+      {
+        "name": "proprietary/EXP25001399_Ganymede RiboGreen Gen5v12-3_Plate 1.xlsx",
+        "row": 6,
+        "col": 0
+      },
+      {
+        "name": "proprietary/EXP25001399_Ganymede RiboGreen Gen5v12-3_Plate 1.xlsx",
+        "row": 7,
+        "col": 0
+      },
+      {
+        "name": "spreadsheets/complex/multi_table_report.csv",
+        "row": 8,
+        "col": 0
+      },
+      {
+        "name": "spreadsheets/complex/multi_table_report.csv",
+        "row": 9,
+        "col": 0
+      },
+      {
+        "name": "spreadsheets/complex/multi_table_report.csv",
+        "row": 10,
+        "col": 0
+      },
+      {
+        "name": "spreadsheets/complex/multi_table_report.csv",
+        "row": 11,
+        "col": 0
+      },
+      {
+        "name": "spreadsheets/complex/multiple ranges.xlsx",
+        "row": 12,
+        "col": 0
+      },
+      {
+        "name": "spreadsheets/complex/multiple ranges.xlsx",
+        "row": 13,
+        "col": 0
+      },
+      {
+        "name": "spreadsheets/complex/multiple ranges.xlsx",
+        "row": 14,
+        "col": 0
+      },
+      {
+        "name": "spreadsheets/financial/balance_sheet.csv",
+        "row": 15,
+        "col": 0
+      },
+      {
+        "name": "spreadsheets/financial/balance_sheet.csv",
+        "row": 16,
+        "col": 0
+      },
+      {
+        "name": "spreadsheets/financial/balance_sheet.csv",
+        "row": 17,
+        "col": 0
+      },
+      {
+        "name": "spreadsheets/financial/balance_sheet.csv",
+        "row": 18,
+        "col": 0
+      },
+      {
+        "name": "spreadsheets/financial/balance_sheet.csv",
+        "row": 19,
+        "col": 0
+      },
+      {
+        "name": "spreadsheets/financial/balance_sheet.csv",
+        "row": 20,
+        "col": 0
+      },
+      {
+        "name": "spreadsheets/financial/income_statement.csv",
+        "row": 21,
+        "col": 0
+      },
+      {
+        "name": "spreadsheets/sales/monthly_sales.csv",
+        "row": 22,
+        "col": 0
+      },
+      {
+        "name": "spreadsheets/scientific/Sample T, pH data.csv",
+        "row": 23,
+        "col": 0
+      },
+      {
+        "name": "spreadsheets/simple/basic_table.xls",
+        "row": 24,
+        "col": 0
+      },
+      {
+        "name": "spreadsheets/simple/product_inventory.csv",
+        "row": 25,
+        "col": 0
+      }
+    ],
+    "expected_tables": {}
+  }
+}

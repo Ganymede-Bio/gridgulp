@@ -214,28 +214,6 @@ GridPorter supports multiple vision models:
 | Output format | ❌ Generic text/JSON | ✅ Pandas-ready metadata |
 | Local option | ❌ Cloud-only | ✅ Ollama support |
 
-## Future Roadmap
-
-### Version 1.1: Enhanced Integration
-- Google Sheets API support
-- Direct database export
-- REST API service
-
-### Version 1.2: Advanced AI
-- Table-transformer integration
-- Custom model fine-tuning
-- Confidence learning from feedback
-
-### Version 1.3: Interactive Mode
-- Web UI for verification
-- Drag-and-drop refinement
-- Real-time preview
-
-### Version 2.0: Platform
-- Plugin architecture
-- Custom format handlers
-- Community model marketplace
-
 ## Getting Started
 
 ```python

@@ -31,6 +31,42 @@ class TableRange(BaseModel):
         end_col_letter = col_to_letter(self.end_col)
         return f"{start_col_letter}{self.start_row + 1}:{end_col_letter}{self.end_row + 1}"
 
+    def to_excel(self) -> str:
+        """Alias for excel_range property."""
+        return self.excel_range
+
+    @classmethod
+    def from_excel(cls, excel_range: str) -> "TableRange":
+        """Create TableRange from Excel-style range string."""
+        # Parse Excel range (e.g., "A1:D10")
+        parts = excel_range.split(":")
+        if len(parts) != 2:
+            raise ValueError(f"Invalid Excel range: {excel_range}")
+
+        def parse_cell(cell: str) -> tuple[int, int]:
+            # Extract column letters and row number
+            import re
+
+            match = re.match(r"([A-Z]+)(\d+)", cell.upper())
+            if not match:
+                raise ValueError(f"Invalid cell reference: {cell}")
+
+            col_str, row_str = match.groups()
+
+            # Convert column letters to index
+            col = 0
+            for char in col_str:
+                col = col * 26 + (ord(char) - ord("A") + 1)
+            col -= 1  # 0-indexed
+
+            row = int(row_str) - 1  # 0-indexed
+            return row, col
+
+        start_row, start_col = parse_cell(parts[0])
+        end_row, end_col = parse_cell(parts[1])
+
+        return cls(start_row=start_row, start_col=start_col, end_row=end_row, end_col=end_col)
+
     @property
     def row_count(self) -> int:
         """Number of rows in the range."""
@@ -69,10 +105,12 @@ class TableInfo(BaseModel):
 
     model_config = ConfigDict(strict=True)
 
+    id: str = Field(..., description="Unique identifier for the table")
     range: TableRange = Field(..., description="Table location")
     suggested_name: str | None = Field(None, description="LLM-suggested name for the table")
     confidence: float = Field(..., ge=0.0, le=1.0, description="Detection confidence score")
     detection_method: str = Field(..., description="Method used to detect this table")
+    sheet_name: str | None = Field(None, description="Sheet containing this table")
     headers: list[str] | None = Field(
         None, description="Detected header row values (deprecated, use header_info)"
     )
@@ -90,8 +128,40 @@ class TableInfo(BaseModel):
     format_preservation: dict[str, Any] | None = Field(
         None, description="Formatting that should be preserved"
     )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="Additional metadata from detection/analysis"
+    )
 
     @property
     def shape(self) -> tuple[int, int]:
         """Table shape as (rows, columns)."""
         return (self.range.row_count, self.range.col_count)
+
+    @property
+    def row_count(self) -> int:
+        """Number of data rows (excluding headers)."""
+        header_rows = 1
+        if self.header_info and self.header_info.row_count:
+            header_rows = self.header_info.row_count
+        return self.range.row_count - header_rows
+
+    @property
+    def column_count(self) -> int:
+        """Number of columns."""
+        return self.range.col_count
+
+
+class ExtractedTable(BaseModel):
+    """A table with extracted data and metadata."""
+
+    model_config = ConfigDict(strict=True)
+
+    info: TableInfo = Field(..., description="Table detection information")
+    headers: list[str] = Field(..., description="Column headers")
+    data: list[list[Any]] = Field(..., description="Table data rows")
+    column_types: dict[str, str] = Field(..., description="Inferred column data types")
+    extraction_method: str = Field(..., description="Method used for extraction")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Extraction metadata")
+    pandas_params: dict[str, Any] = Field(
+        default_factory=dict, description="Parameters for pandas ingestion"
+    )

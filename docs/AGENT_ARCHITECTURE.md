@@ -12,47 +12,70 @@ GridPorter uses a vision-enabled AI orchestration architecture where Large Langu
 4. **Semantic Preservation**: Maintain table meaning and structure during extraction
 5. **Rich Metadata Output**: Provide comprehensive information for perfect data import
 
-## Agent Workflow
+## Agent Workflow with Input/Output Specifications
 
 ```mermaid
 graph TD
-    Start([File Input]) --> FileTypeDetect[File Type Detection<br/>LOCAL + AI]
-    FileTypeDetect --> BitmapGen[Binary Bitmap Generation<br/>LOCAL]
+    subgraph "Initial Processing"
+        Start(["📁 File Input<br/>━━━━━━━━━━<br/>IN: file_path, options<br/>OUT: file_path, file_bytes"])
+        -->|"file_path<br/>file_bytes"| FileTypeDetect["🔍 File Type Detection<br/>━━━━━━━━━━<br/>IN: file_path, file_bytes<br/>OUT: file_format, parser, sheets"]
 
-    BitmapGen --> BasicDetect[Basic Region Detection<br/>LOCAL]
+        FileTypeDetect -->|"file_path<br/>sheet_name<br/>parser"| DataPreprocess["🔎 Data Region Pre-process<br/>━━━━━━━━━━<br/>IN: sheet_data<br/>OUT: data_regions[], empty_regions[]"]
 
-    BasicDetect --> QuadtreeAnalysis[Quadtree Analysis<br/>LOCAL]
-    QuadtreeAnalysis --> OptimizedBitmap[Optimized Bitmap Generation<br/>LOCAL]
+        DataPreprocess -->|"sheet_data<br/>data_regions"| BitmapGen["🟦 Multi-Scale Bitmap Gen<br/>━━━━━━━━━━<br/>IN: sheet_data, regions<br/>OUT: overview, detail_views[]"]
 
-    OptimizedBitmap --> VisionLLM[Vision-Enabled LLM<br/>ORCHESTRATOR]
+        BitmapGen -->|"multi_scale<br/>bitmaps"| BasicDetect["🔲 Pattern Detection<br/>━━━━━━━━━━<br/>IN: overview, regions<br/>OUT: patterns[], confidence"]
+    end
 
-    VisionLLM --> RegionProposal[Region Proposals<br/>AI VISION]
-    RegionProposal --> LocalVerify{Local Verification<br/>LOCAL}
+    subgraph "Vision Preparation"
+        BasicDetect -->|"patterns<br/>regions"| QuadtreeAnalysis["🌳 Quadtree Analysis<br/>━━━━━━━━━━<br/>IN: patterns, regions<br/>OUT: focus_areas[], strategy"]
 
-    LocalVerify -->|Invalid| Feedback[Feedback to LLM<br/>LOCAL]
-    Feedback --> VisionLLM
+        QuadtreeAnalysis -->|"multi_scale<br/>bitmaps<br/>strategy"| OptimizedBitmap["🖼️ Vision Request Builder<br/>━━━━━━━━━━<br/>IN: bitmaps, strategy<br/>OUT: vision_request{}"]
+    end
 
-    LocalVerify -->|Valid| GeometryCheck[Geometry Analysis<br/>LOCAL]
+    subgraph "Vision Analysis & Verification"
+        OptimizedBitmap -->|"vision_request<br/>with metadata"| VisionLLM["🤖 Vision-Enabled LLM<br/>━━━━━━━━━━<br/>IN: multi_scale_images[]<br/>OUT: exact_bounds[], confidence"]
 
-    GeometryCheck --> TableExtract[Table Extraction<br/>LOCAL]
+        VisionLLM -->|"proposals[]<br/>insights"| RegionProposal["📋 Region Proposals<br/>━━━━━━━━━━<br/>IN: vision_analysis, regions<br/>OUT: region_proposals[]"]
 
-    TableExtract --> SemanticAnalysis[Semantic Analysis<br/>AI + LOCAL]
+        RegionProposal -->|"proposal<br/>bounds"| LocalVerify{"✅ Local Verification<br/>━━━━━━━━━━<br/>IN: sheet_data, proposal<br/>OUT: is_valid, metrics"}
 
-    SemanticAnalysis --> ComplexFeatures{Complex Features?}
-    ComplexFeatures -->|Yes| HeaderAnalysis[Multi-row Headers<br/>AI GUIDED]
-    ComplexFeatures -->|Yes| FormatAnalysis[Format Preservation<br/>AI GUIDED]
-    ComplexFeatures -->|No| SimpleExtract[Simple Extraction<br/>LOCAL]
+        LocalVerify -->|"❌ Invalid<br/>feedback"| Feedback["🔄 Feedback to LLM<br/>━━━━━━━━━━<br/>IN: invalid_proposals<br/>OUT: refined_prompt"]
 
-    HeaderAnalysis --> Consolidate[Consolidate Results<br/>LOCAL]
-    FormatAnalysis --> Consolidate
-    SimpleExtract --> Consolidate
+        Feedback -->|"refined_prompt<br/>retry_params"| VisionLLM
+    end
 
-    Consolidate --> MetadataGen[Generate Metadata<br/>AI + LOCAL]
+    subgraph "Data Extraction"
+        LocalVerify -->|"✓ Valid<br/>verified_region"| GeometryCheck["📐 Geometry Analysis<br/>━━━━━━━━━━<br/>IN: sheet_data, region<br/>OUT: geometry, patterns"]
 
-    MetadataGen --> NameGen[Name Generation<br/>AI]
+        GeometryCheck -->|"geometry<br/>bounds"| TableExtract["📊 Table Extraction<br/>━━━━━━━━━━<br/>IN: sheet_data, geometry<br/>OUT: raw_data[][], metadata"]
 
-    NameGen --> Output([Rich JSON Output])
+        TableExtract -->|"raw_data<br/>metadata"| SemanticAnalysis["🧠 Semantic Analysis<br/>━━━━━━━━━━<br/>IN: raw_data, insights<br/>OUT: table_type, complexity"]
+    end
 
+    subgraph "Feature Processing"
+        SemanticAnalysis -->|"semantic_analysis"| ComplexFeatures{"🔀 Complex Features?<br/>━━━━━━━━━━<br/>IN: semantic_analysis<br/>OUT: decision, routing"}
+
+        ComplexFeatures -->|"📑 Complex<br/>header_info"| HeaderAnalysis["📑 Multi-row Headers<br/>━━━━━━━━━━<br/>IN: raw_data, header_struct<br/>OUT: unified_headers[]"]
+
+        ComplexFeatures -->|"🎨 Complex<br/>format_info"| FormatAnalysis["🎨 Format Preservation<br/>━━━━━━━━━━<br/>IN: metadata, structure<br/>OUT: formatting_rules"]
+
+        ComplexFeatures -->|"📝 Simple<br/>table_data"| SimpleExtract["📝 Simple Extraction<br/>━━━━━━━━━━<br/>IN: table_data, analysis<br/>OUT: headers[], data[][]"]
+    end
+
+    subgraph "Final Assembly"
+        HeaderAnalysis -->|"headers<br/>mappings"| Consolidate["🔗 Consolidate Results<br/>━━━━━━━━━━<br/>IN: all_extractions<br/>OUT: consolidated_table"]
+        FormatAnalysis -->|"format_rules"| Consolidate
+        SimpleExtract -->|"simple_table"| Consolidate
+
+        Consolidate -->|"consolidated<br/>table"| MetadataGen["📝 Generate Metadata<br/>━━━━━━━━━━<br/>IN: table, insights<br/>OUT: pandas_config, hints"]
+
+        MetadataGen -->|"metadata<br/>table_info"| NameGen["🏷️ Name Generation<br/>━━━━━━━━━━<br/>IN: table_data, headers<br/>OUT: name, description"]
+
+        NameGen -->|"complete<br/>result"| Output(["📦 Rich JSON Output<br/>━━━━━━━━━━<br/>IN: all_tables, metrics<br/>OUT: extraction_result{}"])
+    end
+
+    style DataPreprocess fill:#e1f5e1
     style BitmapGen fill:#e1f5e1
     style BasicDetect fill:#e1f5e1
     style QuadtreeAnalysis fill:#e1f5e1
@@ -73,493 +96,1453 @@ graph TD
     style NameGen fill:#ffcccc
 ```
 
-**Legend:**
-- 🟢 Green: Local processing (deterministic)
-- 🟠 Orange: Hybrid AI + Local processing
-- 🔴 Red: AI/LLM processing (vision or text)
+### Data Flow Legend
 
-## Vision-Enabled Detection Pipeline
+- **file_path**: Path to spreadsheet file
+- **file_bytes**: First 1KB for magic detection
+- **bitmap[][]**: Binary array (1=filled, 0=empty)
+- **regions[]**: Detected connected components with bounds
+- **viz_plan**: Quadtree-based visualization strategy
+- **images[]**: PNG bitmaps for vision analysis
+- **proposals[]**: AI-proposed table regions
+- **raw_data[][]**: Extracted cell values
+- **metadata**: Cell types, formats, merged cells
+- **pandas_config**: Ready-to-use pd.read_excel() parameters
 
-### 1. Binary Bitmap Generation
+### Processing Type Legend
+- 🟢 **Green**: Local processing (deterministic)
+- 🟠 **Orange**: Hybrid AI + Local processing
+- 🔴 **Red**: AI/LLM processing (vision or text)
 
-Generate full-resolution binary bitmap for analysis:
+### Icon Legend
+- 📁 File operations
+- 🔍 Detection/Analysis
+- 🟦 Bitmap operations
+- 🖼️ Image generation
+- 🤖 AI/Vision model
+- ✅ Verification
+- 📐 Geometry
+- 📊 Data extraction
+- 🧠 Semantic understanding
+- 🔀 Decision points
+- 📑 Header processing
+- 🎨 Format handling
+- 📝 Text/metadata
+- 🏷️ Naming
+- 📦 Final output
 
-```python
-class BitmapAnalyzer:
-    """Generate and analyze bitmap representations"""
+## Detailed Step Specifications
 
-    def generate_binary_bitmap(self, sheet_data: SheetData) -> Tuple[np.ndarray, dict]:
-        """Generate 1-bit bitmap at full resolution"""
-        # Efficient vectorized generation
-        # Preserves actual dimensions for accurate analysis
+### 0. Start (File Input)
+
+**Description**: Initial entry point receiving file path or file object
+
+**Input**:
+```json
+{
+  "file_path": "path/to/spreadsheet.xlsx",
+  "options": {
+    "sheets": null,  // null for all sheets, or ["Sheet1", "Sheet2"]
+    "max_file_size_mb": 100,
+    "timeout_seconds": 300,
+    "vision_model": "gpt-4o",
+    "enable_caching": true
+  }
+}
 ```
 
-### 3. Quadtree-Based Visualization Planning
-
-Optimize bitmap generation using spatial analysis:
-
-```python
-class QuadtreeAnalyzer:
-    """Build structure-aware quadtree for efficient visualization"""
-
-    def analyze(self, sheet_data: SheetData, patterns: List[TablePattern]) -> QuadTree:
-        """Create quadtree that respects table boundaries"""
-
-        # Initialize quadtree with sheet bounds
-        quadtree = QuadTree(
-            bounds=(0, 0, sheet_data.max_row, sheet_data.max_column),
-            max_depth=8,
-            min_size=100  # Don't split below 100 cells
-        )
-
-        # Build tree respecting patterns
-        self._build_pattern_aware_tree(quadtree.root, sheet_data, patterns)
-
-        return quadtree
-
-    def plan_visualization(self, quadtree: QuadTree, max_regions: int = 10) -> List[VisualizationRegion]:
-        """Plan optimal regions for bitmap generation"""
-
-        # Get non-empty leaf nodes
-        data_nodes = quadtree.get_nodes_with_data()
-
-        # Prioritize by data density and size
-        prioritized = self._prioritize_nodes(data_nodes)
-
-        # Select top regions within GPT-4o constraints
-        selected = self._select_regions_for_visualization(
-            prioritized,
-            max_regions=max_regions,
-            max_total_size_mb=20
-        )
-
-        return selected
+**Output**:
+```json
+{
+  "file_path": "path/to/spreadsheet.xlsx",
+  "file_bytes": "<first 1024 bytes for magic detection>",
+  "request_id": "req_12345",
+  "timestamp": "2024-01-15T10:30:00Z"
+}
 ```
 
-### 4. Memory-Efficient Bitmap Generation
+### 1. File Type Detection
 
-Convert spreadsheet filled cells into optimized visual representation:
+**Agent**: FileTypeDetectorAgent
 
-```python
-class BitmapGenerator:
-    """Generate memory-efficient visual representation of spreadsheet structure"""
-
-    def __init__(self, bits_per_cell: int = None, compression_level: int = 6):
-        self.bits_per_cell = bits_per_cell  # Auto-select if None
-        self.compression_level = compression_level
-        self.max_image_size_mb = 20  # GPT-4o limit
-
-    def generate_bitmap(self, sheet_data: SheetData,
-                       visualization_plan: VisualizationPlan) -> List[BitmapResult]:
-        """Generate optimized bitmaps based on visualization plan"""
-
-        results = []
-
-        for region in visualization_plan.regions:
-            # Select appropriate representation
-            if region.total_cells > 1_000_000:
-                bitmap = self._generate_sampled(sheet_data, region)
-            elif region.total_cells > 100_000:
-                bitmap = self._generate_compressed(sheet_data, region, bits=2)
-            else:
-                bitmap = self._generate_full(sheet_data, region)
-
-            # Ensure GPT-4o compatibility
-            if len(bitmap) > self.max_image_size_mb * 1024 * 1024:
-                bitmap = self._recompress_for_size(bitmap)
-
-            results.append(BitmapResult(
-                image_data=bitmap,
-                metadata=region.metadata,
-                compression_info=self._get_compression_info(bitmap)
-            ))
-
-        return results
-
-    def _generate_compressed(self, sheet_data: SheetData, region: Region, bits: int = 2):
-        """Generate bitmap with compressed cell representation"""
-
-        # Extract region data
-        region_data = self._extract_region(sheet_data, region.bounds)
-
-        # Encode cells with reduced bits
-        if bits == 2:
-            # 2-bit: empty (00), filled (01), header (10), special (11)
-            encoded = self._encode_2bit(region_data)
-        elif bits == 4:
-            # 4-bit: more nuanced representation
-            encoded = self._encode_4bit(region_data)
-
-        # Convert to PNG with compression
-        return self._to_png(encoded, compression_level=self.compression_level)
+**Input**:
+```json
+{
+  "file_path": "path/to/spreadsheet.xlsx",
+  "file_bytes": "<first 1024 bytes for magic detection>"
+}
 ```
 
-### 5. Vision Model Integration
+**Processing**:
+- Use python-magic to detect actual file type
+- Validate against expected extensions
+- Determine appropriate parser
 
-```python
-class VisionOrchestrator:
-    """Orchestrate table detection using vision models"""
-
-    def __init__(self, config: Config):
-        if config.vision_model == "gpt-4o":
-            self.vision_llm = OpenAIVision(model="gpt-4o")
-        elif config.vision_model == "qwen2-vl":
-            self.vision_llm = OllamaVision(model="qwen2.5-vl:7b")
-
-    async def propose_regions(self, bitmap: np.ndarray,
-                            context: Dict) -> List[RegionProposal]:
-        """Use vision model to propose table regions"""
-
-        prompt = """Analyze this spreadsheet visualization where filled cells are shown as dark pixels.
-
-        Identify distinct table regions by looking for:
-        1. Rectangular clusters of filled cells
-        2. Natural boundaries (empty rows/columns)
-        3. Visual patterns suggesting headers
-        4. Indentation patterns (hierarchical data)
-
-        For each region, provide:
-        - Bounding box coordinates
-        - Confidence score
-        - Table characteristics (has_headers, is_sparse, has_indentation)
-
-        Return as JSON: {"regions": [...]}
-        """
-
-        response = await self.vision_llm.analyze(bitmap, prompt)
-        return self._parse_region_proposals(response)
+**Output**:
+```json
+{
+  "detected_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "file_format": "xlsx",
+  "parser": "openpyxl",
+  "confidence": 1.0,
+  "sheets": ["Sheet1", "Sheet2", "Data"],
+  "file_size_bytes": 1048576,
+  "processing_hints": {
+    "is_large": false,
+    "estimated_cells": 50000
+  }
+}
 ```
 
-### 6. Region Verification & Geometry Analysis
+### 2. Binary Bitmap Generation
 
-```python
-class RegionVerifier:
-    """Verify AI-proposed regions using local algorithms"""
+**Agent**: BitmapGeneratorAgent
 
-    def verify_region(self, sheet_data: np.ndarray,
-                     proposal: RegionProposal) -> VerificationResult:
-        """Verify proposed region is valid table"""
+**Input**:
+```json
+{
+  "file_path": "path/to/spreadsheet.xlsx",
+  "sheet_name": "Sheet1",
+  "file_format": "xlsx",
+  "parser": "openpyxl"
+}
+```
 
-        region_data = self._extract_region(sheet_data, proposal.bbox)
+**Processing**:
+- Load sheet data efficiently
+- Detect data regions for optimization
+- Generate multi-scale bitmaps with Excel-proportioned compression
+- Create both overview and detail views
 
-        # Check rectangularness
-        rectangularness = self._compute_rectangularness(region_data)
+**Output**:
+```json
+{
+  "sheet_info": {
+    "total_rows": 100000,
+    "total_cols": 2000,
+    "data_bounds": {"min_row": 0, "max_row": 50000, "min_col": 0, "max_col": 500}
+  },
+  "compression_levels": [
+    {"level": 0, "blocks": [1, 1], "description": "No compression (1 pixel = 1 cell)"},
+    {"level": 1, "blocks": [16, 1], "description": "16:1 ratio"},
+    {"level": 2, "blocks": [64, 1], "description": "64:1 ratio (Excel-proportioned)"},
+    {"level": 3, "blocks": [256, 4], "description": "256:4 ratio (maintains 64:1)"},
+    {"level": 4, "blocks": [1024, 16], "description": "1024:16 ratio (maintains 64:1)"},
+    {"level": 5, "blocks": [4096, 64], "description": "4096:64 ratio (maintains 64:1)"}
+  ],
+  "multi_scale_bitmaps": {
+    "overview": {
+      "compression_level": 3,
+      "bitmap": "base64_encoded_png",
+      "dimensions": {"rows": 196, "cols": 125},
+      "block_size": [256, 4],
+      "size_bytes": 24500,
+      "covers_range": "A1:AXX50000"
+    },
+    "data_regions": [
+      {
+        "region_id": "header",
+        "bounds": {"top": 0, "left": 0, "bottom": 10, "right": 100},
+        "compression_level": 0,
+        "bitmap": "base64_encoded_png",
+        "dimensions": {"rows": 11, "cols": 101},
+        "size_bytes": 1111,
+        "description": "Full resolution for precise header detection"
+      },
+      {
+        "region_id": "main_data",
+        "bounds": {"top": 11, "left": 0, "bottom": 5000, "right": 100},
+        "compression_level": 1,
+        "bitmap": "base64_encoded_png",
+        "dimensions": {"rows": 312, "cols": 101},
+        "size_bytes": 31512
+      }
+    ]
+  },
+  "generation_time_ms": 523
+}
+```
 
-        # Check data density
-        filledness = self._compute_filledness(region_data)
+### 2a. Data Region Pre-processing
 
-        # Check consistency
-        consistency = self._check_data_consistency(region_data)
+**Description**: Fast scan to identify regions with actual data
 
-        return VerificationResult(
-            is_valid=rectangularness > 0.7 and filledness > 0.3,
-            metrics={
-                'rectangularness': rectangularness,
-                'filledness': filledness,
-                'consistency': consistency
+**Input**:
+```json
+{
+  "sheet_info": {
+    "total_rows": 100000,
+    "total_cols": 2000
+  },
+  "sheet_data": "<sheet_data_reference>"
+}
+```
+
+**Processing**:
+- Binary scan to find cells with data
+- Group into connected regions
+- Merge nearby regions (configurable gap)
+- Calculate density and size metrics
+
+**Output**:
+```json
+{
+  "data_regions": [
+    {
+      "region_id": "region_1",
+      "bounds": {"top": 0, "left": 0, "bottom": 10, "right": 100},
+      "cell_count": 850,
+      "density": 0.77,
+      "characteristics": {
+        "likely_headers": true,
+        "mostly_text": true,
+        "has_formatting": true
+      }
+    },
+    {
+      "region_id": "region_2",
+      "bounds": {"top": 11, "left": 0, "bottom": 5000, "right": 100},
+      "cell_count": 350000,
+      "density": 0.71,
+      "characteristics": {
+        "likely_data": true,
+        "mixed_types": true
+      }
+    }
+  ],
+  "empty_regions": [
+    {"bounds": {"top": 5001, "left": 0, "bottom": 99999, "right": 1999}}
+  ],
+  "total_data_regions": 2,
+  "sheet_utilization": 0.04
+}
+```
+
+### 3. Basic Region Detection
+
+**Agent**: RegionDetectorAgent
+
+**Input**:
+```json
+{
+  "multi_scale_bitmaps": {
+    "overview": {
+      "compression_level": 3,
+      "bitmap": "base64_encoded_png",
+      "block_size": [256, 4]
+    }
+  },
+  "data_regions": [
+    {"region_id": "region_1", "bounds": {...}},
+    {"region_id": "region_2", "bounds": {...}}
+  ]
+}
+```
+
+**Processing**:
+- Use overview bitmap for pattern detection
+- Analyze data regions from pre-processing
+- Identify potential table boundaries
+- Mark regions needing detailed analysis
+
+**Output**:
+```json
+{
+  "detected_patterns": [
+    {
+      "pattern_id": "table_1",
+      "region_ref": "region_1",
+      "bounds": {"top": 0, "left": 0, "bottom": 10, "right": 100},
+      "confidence": 0.85,
+      "pattern_type": "structured_table",
+      "needs_detail_view": true
+    },
+    {
+      "pattern_id": "table_2",
+      "region_ref": "region_2",
+      "bounds": {"top": 11, "left": 0, "bottom": 5000, "right": 100},
+      "confidence": 0.78,
+      "pattern_type": "data_matrix",
+      "needs_detail_view": true
+    }
+  ],
+  "total_patterns": 2,
+  "detection_method": "multi_scale_analysis",
+  "detection_time_ms": 67
+}
+```
+
+### 4. Quadtree Analysis
+
+**Agent**: QuadtreeAnalyzerAgent
+
+**Input**:
+```json
+{
+  "bitmap": "[[...]]",
+  "dimensions": {"rows": 1000, "cols": 50},
+  "regions": [
+    {
+      "id": "region_1",
+      "bounds": {"top": 0, "left": 0, "bottom": 100, "right": 25}
+    }
+  ]
+}
+```
+
+**Processing**:
+- Build quadtree respecting region boundaries
+- Identify optimal visualization areas
+- Plan bitmap generation strategy
+
+**Output**:
+```json
+{
+  "quadtree_levels": 5,
+  "visualization_plan": {
+    "regions_to_visualize": [
+      {
+        "region_id": "region_1",
+        "visualization_bounds": {"top": 0, "left": 0, "bottom": 100, "right": 25},
+        "resolution": "full",
+        "estimated_size_bytes": 250000
+      }
+    ],
+    "total_images": 2,
+    "total_size_mb": 15.5
+  },
+  "optimization_applied": "region_based_clustering",
+  "analysis_time_ms": 78
+}
+```
+
+### 5. Optimized Bitmap Generation
+
+**Agent**: OptimizedBitmapAgent
+
+**Input**:
+```json
+{
+  "sheet_data": "<sheet_data_reference>",
+  "visualization_plan": {
+    "regions_to_visualize": [
+      {
+        "region_id": "region_1",
+        "visualization_bounds": {"top": 0, "left": 0, "bottom": 100, "right": 25},
+        "resolution": "full"
+      }
+    ]
+  }
+}
+```
+
+**Processing**:
+- Prepare multi-scale image set for vision analysis
+- Include overview and detail views
+- Add explicit compression metadata
+- Ensure total size < 20MB
+
+**Output**:
+```json
+{
+  "vision_request": {
+    "images": [
+      {
+        "image_id": "overview",
+        "image_data": "base64_encoded_png_data",
+        "compression_level": 3,
+        "block_size": [256, 4],
+        "description": "OVERVIEW: Full sheet at 256:4 compression. Each pixel = 256 rows × 4 columns",
+        "purpose": "Identify general table distribution",
+        "covers_cells": "A1:AXX50000",
+        "size_bytes": 245000
+      },
+      {
+        "image_id": "detail_region_1",
+        "image_data": "base64_encoded_png_data",
+        "compression_level": 0,
+        "block_size": [1, 1],
+        "description": "DETAIL: Cells A1:CW11 at 1:1 scale. Each pixel = exactly 1 cell",
+        "purpose": "Precise boundary detection for header region",
+        "covers_cells": "A1:CW11",
+        "size_bytes": 12000
+      },
+      {
+        "image_id": "detail_region_2",
+        "image_data": "base64_encoded_png_data",
+        "compression_level": 0,
+        "block_size": [1, 1],
+        "description": "DETAIL: Cells A12:CW5000 at 1:1 scale. Each pixel = exactly 1 cell",
+        "purpose": "Precise boundary detection for data region",
+        "covers_cells": "A12:CW5000",
+        "size_bytes": 489000
+      }
+    ],
+    "total_images": 3,
+    "total_size_mb": 0.73,
+    "compression_strategy": "multi_scale_with_full_detail"
+  },
+  "generation_time_ms": 523
+}
+```
+
+### 6. Vision LLM Analysis
+
+**Agent**: VisionOrchestratorAgent
+
+**Input**:
+```json
+{
+  "vision_request": {
+    "images": [
+      {
+        "image_id": "overview",
+        "image_data": "base64_encoded_png_data",
+        "compression_level": 3,
+        "description": "OVERVIEW: Full sheet at 256:4 compression..."
+      },
+      {
+        "image_id": "detail_region_1",
+        "image_data": "base64_encoded_png_data",
+        "compression_level": 0,
+        "description": "DETAIL: Cells A1:CW11 at 1:1 scale..."
+      }
+    ]
+  },
+  "prompt_template": "EXPLICIT_MULTI_SCALE"
+}
+```
+
+**Processing**:
+- Construct explicit prompt explaining each image's compression
+- Send multi-scale images to vision model
+- Emphasize that detail views are for EXACT boundaries
+- Request precise cell coordinates
+
+**Prompt Structure**:
+```
+You are analyzing spreadsheet visualizations to detect table boundaries.
+
+CRITICAL INFORMATION:
+- Image 1 (overview): 256:4 compression for structure understanding
+- Images 2+ (details): NO compression (1 pixel = 1 cell) for EXACT boundaries
+
+YOUR TASK:
+1. Use overview for general layout
+2. Use detail views for PRECISE cell coordinates
+3. Return EXACT row/column numbers
+```
+
+**Output**:
+```json
+{
+  "proposals": [
+    {
+      "proposal_id": "table_1",
+      "source_image": "detail_region_1",
+      "exact_bounds": {
+        "top_row": 5,
+        "left_col": 2,
+        "bottom_row": 10,
+        "right_col": 98
+      },
+      "excel_range": "C6:CU11",
+      "confidence": 0.95,
+      "detection_notes": "Used detail view for precise boundaries",
+      "characteristics": {
+        "has_headers": true,
+        "header_rows": 1,
+        "title_rows": 1,
+        "has_merged_cells": true
+      }
+    },
+    {
+      "proposal_id": "table_2",
+      "source_image": "detail_region_2",
+      "exact_bounds": {
+        "top_row": 11,
+        "left_col": 2,
+        "bottom_row": 4998,
+        "right_col": 98
+      },
+      "excel_range": "C12:CU4999",
+      "confidence": 0.92,
+      "detection_notes": "Large data table with consistent structure",
+      "characteristics": {
+        "has_headers": false,
+        "is_continuation": true,
+        "data_patterns": "numeric_matrix"
+      }
+    }
+  ],
+  "model_used": "gpt-4o",
+  "vision_time_ms": 2134,
+  "images_analyzed": 3,
+  "token_usage": {"prompt": 3200, "completion": 580}
+}
+```
+
+### 6a. Region Proposals
+
+**Description**: Vision model proposes specific table regions based on visual analysis
+
+**Input**:
+```json
+{
+  "vision_analysis": {
+    "proposals": [...],
+    "model_used": "gpt-4o",
+    "vision_insights": {...}
+  },
+  "original_regions": [
+    {
+      "id": "region_1",
+      "bounds": {"top": 0, "left": 0, "bottom": 100, "right": 25}
+    }
+  ]
+}
+```
+
+**Processing**:
+- Extract individual proposals from vision analysis
+- Map proposals to original regions
+- Prepare for verification
+
+**Output**:
+```json
+{
+  "region_proposals": [
+    {
+      "proposal_id": "table_1",
+      "region_id": "region_1",
+      "bounds": {"top": 5, "left": 2, "bottom": 95, "right": 22},
+      "confidence": 0.92,
+      "characteristics": {...},
+      "ready_for_verification": true
+    }
+  ],
+  "total_proposals": 1,
+  "high_confidence_count": 1
+}
+```
+
+### 7. Local Verification
+
+**Agent**: RegionVerifierAgent
+
+**Input**:
+```json
+{
+  "sheet_data": "<sheet_data_reference>",
+  "proposal": {
+    "proposal_id": "table_1",
+    "bounds": {"top": 5, "left": 2, "bottom": 95, "right": 22},
+    "confidence": 0.92
+  }
+}
+```
+
+**Processing**:
+- Extract actual data from proposed bounds
+- Verify rectangularness and consistency
+- Generate feedback if invalid
+
+**Output** (Valid):
+```json
+{
+  "proposal_id": "table_1",
+  "is_valid": true,
+  "metrics": {
+    "rectangularness": 0.89,
+    "filledness": 0.76,
+    "consistency": 0.91,
+    "column_alignment": 0.95
+  },
+  "verification_time_ms": 34
+}
+```
+
+**Output** (Invalid):
+```json
+{
+  "proposal_id": "table_1",
+  "is_valid": false,
+  "feedback": {
+    "issue": "low_rectangularness",
+    "message": "Region contains disconnected data. Consider bounds adjustment.",
+    "suggested_bounds": {"top": 5, "left": 2, "bottom": 85, "right": 22}
+  },
+  "metrics": {
+    "rectangularness": 0.45,
+    "filledness": 0.76
+  }
+}
+```
+
+### 7a. Feedback to LLM
+
+**Description**: Provide feedback to Vision LLM when verification fails
+
+**Input**:
+```json
+{
+  "invalid_proposals": [
+    {
+      "proposal_id": "table_1",
+      "original_bounds": {"top": 5, "left": 2, "bottom": 95, "right": 22},
+      "issue": "low_rectangularness",
+      "metrics": {
+        "rectangularness": 0.45,
+        "filledness": 0.76
+      },
+      "suggested_bounds": {"top": 5, "left": 2, "bottom": 85, "right": 22}
+    }
+  ],
+  "original_image": {
+    "region_id": "region_1",
+    "image_data": "base64_encoded_png_data"
+  },
+  "iteration": 1
+}
+```
+
+**Processing**:
+- Compile feedback from failed verifications
+- Create refined prompt for vision model
+- Include specific guidance based on failure type
+
+**Output**:
+```json
+{
+  "refined_prompt": "Previous analysis identified tables with low rectangularness. Please re-analyze focusing on:\n1. Ensure table boundaries exclude disconnected data\n2. Look for natural breaks in data continuity\n3. Consider the suggested bounds: top=5, left=2, bottom=85, right=22",
+  "feedback_type": "bounds_adjustment",
+  "retry_parameters": {
+    "focus_areas": ["rectangularness", "data_continuity"],
+    "confidence_threshold": 0.85
+  }
+}
+```
+
+### 8. Geometry Analysis
+
+**Agent**: GeometryAnalyzerAgent
+
+**Input**:
+```json
+{
+  "sheet_data": "<sheet_data_reference>",
+  "verified_region": {
+    "proposal_id": "table_1",
+    "bounds": {"top": 5, "left": 2, "bottom": 95, "right": 22}
+  }
+}
+```
+
+**Processing**:
+- Analyze structural patterns
+- Detect merged cells
+- Identify data boundaries
+
+**Output**:
+```json
+{
+  "proposal_id": "table_1",
+  "geometry": {
+    "actual_data_bounds": {"top": 5, "left": 2, "bottom": 93, "right": 22},
+    "merged_cells": [
+      {"top": 5, "left": 2, "bottom": 5, "right": 10}
+    ],
+    "empty_rows": [15, 45, 75],
+    "empty_cols": [],
+    "border_style": "full_grid"
+  },
+  "structural_patterns": {
+    "has_spanning_headers": true,
+    "has_subtotal_rows": [44, 74, 93],
+    "indentation_levels": [0, 1, 2]
+  },
+  "analysis_time_ms": 67
+}
+```
+
+### 9. Table Extraction
+
+**Agent**: TableExtractorAgent
+
+**Input**:
+```json
+{
+  "sheet_data": "<sheet_data_reference>",
+  "geometry": {
+    "actual_data_bounds": {"top": 5, "left": 2, "bottom": 93, "right": 22},
+    "merged_cells": [{"top": 5, "left": 2, "bottom": 5, "right": 10}]
+  }
+}
+```
+
+**Processing**:
+- Extract raw data values
+- Preserve cell types and formats
+- Handle merged cells
+
+**Output**:
+```json
+{
+  "proposal_id": "table_1",
+  "raw_data": [
+    ["Sales Report", null, null, null, null],
+    ["Category", "Q1", "Q2", "Q3", "Q4"],
+    ["Electronics", 15000, 18000, 22000, 25000],
+    ["  Computers", 8000, 9500, 11000, 13000],
+    ["  Phones", 7000, 8500, 11000, 12000]
+  ],
+  "cell_metadata": [
+    [
+      {"type": "string", "format": "bold", "merged": true},
+      null, null, null, null
+    ],
+    [
+      {"type": "string", "format": "bold"},
+      {"type": "string", "format": "bold"},
+      {"type": "string", "format": "bold"},
+      {"type": "string", "format": "bold"},
+      {"type": "string", "format": "bold"}
+    ]
+  ],
+  "extraction_time_ms": 89
+}
+```
+
+### 10. Semantic Analysis
+
+**Agent**: SemanticAnalyzerAgent
+
+**Input**:
+```json
+{
+  "raw_data": [["Sales Report", null, null, null, null], ...],
+  "cell_metadata": [...],
+  "geometry": {...},
+  "vision_insights": {
+    "table_type": "financial_data",
+    "suggested_purpose": "Monthly sales report with product categories"
+  }
+}
+```
+
+**Processing**:
+- Analyze data patterns
+- Identify semantic structures
+- Determine complexity level
+
+**Output**:
+```json
+{
+  "proposal_id": "table_1",
+  "semantic_analysis": {
+    "table_type": "hierarchical_financial",
+    "header_structure": {
+      "type": "multi_row",
+      "title_row": 0,
+      "column_headers_row": 1,
+      "spans": [{"row": 0, "start_col": 0, "end_col": 4}]
+    },
+    "data_structure": {
+      "has_hierarchy": true,
+      "hierarchy_indicator": "indentation",
+      "parent_rows": [2],
+      "child_rows": [3, 4],
+      "total_rows": [5, 10, 15]
+    },
+    "data_types": {
+      "columns": [
+        {"index": 0, "type": "category", "role": "row_header"},
+        {"index": 1, "type": "numeric", "subtype": "currency"},
+        {"index": 2, "type": "numeric", "subtype": "currency"},
+        {"index": 3, "type": "numeric", "subtype": "currency"},
+        {"index": 4, "type": "numeric", "subtype": "currency"}
+      ]
+    },
+    "complexity_score": 0.75,
+    "requires_special_handling": true
+  },
+  "analysis_time_ms": 234
+}
+```
+
+### 10a. Complex Features Decision
+
+**Description**: Determine if table requires complex handling based on semantic analysis
+
+**Input**:
+```json
+{
+  "semantic_analysis": {
+    "table_type": "hierarchical_financial",
+    "header_structure": {
+      "type": "multi_row",
+      "title_row": 0,
+      "column_headers_row": 1
+    },
+    "data_structure": {
+      "has_hierarchy": true,
+      "hierarchy_indicator": "indentation"
+    },
+    "complexity_score": 0.75,
+    "requires_special_handling": true
+  }
+}
+```
+
+**Processing**:
+- Evaluate complexity score
+- Check for specific complex features
+- Route to appropriate handler
+
+**Output**:
+```json
+{
+  "decision": "complex",
+  "reasons": [
+    "multi_row_headers",
+    "hierarchical_data",
+    "high_complexity_score"
+  ],
+  "required_handlers": [
+    "header_analysis",
+    "format_preservation"
+  ],
+  "routing": {
+    "next_steps": ["HeaderAnalysis", "FormatAnalysis"],
+    "skip_simple_extract": true
+  }
+}
+```
+
+### 11. Complex Feature Handling
+
+#### 11a. Multi-row Header Analysis
+
+**Agent**: HeaderAnalyzerAgent
+
+**Input**:
+```json
+{
+  "raw_data": [...],
+  "header_structure": {
+    "type": "multi_row",
+    "title_row": 0,
+    "column_headers_row": 1,
+    "spans": [{"row": 0, "start_col": 0, "end_col": 4}]
+  }
+}
+```
+
+**Output**:
+```json
+{
+  "unified_headers": [
+    "Category",
+    "Sales Report - Q1",
+    "Sales Report - Q2",
+    "Sales Report - Q3",
+    "Sales Report - Q4"
+  ],
+  "header_hierarchy": {
+    "level_0": ["Sales Report"],
+    "level_1": ["Category", "Q1", "Q2", "Q3", "Q4"]
+  },
+  "header_mapping": {
+    "original_rows": [0, 1],
+    "data_start_row": 2
+  }
+}
+```
+
+#### 11b. Format Preservation Analysis
+
+**Agent**: FormatAnalyzerAgent
+
+**Input**:
+```json
+{
+  "cell_metadata": [...],
+  "data_structure": {
+    "has_hierarchy": true,
+    "hierarchy_indicator": "indentation"
+  }
+}
+```
+
+**Output**:
+```json
+{
+  "formatting_rules": {
+    "hierarchy_preservation": {
+      "method": "indentation_levels",
+      "levels": {
+        "0": {"prefix": "", "style": "bold"},
+        "1": {"prefix": "  ", "style": "normal"},
+        "2": {"prefix": "    ", "style": "italic"}
+      }
+    },
+    "special_rows": {
+      "totals": {
+        "rows": [5, 10, 15],
+        "style": "bold",
+        "background": "#f0f0f0"
+      }
+    },
+    "number_formats": {
+      "columns": [1, 2, 3, 4],
+      "format": "currency_usd"
+    }
+  }
+}
+```
+
+### 11c. Simple Extract
+
+**Description**: Direct extraction for simple tables without complex features
+
+**Input**:
+```json
+{
+  "table_data": {
+    "raw_data": [
+      ["Name", "Age", "City"],
+      ["Alice", 30, "New York"],
+      ["Bob", 25, "London"],
+      ["Charlie", 35, "Tokyo"]
+    ],
+    "bounds": {"top": 0, "left": 0, "bottom": 3, "right": 2}
+  },
+  "semantic_analysis": {
+    "table_type": "simple_data",
+    "complexity_score": 0.2,
+    "requires_special_handling": false
+  }
+}
+```
+
+**Processing**:
+- Direct data extraction
+- Basic header detection (first row)
+- Simple type inference
+
+**Output**:
+```json
+{
+  "extracted_table": {
+    "headers": ["Name", "Age", "City"],
+    "data": [
+      ["Alice", 30, "New York"],
+      ["Bob", 25, "London"],
+      ["Charlie", 35, "Tokyo"]
+    ],
+    "data_types": {
+      "Name": "string",
+      "Age": "integer",
+      "City": "string"
+    },
+    "extraction_method": "simple",
+    "processing_time_ms": 12
+  }
+}
+```
+
+### 12. Result Consolidation
+
+**Agent**: ConsolidatorAgent
+
+**Input**:
+```json
+{
+  "extracted_data": {...},
+  "semantic_analysis": {...},
+  "header_analysis": {...},
+  "format_analysis": {...}
+}
+```
+
+**Output**:
+```json
+{
+  "consolidated_table": {
+    "id": "table_1",
+    "bounds": {"top": 5, "left": 2, "bottom": 93, "right": 22},
+    "headers": ["Category", "Sales Report - Q1", "Sales Report - Q2", "Sales Report - Q3", "Sales Report - Q4"],
+    "data": [
+      ["Electronics", 15000, 18000, 22000, 25000],
+      ["  Computers", 8000, 9500, 11000, 13000],
+      ["  Phones", 7000, 8500, 11000, 12000]
+    ],
+    "metadata": {
+      "hierarchy_info": {...},
+      "formatting_info": {...},
+      "semantic_info": {...}
+    }
+  }
+}
+```
+
+### 13. Metadata Generation
+
+**Agent**: MetadataGeneratorAgent
+
+**Input**:
+```json
+{
+  "consolidated_table": {...},
+  "vision_insights": {...},
+  "processing_metrics": {...}
+}
+```
+
+**Output**:
+```json
+{
+  "table_metadata": {
+    "id": "table_1",
+    "pandas_config": {
+      "header": [0, 1],
+      "index_col": 0,
+      "skiprows": [],
+      "dtype": {
+        "Category": "str",
+        "Sales Report - Q1": "float64",
+        "Sales Report - Q2": "float64",
+        "Sales Report - Q3": "float64",
+        "Sales Report - Q4": "float64"
+      },
+      "na_values": ["", "-", "N/A"],
+      "thousands": ",",
+      "parse_dates": false
+    },
+    "processing_hints": {
+      "preserve_hierarchy": true,
+      "hierarchy_method": "indentation_to_multiindex",
+      "total_rows": [5, 10, 15],
+      "skip_total_in_aggregations": true
+    },
+    "quality_metrics": {
+      "completeness": 0.98,
+      "consistency": 0.95,
+      "accuracy_confidence": 0.93
+    }
+  }
+}
+```
+
+### 14. Name Generation
+
+**Agent**: NameGeneratorAgent
+
+**Input**:
+```json
+{
+  "table_data": {...},
+  "vision_insights": {
+    "suggested_purpose": "Monthly sales report with product categories"
+  },
+  "headers": ["Category", "Sales Report - Q1", ...],
+  "sheet_name": "Sheet1"
+}
+```
+
+**Output**:
+```json
+{
+  "table_name": "sales_by_category_quarterly",
+  "description": "Quarterly sales report broken down by product categories with subtotals",
+  "suggested_variable_name": "df_sales_quarterly",
+  "naming_confidence": 0.88,
+  "alternative_names": [
+    "quarterly_sales_report",
+    "product_sales_by_quarter"
+  ]
+}
+```
+
+### 15. Output (Rich JSON Output)
+
+**Description**: Final consolidated output with all extracted tables and metadata
+
+**Input**:
+```json
+{
+  "all_tables": [
+    {
+      "table_metadata": {...},
+      "consolidated_table": {...},
+      "name_info": {...}
+    }
+  ],
+  "file_info": {
+    "path": "path/to/spreadsheet.xlsx",
+    "sheets_processed": ["Sheet1"]
+  },
+  "processing_summary": {
+    "total_time_ms": 3456,
+    "methods_used": ["vision_llm_gpt4o"],
+    "api_calls": 1
+  }
+}
+```
+
+**Processing**:
+- Aggregate all table results
+- Add file-level metadata
+- Include performance metrics
+- Generate optimization suggestions
+
+**Output**:
+```json
+{
+  "status": "success",
+  "extraction_result": {
+    "file_info": {...},
+    "tables": [...],
+    "performance_metrics": {...},
+    "detection_methods_used": [...],
+    "optimization_suggestions": {...}
+  },
+  "errors": [],
+  "warnings": []
+}
+```
+
+## Final Rich JSON Output
+
+The complete output that enables perfect pandas extraction:
+
+```json
+{
+  "extraction_result": {
+    "file_info": {
+      "path": "path/to/spreadsheet.xlsx",
+      "type": "xlsx",
+      "size_bytes": 1048576,
+      "sheets_processed": ["Sheet1"]
+    },
+    "tables": [
+      {
+        "id": "table_1",
+        "sheet": "Sheet1",
+        "name": "sales_by_category_quarterly",
+        "description": "Quarterly sales report broken down by product categories with subtotals",
+
+        "location": {
+          "range": "C6:W94",
+          "bounds": {"top": 5, "left": 2, "bottom": 93, "right": 22}
+        },
+
+        "structure": {
+          "total_rows": 89,
+          "total_cols": 5,
+          "header_rows": 2,
+          "data_rows": 87,
+          "has_totals": true,
+          "total_rows_indices": [5, 10, 15],
+          "hierarchical": true,
+          "hierarchy_levels": 3
+        },
+
+        "pandas_import": {
+          "read_excel_kwargs": {
+            "sheet_name": "Sheet1",
+            "header": [0, 1],
+            "index_col": 0,
+            "nrows": 89,
+            "usecols": "C:G",
+            "dtype": {
+              "Category": "str",
+              "Sales Report - Q1": "float64",
+              "Sales Report - Q2": "float64",
+              "Sales Report - Q3": "float64",
+              "Sales Report - Q4": "float64"
             },
-            feedback=self._generate_feedback(rectangularness, filledness)
-        )
+            "na_values": ["", "-", "N/A"],
+            "thousands": ","
+          },
+          "post_processing": {
+            "convert_hierarchy": {
+              "method": "indentation_to_multiindex",
+              "indentation_char": " ",
+              "levels": 3
+            },
+            "handle_totals": {
+              "total_rows": [5, 10, 15],
+              "action": "tag_not_remove"
+            },
+            "clean_headers": {
+              "method": "flatten_multirow",
+              "separator": " - "
+            }
+          }
+        },
 
-    def _compute_rectangularness(self, data: np.ndarray) -> float:
-        """Measure how rectangular the filled region is"""
-        filled_mask = ~pd.isna(data) & (data != '')
+        "data_preview": {
+          "headers": ["Category", "Sales Report - Q1", "Sales Report - Q2", "Sales Report - Q3", "Sales Report - Q4"],
+          "first_rows": [
+            ["Electronics", 15000, 18000, 22000, 25000],
+            ["  Computers", 8000, 9500, 11000, 13000],
+            ["  Phones", 7000, 8500, 11000, 12000],
+            ["TOTAL Electronics", 15000, 18000, 22000, 25000]
+          ]
+        },
 
-        # Find minimal bounding rectangle
-        rows, cols = np.where(filled_mask)
-        if len(rows) == 0:
-            return 0.0
+        "context": {
+          "purpose": "Track quarterly sales performance by product category",
+          "data_characteristics": {
+            "temporal": "quarterly",
+            "categorical": "product_hierarchy",
+            "numerical": "currency_usd"
+          },
+          "business_rules": {
+            "totals_calculation": "Sum of child categories",
+            "hierarchy_meaning": "Product taxonomy (Category > Subcategory > Product)"
+          }
+        },
 
-        min_row, max_row = rows.min(), rows.max()
-        min_col, max_col = cols.min(), cols.max()
+        "quality": {
+          "detection_confidence": 0.92,
+          "extraction_confidence": 0.95,
+          "completeness": 0.98,
+          "issues": []
+        }
+      }
+    ],
 
-        # Compare filled cells to rectangle area
-        rect_area = (max_row - min_row + 1) * (max_col - min_col + 1)
-        filled_area = filled_mask.sum()
+    "performance_metrics": {
+      "total_time_ms": 3456,
+      "steps": {
+        "file_detection": 23,
+        "bitmap_generation": 125,
+        "region_detection": 45,
+        "vision_analysis": 1847,
+        "verification": 34,
+        "extraction": 89,
+        "semantic_analysis": 234
+      },
+      "vision_api_calls": 1,
+      "vision_tokens": {
+        "prompt": 2500,
+        "completion": 450,
+        "total_cost_usd": 0.0125
+      }
+    },
 
-        return filled_area / rect_area if rect_area > 0 else 0.0
+    "detection_methods_used": [
+      "connected_components",
+      "vision_llm_gpt4o",
+      "quadtree_optimization"
+    ],
+
+    "optimization_suggestions": {
+      "cache_similar_structures": true,
+      "suggested_bitmap_resolution": "adaptive",
+      "batch_similar_sheets": ["Sheet2", "Sheet3"]
+    }
+  }
+}
 ```
 
-### 7. Semantic Table Understanding
+## Agent Responsibilities
 
+### VisionOrchestratorAgent
+- **Primary Role**: Coordinate the entire detection pipeline
+- **Key Responsibilities**:
+  - Manage workflow state and transitions
+  - Handle retries and fallbacks
+  - Aggregate results from all agents
+  - Optimize API usage and costs
+- **Success Criteria**:
+  - All tables detected with >80% confidence
+  - Total processing time under 5 seconds for standard files
+  - Vision API costs minimized through smart batching
+
+### TableDetectorAgent
+- **Primary Role**: Execute table detection algorithms
+- **Key Responsibilities**:
+  - Run connected component analysis
+  - Apply heuristic rules
+  - Generate region proposals
+- **Success Criteria**:
+  - No valid tables missed
+  - False positive rate < 5%
+  - Processing time < 500ms for sheets under 10k cells
+
+### RegionVerifierAgent
+- **Primary Role**: Validate proposed table regions
+- **Key Responsibilities**:
+  - Check geometric properties
+  - Verify data consistency
+  - Provide corrective feedback
+- **Success Criteria**:
+  - Catch 95% of invalid proposals
+  - Provide actionable feedback
+  - Verification time < 50ms per region
+
+### SemanticAnalyzerAgent
+- **Primary Role**: Understand table meaning and structure
+- **Key Responsibilities**:
+  - Identify complex patterns (hierarchy, totals)
+  - Determine data relationships
+  - Suggest appropriate handling
+- **Success Criteria**:
+  - Correctly identify 90% of special structures
+  - Provide clear semantic labels
+  - Enable lossless data extraction
+
+### NameGeneratorAgent
+- **Primary Role**: Generate meaningful table names
+- **Key Responsibilities**:
+  - Analyze content and context
+  - Suggest descriptive names
+  - Provide alternatives
+- **Success Criteria**:
+  - Names are descriptive and valid Python identifiers
+  - Capture table purpose in 3-5 words
+  - No naming conflicts in workbook
+
+## Pandas Integration Guide
+
+### Basic Import
 ```python
-class SemanticAnalyzer:
-    """Understand table semantics with AI assistance"""
+import pandas as pd
+from gridporter import extract_tables
 
-    async def analyze_table_structure(self, table_data: np.ndarray,
-                                    vision_context: Dict) -> TableSemantics:
-        """Analyze complex table structures"""
+# Get extraction result
+result = extract_tables("sales_report.xlsx")
 
-        # Use LLM to understand structure
-        structure_prompt = f"""Given this table data and visual analysis:
-        {vision_context}
+# For each table
+for table in result['tables']:
+    # Direct pandas import
+    df = pd.read_excel(**table['pandas_import']['read_excel_kwargs'])
 
-        Identify:
-        1. Number of header rows (might be multiple)
-        2. Indented rows (for hierarchical data like financials)
-        3. Blank rows that should be preserved
-        4. Merged cell patterns
-        5. Data type patterns
-
-        Return structured analysis.
-        """
-
-        llm_analysis = await self.llm.analyze(
-            table_snippet=self._prepare_snippet(table_data),
-            prompt=structure_prompt
-        )
-
-        # Verify with local heuristics
-        local_analysis = self._local_structure_analysis(table_data)
-
-        # Combine insights
-        return self._merge_analyses(llm_analysis, local_analysis)
+    # Apply post-processing
+    if table['structure']['hierarchical']:
+        df = apply_hierarchy_conversion(df, **table['pandas_import']['post_processing']['convert_hierarchy'])
 ```
 
-## Enhanced Output Format
-
-The system generates rich metadata for perfect pandas import:
-
+### Hierarchy Handling
 ```python
-@dataclass
-class EnhancedTableInfo:
-    """Rich table information for perfect extraction"""
+def apply_hierarchy_conversion(df, method='indentation_to_multiindex', indentation_char=' ', levels=3):
+    """Convert indented hierarchy to MultiIndex"""
+    if method == 'indentation_to_multiindex':
+        # Count indentation levels
+        indent_levels = df.iloc[:, 0].apply(lambda x: len(x) - len(x.lstrip(indentation_char)))
 
-    # Basic info
-    name: str
-    sheet: str
-    range: str
+        # Create MultiIndex
+        indices = []
+        for level in range(levels):
+            mask = indent_levels == level
+            indices.append(df.iloc[:, 0].where(mask).fillna(method='ffill'))
 
-    # Structure
-    header_config: HeaderConfig
-    data_start_row: int
+        df.index = pd.MultiIndex.from_arrays(indices)
+        df.iloc[:, 0] = df.iloc[:, 0].str.strip()
 
-    # Formatting preservation
-    formatting: FormattingInfo
-
-    # Pandas import parameters
-    pandas_kwargs: Dict[str, Any]
-
-    # Validation
-    confidence_scores: Dict[str, float]
-
-@dataclass
-class HeaderConfig:
-    """Complex header configuration"""
-    num_rows: int
-    merged_cells: List[str]
-    column_spans: Dict[int, List[Tuple[int, int]]]
-
-@dataclass
-class FormattingInfo:
-    """Formatting to preserve semantics"""
-    indented_rows: List[int]  # For hierarchical data
-    blank_rows: List[int]     # Semantic separators
-    subtotal_rows: List[int]  # Summary rows
-    formatting_patterns: Dict[str, Any]
+    return df
 ```
 
-## Handling Large and Sparse Spreadsheets
-
-### Key Challenges
-1. **Excel Size Limits**: Recent Excel supports 1M×16K cells (17B cells total)
-2. **Memory Constraints**: Full bitmap would require 17GB+ memory
-3. **GPT-4o Limits**: 20MB max image size
-4. **Sparse Data**: Most cells empty but structure must be preserved
-
-### Solution Architecture
-
+### Total Row Handling
 ```python
-class LargeSheetPipeline:
-    """Pipeline for handling large and sparse spreadsheets"""
+def handle_total_rows(df, total_rows, action='tag_not_remove'):
+    """Handle total/subtotal rows"""
+    if action == 'tag_not_remove':
+        # Add a column indicating total rows
+        df['is_total'] = False
+        df.loc[df.index[total_rows], 'is_total'] = True
+    elif action == 'remove':
+        # Remove total rows
+        df = df.drop(df.index[total_rows])
 
-    def process_large_sheet(self, sheet_data: SheetData) -> VisionAnalysisResult:
-        # Step 1: Generate binary bitmap
-        bitmap, metadata = self.bitmap_analyzer.generate_binary_bitmap(sheet_data)
-
-        # Step 2: Detect regions using connected components
-        regions = self.bitmap_analyzer.detect_connected_regions(bitmap)
-
-        # Step 3: Build structure-aware quadtree
-        quadtree = self.quadtree_analyzer.analyze(sheet_data, regions)
-
-        # Step 4: Plan visualization strategy
-        plan = self.visualization_planner.create_plan(
-            tables=tables,
-            quadtree=quadtree,
-            constraints=GPT4oConstraints(max_size_mb=20, max_regions=10)
-        )
-
-        # Step 5: Generate optimized bitmaps
-        bitmaps = self.bitmap_generator.generate_from_plan(sheet_data, plan)
-
-        # Step 6: Send to vision model
-        results = []
-        for bitmap in bitmaps:
-            result = await self.vision_model.analyze(
-                bitmap.image_data,
-                context=bitmap.metadata
-            )
-            results.append(result)
-
-        return self._consolidate_results(results)
+    return df
 ```
 
-## Cost Optimization Strategies
+## Performance Monitoring
 
-### 1. Intelligent Bitmap Resolution
+### Workflow Optimization
+The performance metrics in the output enable:
 
+1. **Bottleneck Identification**: See which steps take longest
+2. **Cost Tracking**: Monitor vision API usage and costs
+3. **Cache Opportunities**: Identify similar structures for caching
+4. **Batch Processing**: Group similar sheets for efficiency
+
+### Tuning Parameters
 ```python
-class ResolutionOptimizer:
-    """Optimize bitmap resolution for cost/accuracy tradeoff"""
-
-    def optimize_for_vision(self, sheet_size: Tuple[int, int]) -> Tuple[int, int]:
-        """Determine optimal resolution"""
-        rows, cols = sheet_size
-
-        # Use lower resolution for initial detection
-        if rows * cols > 10000:
-            # Downsample large sheets
-            return (min(rows, 200), min(cols, 50))
-        else:
-            # Full resolution for small sheets
-            return sheet_size
+# Adjust based on performance metrics
+config = {
+    "vision_confidence_threshold": 0.8,  # Lower if missing tables
+    "bitmap_resolution": "adaptive",     # Fixed resolution if consistent
+    "enable_caching": True,             # Cache similar structures
+    "batch_size": 5,                    # Process multiple sheets together
+    "max_vision_retries": 2             # Retry on low confidence
+}
 ```
 
-### 2. Caching Strategy
+## Progressive Refinement for Large Sheets
 
-```python
-class VisionCache:
-    """Cache vision API responses"""
+For spreadsheets exceeding memory or API limits, the system uses progressive refinement:
 
-    def get_cached_regions(self, bitmap_hash: str) -> Optional[List[RegionProposal]]:
-        """Check if we've seen similar structure"""
-        return self.region_cache.get(bitmap_hash)
-
-    def cache_regions(self, bitmap_hash: str, regions: List[RegionProposal]):
-        """Cache for similar sheets"""
-        self.region_cache[bitmap_hash] = regions
+### Phase 1: Initial Overview
+```json
+{
+  "strategy": "overview_first",
+  "compression_level": 4,
+  "purpose": "Identify general table locations"
+}
 ```
 
-### 3. Batch Processing
-
-```python
-async def process_workbook_batch(self, workbook: Workbook) -> List[TableInfo]:
-    """Process multiple sheets in single vision call"""
-
-    # Generate composite bitmap
-    composite = self._create_sheet_mosaic(workbook.sheets)
-
-    # Single vision API call
-    all_regions = await self.vision_orchestrator.propose_regions_batch(composite)
-
-    # Map back to individual sheets
-    return self._distribute_regions(all_regions, workbook.sheets)
+### Phase 2: Targeted Detail Views
+```json
+{
+  "strategy": "refine_boundaries",
+  "regions": [
+    {
+      "initial_bounds": {"top": 0, "left": 0, "bottom": 1000, "right": 100},
+      "refinement_margin": 20,
+      "compression_level": 0,
+      "purpose": "Get exact boundaries"
+    }
+  ]
+}
 ```
 
-## Configuration Examples
-
-### Vision-Enabled with GPT-4o
-```python
-GridPorter(
-    vision_model="gpt-4o",
-    vision_confidence_threshold=0.8,
-    enable_semantic_analysis=True,
-    preserve_formatting=True
-)
+### Phase 3: Boundary Verification
+```json
+{
+  "strategy": "verify_edges",
+  "focus_areas": ["top_edge", "bottom_edge", "left_edge", "right_edge"],
+  "compression_level": 0,
+  "cell_level_precision": true
+}
 ```
 
-### Local Vision with Ollama
-```python
-GridPorter(
-    vision_model="qwen2-vl:7b",
-    ollama_url="http://localhost:11434",
-    bitmap_resolution="adaptive",
-    verification_mode="strict"
-)
-```
+## Multi-Scale Compression Levels
 
-### Hybrid Mode (Vision + Traditional)
-```python
-GridPorter(
-    detection_mode="hybrid",
-    vision_model="gpt-4o",
-    fallback_to_traditional=True,
-    complexity_threshold=0.7  # Use vision for complex sheets
-)
-```
+The system uses Excel-proportioned compression levels:
 
-### Default Mode (Best Performance)
-```python
-GridPorter(
-    vision_model="gpt-4o"
-)
-```
-
-### Large Sparse Spreadsheet Mode
-```python
-GridPorter(
-    vision_model="gpt-4o",
-    enable_sparse_detection=True,
-    enable_quadtree_optimization=True,
-    bits_per_cell=2,  # Use compressed representation
-    max_image_size_mb=20,  # GPT-4o limit
-    compression_level=6,  # PNG compression
-    max_regions_per_sheet=10  # Limit number of images
-)
-```
-
-## Implementation Phases
-
-### Phase 1: Vision Infrastructure
-- Binary bitmap generation from spreadsheets
-- Basic connected component detection
-- Vision model integration (OpenAI, Ollama)
-- Basic region proposal system
-- Quadtree-based visualization planning
-- Memory-efficient bitmap modes (2/4-bit)
-- GPT-4o size optimization (<20MB)
-- Pattern-aware verification for sparse patterns
-- **COMPLETE**: Hierarchical pattern detection (PatternType.HIERARCHICAL)
-
-### Phase 2: Verification Pipeline
-- Local verification algorithms
-- Geometry analysis (rectangularness, filledness)
-- Feedback loop implementation
-- Accuracy improvements
-
-### Phase 3: Semantic Understanding
-- Multi-row header detection
-- **Hierarchical data handling** (fully implemented)
-  - Detects indented rows (e.g., financial statements)
-  - Identifies parent-child relationships
-  - Finds subtotal/total rows
-  - Preserves hierarchical structure for analysis
-- Format preservation logic
-- **NEW**: Sparse table structure preservation
-
-### Phase 4: Production Optimization
-- Caching system
-- Batch processing
-- Cost monitoring
-- **NEW**: Adaptive representation selection
-- **NEW**: Hierarchical visualization for large sheets
+| Level | Row×Col Blocks | Use Case | Max Sheet Size |
+|-------|----------------|----------|----------------|
+| 0 | 1×1 | Small tables, precise boundaries | 100K cells |
+| 1 | 16×1 | Medium tables | 1.6M cells |
+| 2 | 64×1 | Large tables (Excel ratio) | 6.4M cells |
+| 3 | 256×4 | Very large tables | 100M cells |
+| 4 | 1024×16 | Huge tables | 1.6B cells |
+| 5 | 4096×64 | Maximum Excel sheets | 16B cells |
 
 ## Summary
 
-This architecture revolutionizes spreadsheet understanding by:
+This enhanced architecture provides:
 
-This architecture revolutionizes spreadsheet understanding by:
+1. **Multi-Scale Analysis**: Overview for context, details for precision
+2. **Excel-Proportioned Compression**: Matches Excel's 64:1 row:column ratio
+3. **Smart Pre-processing**: Only processes regions with data
+4. **Explicit Vision Prompts**: LLM knows exact compression of each image
+5. **Progressive Refinement**: Handles sheets of any size efficiently
+6. **Full Granularity**: Never loses precision for boundary detection
 
-1. **Using visual AI** to understand table layout as humans do
-2. **Fast bitmap generation** for spatial analysis
-3. **Efficient region detection** using connected components
-4. **Quadtree optimization** for handling large sheets
-5. **Smart visualization planning** within GPT-4o's 20MB limit
-6. **Handling massive spreadsheets** up to Excel's limits (1M×16K cells)
-7. **Adaptive compression** based on sheet size and density
-8. **Pattern detection** for sparse data structures
-9. **Multi-scale analysis** from full sheet to individual regions
-10. **Robust verification** to ensure accuracy
-
-The result is a system that can handle the messiest real-world spreadsheets with the accuracy of human understanding and the reliability of automated verification, while efficiently processing even the largest Excel files.
+The result is a system that can handle massive spreadsheets while maintaining pixel-perfect accuracy for table boundaries.

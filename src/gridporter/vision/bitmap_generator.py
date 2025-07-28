@@ -4,12 +4,12 @@ import io
 import logging
 import time
 from dataclasses import dataclass
-from enum import Enum
 from typing import Literal
 
 import numpy as np
 from PIL import Image
 
+from ..models.multi_scale import CompressionLevel
 from ..models.sheet_data import SheetData
 from .quadtree import QuadTreeBounds, VisualizationRegion
 
@@ -25,15 +25,6 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-class CompressionMode(Enum):
-    """Compression modes for cell representation."""
-
-    FULL = "full"  # 8 bits per cell
-    COMPRESSED_4 = "compressed_4"  # 4 bits per cell
-    COMPRESSED_2 = "compressed_2"  # 2 bits per cell
-    SAMPLED = "sampled"  # Downsampled for very large regions
-
-
 @dataclass
 class BitmapMetadata:
     """Metadata for generated bitmap images."""
@@ -46,9 +37,15 @@ class BitmapMetadata:
     total_cols: int
     scale_factor: float
     mode: str
-    compression: CompressionMode = CompressionMode.FULL
+    compression_level: CompressionLevel = CompressionLevel.NONE
+    block_size: list[int] = None
     region_bounds: QuadTreeBounds | None = None
     file_size_bytes: int | None = None
+
+    def __post_init__(self):
+        """Set block size based on compression level."""
+        if self.block_size is None and self.compression_level is not None:
+            self.block_size = [self.compression_level.row_block, self.compression_level.col_block]
 
 
 @dataclass
@@ -145,7 +142,7 @@ class BitmapGenerator:
                 total_cols=0,
                 scale_factor=1.0,
                 mode=self.mode,
-                compression=CompressionMode.FULL,
+                compression_level=CompressionLevel.NONE,
                 region_bounds=region,
                 file_size_bytes=len(img_data),
             )
@@ -156,18 +153,11 @@ class BitmapGenerator:
 
             return img_data, metadata
 
-        # Determine compression mode based on size
-        compression_mode = self._determine_compression_mode(rows, cols)
+        # Determine compression level based on size
+        compression_level = self._select_compression_level(rows, cols)
 
-        # Generate bitmap based on compression mode
-        if compression_mode == CompressionMode.SAMPLED:
-            result = self._generate_sampled(sheet, region, rows, cols)
-        elif compression_mode == CompressionMode.COMPRESSED_2:
-            result = self._generate_compressed_2bit(sheet, region, rows, cols)
-        elif compression_mode == CompressionMode.COMPRESSED_4:
-            result = self._generate_compressed_4bit(sheet, region, rows, cols)
-        else:
-            result = self._generate_full(sheet, region, rows, cols)
+        # Generate bitmap based on compression level
+        result = self._generate_at_level(sheet, region, rows, cols, compression_level)
 
         if HAS_TELEMETRY:
             duration = time.time() - start_time
@@ -179,28 +169,66 @@ class BitmapGenerator:
 
         return result
 
-    def _determine_compression_mode(self, rows: int, cols: int) -> CompressionMode:
-        """Determine appropriate compression mode based on size."""
+    def _select_compression_level(
+        self, rows: int, cols: int, target_pixels: int = 1_000_000
+    ) -> CompressionLevel:
+        """Select appropriate compression level based on region size.
+
+        Args:
+            rows: Number of rows
+            cols: Number of columns
+            target_pixels: Target maximum pixels in output
+
+        Returns:
+            Appropriate compression level
+        """
         total_cells = rows * cols
 
         if not self.auto_compress:
-            return CompressionMode.FULL
+            return CompressionLevel.NONE
 
-        # Use sampling for extremely large regions
-        if total_cells > 5_000_000:
-            return CompressionMode.SAMPLED
+        # Try each compression level until we fit within target
+        for level in CompressionLevel:
+            row_block = level.row_block
+            col_block = level.col_block
 
-        # Use 2-bit compression for large regions
-        elif total_cells > 1_000_000:
-            return CompressionMode.COMPRESSED_2
+            output_rows = (rows + row_block - 1) // row_block
+            output_cols = (cols + col_block - 1) // col_block
+            output_pixels = output_rows * output_cols
 
-        # Use 4-bit compression for medium regions
-        elif total_cells > 100_000:
-            return CompressionMode.COMPRESSED_4
+            if output_pixels <= target_pixels or level == CompressionLevel.MAXIMUM:
+                logger.info(
+                    f"Selected compression level {level.value} ({level.description}) "
+                    f"for {rows}x{cols} region -> {output_rows}x{output_cols} output"
+                )
+                return level
 
-        # Full quality for small regions
+        return CompressionLevel.MAXIMUM
+
+    def _generate_at_level(
+        self,
+        sheet_data: SheetData,
+        region: QuadTreeBounds | None,
+        rows: int,
+        cols: int,
+        level: CompressionLevel,
+    ) -> tuple[bytes, BitmapMetadata]:
+        """Generate bitmap at specified compression level.
+
+        Args:
+            sheet_data: Sheet data to visualize
+            region: Optional region bounds
+            rows: Number of rows
+            cols: Number of columns
+            level: Compression level to use
+
+        Returns:
+            Tuple of (PNG image bytes, metadata)
+        """
+        if level == CompressionLevel.NONE:
+            return self._generate_full(sheet_data, region, rows, cols)
         else:
-            return CompressionMode.FULL
+            return self._generate_compressed(sheet_data, region, rows, cols, level)
 
     def _generate_full(
         self,
@@ -311,7 +339,7 @@ class BitmapGenerator:
             total_cols=cols,
             scale_factor=scale_factor,
             mode=self.mode,
-            compression=CompressionMode.FULL,
+            compression_level=CompressionLevel.NONE,
             region_bounds=region,
             file_size_bytes=len(img_data),
         )
@@ -323,278 +351,138 @@ class BitmapGenerator:
 
         return img_data, metadata
 
-    def _generate_compressed_2bit(
+    def _generate_compressed(
         self,
         sheet_data: SheetData,
         region: QuadTreeBounds | None,
         rows: int,
         cols: int,
+        level: CompressionLevel,
     ) -> tuple[bytes, BitmapMetadata]:
-        """Generate 2-bit compressed bitmap.
+        """Generate compressed bitmap at specified compression level.
 
-        2-bit encoding:
-        - 00: Empty cell
-        - 01: Filled cell
-        - 10: Header/bold cell
-        - 11: Special cell (formula/merged)
+        Args:
+            sheet_data: Sheet data to visualize
+            region: Optional region bounds
+            rows: Number of rows
+            cols: Number of columns
+            level: Compression level to use
+
+        Returns:
+            Tuple of (PNG image bytes, metadata)
         """
         start_row = region.min_row if region else 0
         start_col = region.min_col if region else 0
 
-        # Create array to hold cell values
-        cell_array = np.zeros((rows, cols), dtype=np.uint8)
+        # Get block dimensions for this compression level
+        row_block = level.row_block
+        col_block = level.col_block
 
-        # Collect cells by type for vectorized encoding
-        filled_positions = []
-        header_positions = []
-        special_positions = []
+        # Calculate compressed dimensions
+        compressed_rows = (rows + row_block - 1) // row_block
+        compressed_cols = (cols + col_block - 1) // col_block
 
-        # Get non-empty cells
-        for cell in sheet_data.get_non_empty_cells():
-            # Check if cell is within region bounds
-            if (
-                start_row <= cell.row < start_row + rows
-                and start_col <= cell.column < start_col + cols
-            ):
-                local_row = cell.row - start_row
-                local_col = cell.column - start_col
+        # Create array for compressed data
+        # For each compressed pixel, we'll store: 0=empty, 1=has_data, 2=mostly_headers, 3=dense_data
+        compressed_array = np.zeros((compressed_rows, compressed_cols), dtype=np.uint8)
 
-                if cell.is_bold:
-                    header_positions.append((local_row, local_col))
-                elif cell.has_formula or cell.is_merged:
-                    special_positions.append((local_row, local_col))
+        # Analyze each block
+        for comp_row in range(compressed_rows):
+            for comp_col in range(compressed_cols):
+                # Calculate actual block bounds
+                block_start_row = comp_row * row_block
+                block_end_row = min(block_start_row + row_block, rows)
+                block_start_col = comp_col * col_block
+                block_end_col = min(block_start_col + col_block, cols)
+
+                # Analyze cells in this block
+                has_data = False
+                header_count = 0
+                data_count = 0
+
+                for row in range(block_start_row, block_end_row):
+                    for col in range(block_start_col, block_end_col):
+                        cell = sheet_data.get_cell(start_row + row, start_col + col)
+                        if cell and not cell.is_empty:
+                            has_data = True
+                            if cell.is_bold:
+                                header_count += 1
+                            else:
+                                data_count += 1
+
+                # Determine pixel value based on block content
+                if not has_data:
+                    compressed_array[comp_row, comp_col] = 0  # Empty
+                elif header_count > data_count:
+                    compressed_array[comp_row, comp_col] = 2  # Mostly headers
+                elif (
+                    data_count
+                    > (block_end_row - block_start_row) * (block_end_col - block_start_col) * 0.5
+                ):
+                    compressed_array[comp_row, comp_col] = 3  # Dense data
                 else:
-                    filled_positions.append((local_row, local_col))
+                    compressed_array[comp_row, comp_col] = 1  # Sparse data
 
-        # Vectorized assignments
-        if filled_positions:
-            positions = np.array(filled_positions)
-            cell_array[positions[:, 0], positions[:, 1]] = 1
+        # Map to grayscale values
+        gray_lookup = np.array([255, 192, 64, 0], dtype=np.uint8)  # empty, sparse, headers, dense
+        grayscale_array = gray_lookup[compressed_array]
 
-        if header_positions:
-            positions = np.array(header_positions)
-            cell_array[positions[:, 0], positions[:, 1]] = 2
+        # Calculate pixel size for visualization
+        # Use smaller pixels for higher compression
+        if level <= CompressionLevel.MILD:
+            pixel_size = 10
+        elif level <= CompressionLevel.EXCEL_RATIO:
+            pixel_size = 5
+        else:
+            pixel_size = 2
 
-        if special_positions:
-            positions = np.array(special_positions)
-            cell_array[positions[:, 0], positions[:, 1]] = 3
-
-        # Convert to grayscale image using vectorized lookup
-        # Map 2-bit values to grayscale: 0->255, 1->192, 2->64, 3->0
-        gray_lookup = np.array([255, 192, 64, 0], dtype=np.uint8)
-        grayscale_cells = gray_lookup[cell_array]
-
-        # Use small cell size for compressed view
-        cell_size = max(2, min(self.cell_width // 2, self.cell_height // 2))
-
-        width = cols * cell_size
-        height = rows * cell_size
+        width = compressed_cols * pixel_size
+        height = compressed_rows * pixel_size
 
         # Ensure dimensions fit within limits
         if width > self.MAX_WIDTH or height > self.MAX_HEIGHT:
             scale = min(self.MAX_WIDTH / width, self.MAX_HEIGHT / height)
             width = int(width * scale)
             height = int(height * scale)
-            cell_size = max(1, min(width // cols, height // rows))
+            pixel_size = max(1, min(width // compressed_cols, height // compressed_rows))
 
-        # Create image array using NumPy repeat for efficient scaling
-        if cell_size == 1:
-            # Direct mapping when cell_size is 1
-            img_array = grayscale_cells[:height, :width]
+        # Create final image
+        if pixel_size == 1:
+            img_array = grayscale_array[:height, :width]
         else:
-            # Use repeat for efficient upscaling
-            img_array = np.repeat(np.repeat(grayscale_cells, cell_size, axis=0), cell_size, axis=1)
-            # Trim to exact dimensions
+            # Repeat pixels to create blocks
+            img_array = np.repeat(
+                np.repeat(grayscale_array, pixel_size, axis=0), pixel_size, axis=1
+            )
             img_array = img_array[:height, :width]
 
         # Convert to PIL Image
         img = Image.fromarray(img_array, mode="L")
 
-        # Save with high compression
+        # Save with high compression for large block sizes
+        compression_quality = 9 if level >= CompressionLevel.LARGE else self.compression_level
         buffer = io.BytesIO()
-        img.save(buffer, format="PNG", compress_level=9)
+        img.save(buffer, format="PNG", compress_level=compression_quality)
         img_data = buffer.getvalue()
 
         metadata = BitmapMetadata(
             width=width,
             height=height,
-            cell_width=cell_size,
-            cell_height=cell_size,
+            cell_width=pixel_size,
+            cell_height=pixel_size,
             total_rows=rows,
             total_cols=cols,
-            scale_factor=cell_size / self.cell_width,
-            mode="compressed_2bit",
-            compression=CompressionMode.COMPRESSED_2,
+            scale_factor=float(pixel_size) / (row_block * self.cell_width),
+            mode=f"compressed_{level.value}",
+            compression_level=level,
+            block_size=[row_block, col_block],
             region_bounds=region,
             file_size_bytes=len(img_data),
         )
 
         logger.info(
-            f"Generated 2-bit compressed {width}x{height} bitmap for {rows}x{cols} region "
-            f"(size: {len(img_data)/1024:.1f}KB)"
-        )
-
-        return img_data, metadata
-
-    def _generate_compressed_4bit(
-        self,
-        sheet_data: SheetData,
-        region: QuadTreeBounds | None,
-        rows: int,
-        cols: int,
-    ) -> tuple[bytes, BitmapMetadata]:
-        """Generate 4-bit compressed bitmap with more nuanced representation."""
-        # Similar to 2-bit but with more categories
-        # For now, use smaller cell size with full grayscale
-        start_row = region.min_row if region else 0
-        start_col = region.min_col if region else 0
-
-        # Use medium cell size
-        cell_size = max(3, min(self.cell_width * 3 // 4, self.cell_height * 3 // 4))
-
-        width = cols * cell_size
-        height = rows * cell_size
-
-        # Ensure dimensions fit
-        if width > self.MAX_WIDTH or height > self.MAX_HEIGHT:
-            scale = min(self.MAX_WIDTH / width, self.MAX_HEIGHT / height)
-            width = int(width * scale)
-            height = int(height * scale)
-            cell_size = max(1, min(width // cols, height // rows))
-
-        # Create image array
-        img_array = np.full((height, width), 255, dtype=np.uint8)
-
-        # Fill cells with more nuanced grayscale
-        for row in range(rows):
-            for col in range(cols):
-                cell = sheet_data.get_cell(start_row + row, start_col + col)
-                if cell and not cell.is_empty:
-                    y_start = row * cell_size
-                    y_end = min((row + 1) * cell_size, height)
-                    x_start = col * cell_size
-                    x_end = min((col + 1) * cell_size, width)
-
-                    if y_end > y_start and x_end > x_start:
-                        # More nuanced grayscale based on cell properties
-                        if cell.is_bold:
-                            gray = 0
-                        elif cell.has_formula:
-                            gray = 48
-                        elif cell.is_merged:
-                            gray = 96
-                        elif cell.data_type == "number":
-                            gray = 144
-                        elif cell.data_type == "date":
-                            gray = 192
-                        else:
-                            gray = 224
-
-                        img_array[y_start:y_end, x_start:x_end] = gray
-
-        # Convert to PIL Image
-        img = Image.fromarray(img_array, mode="L")
-
-        # Save with medium compression
-        buffer = io.BytesIO()
-        img.save(buffer, format="PNG", compress_level=self.compression_level)
-        img_data = buffer.getvalue()
-
-        metadata = BitmapMetadata(
-            width=width,
-            height=height,
-            cell_width=cell_size,
-            cell_height=cell_size,
-            total_rows=rows,
-            total_cols=cols,
-            scale_factor=cell_size / self.cell_width,
-            mode="compressed_4bit",
-            compression=CompressionMode.COMPRESSED_4,
-            region_bounds=region,
-            file_size_bytes=len(img_data),
-        )
-
-        logger.info(
-            f"Generated 4-bit compressed {width}x{height} bitmap for {rows}x{cols} region "
-            f"(size: {len(img_data)/1024:.1f}KB)"
-        )
-
-        return img_data, metadata
-
-    def _generate_sampled(
-        self,
-        sheet_data: SheetData,
-        region: QuadTreeBounds | None,
-        rows: int,
-        cols: int,
-    ) -> tuple[bytes, BitmapMetadata]:
-        """Generate downsampled bitmap for very large regions."""
-        start_row = region.min_row if region else 0
-        start_col = region.min_col if region else 0
-
-        # Calculate sampling rate to fit within reasonable size
-        max_samples = 500  # Maximum cells in each dimension
-        row_sample = max(1, rows // max_samples)
-        col_sample = max(1, cols // max_samples)
-
-        sampled_rows = (rows + row_sample - 1) // row_sample
-        sampled_cols = (cols + col_sample - 1) // col_sample
-
-        # Use tiny cell size
-        cell_size = 2
-
-        width = sampled_cols * cell_size
-        height = sampled_rows * cell_size
-
-        # Create image array
-        img_array = np.full((height, width), 255, dtype=np.uint8)
-
-        # Sample cells
-        for i in range(sampled_rows):
-            for j in range(sampled_cols):
-                # Check if any cell in the sample region is filled
-                has_data, is_header = self._check_sample_region(
-                    sheet_data,
-                    start_row + i * row_sample,
-                    start_col + j * col_sample,
-                    min(row_sample, rows - i * row_sample),
-                    min(col_sample, cols - j * col_sample),
-                )
-
-                if has_data:
-                    y_start = i * cell_size
-                    y_end = (i + 1) * cell_size
-                    x_start = j * cell_size
-                    x_end = (j + 1) * cell_size
-
-                    gray = 0 if is_header else 128
-                    img_array[y_start:y_end, x_start:x_end] = gray
-
-        # Convert to PIL Image
-        img = Image.fromarray(img_array, mode="L")
-
-        # Save with high compression
-        buffer = io.BytesIO()
-        img.save(buffer, format="PNG", compress_level=9)
-        img_data = buffer.getvalue()
-
-        metadata = BitmapMetadata(
-            width=width,
-            height=height,
-            cell_width=cell_size,
-            cell_height=cell_size,
-            total_rows=rows,
-            total_cols=cols,
-            scale_factor=1.0 / row_sample,  # Approximate scale
-            mode="sampled",
-            compression=CompressionMode.SAMPLED,
-            region_bounds=region,
-            file_size_bytes=len(img_data),
-        )
-
-        logger.info(
-            f"Generated sampled {width}x{height} bitmap for {rows}x{cols} region "
-            f"(sampling: {row_sample}x{col_sample}, size: {len(img_data)/1024:.1f}KB)"
+            f"Generated compressed (level {level.value}) {width}x{height} bitmap for {rows}x{cols} region "
+            f"({compressed_rows}x{compressed_cols} blocks, size: {len(img_data)/1024:.1f}KB)"
         )
 
         return img_data, metadata
@@ -664,7 +552,7 @@ class BitmapGenerator:
                 self.compression_level = old_level
 
             compression_info = {
-                "mode": metadata.compression.value,
+                "mode": metadata.compression_level.name if metadata.compression_level else "NONE",
                 "original_cells": region.bounds.area,
                 "image_dimensions": f"{metadata.width}x{metadata.height}",
                 "file_size_mb": metadata.file_size_bytes / 1024 / 1024,
@@ -845,30 +733,14 @@ class BitmapGenerator:
             Description text to include in the prompt
         """
         # Determine cell description based on mode and compression
-        if metadata.compression == CompressionMode.COMPRESSED_2:
+        if metadata.compression_level and metadata.compression_level != CompressionLevel.NONE:
             cell_desc = (
-                "This is a 2-bit compressed view where:\n"
-                "- White (255) = empty cells\n"
-                "- Light gray (192) = filled cells\n"
-                "- Dark gray (64) = header/bold cells\n"
-                "- Black (0) = special cells (formulas/merged)"
-            )
-        elif metadata.compression == CompressionMode.COMPRESSED_4:
-            cell_desc = (
-                "This is a 4-bit compressed view with nuanced grayscale:\n"
-                "- White (255) = empty cells\n"
-                "- Black (0) = bold/header cells\n"
-                "- Dark shades = formulas and merged cells\n"
-                "- Medium shades = numeric data\n"
-                "- Light shades = text data"
-            )
-        elif metadata.compression == CompressionMode.SAMPLED:
-            cell_desc = (
-                f"This is a heavily downsampled view (sampling rate ~{1/metadata.scale_factor:.0f}x).\n"
-                "Each pixel represents multiple cells:\n"
-                "- White = empty region\n"
-                "- Black = header region\n"
-                "- Gray = data region"
+                f"This is a compressed view using {metadata.compression_level.description}.\n"
+                f"Each pixel represents {metadata.block_size[0]}×{metadata.block_size[1]} cells.\n"
+                "- White (255) = empty region\n"
+                "- Light gray (192) = sparse data\n"
+                "- Dark gray (64) = mostly headers\n"
+                "- Black (0) = dense data region"
             )
         elif self.mode == "binary":
             cell_desc = "Black pixels represent filled cells, white pixels represent empty cells."

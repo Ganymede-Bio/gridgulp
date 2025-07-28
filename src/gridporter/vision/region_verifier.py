@@ -225,7 +225,12 @@ class RegionVerifier:
         return result
 
     def _validate_bounds(
-        self, sheet: SheetData, start_row: int, start_col: int, end_row: int, end_col: int
+        self,
+        sheet: SheetData,
+        start_row: int,
+        start_col: int,
+        end_row: int,
+        end_col: int,
     ) -> bool:
         """Validate region bounds are within sheet dimensions."""
         return (
@@ -238,7 +243,12 @@ class RegionVerifier:
         )
 
     def _extract_region_data(
-        self, sheet: SheetData, start_row: int, start_col: int, end_row: int, end_col: int
+        self,
+        sheet: SheetData,
+        start_row: int,
+        start_col: int,
+        end_row: int,
+        end_col: int,
     ) -> np.ndarray:
         """Extract binary data array for region (1=filled, 0=empty)."""
         height = end_row - start_row + 1
@@ -541,7 +551,10 @@ class RegionVerifier:
                 valid=False,
                 confidence=0.4,
                 reason="Matrix pattern missing headers",
-                metrics={"has_row_headers": has_row_headers, "has_col_headers": has_col_headers},
+                metrics={
+                    "has_row_headers": has_row_headers,
+                    "has_col_headers": has_col_headers,
+                },
                 feedback="Matrix tables should have both row and column headers",
             )
 
@@ -549,7 +562,10 @@ class RegionVerifier:
             valid=True,
             confidence=0.95,
             reason="Matrix pattern verified",
-            metrics={"has_row_headers": has_row_headers, "has_col_headers": has_col_headers},
+            metrics={
+                "has_row_headers": has_row_headers,
+                "has_col_headers": has_col_headers,
+            },
         )
 
     def _verify_hierarchical_pattern(

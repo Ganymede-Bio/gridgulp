@@ -2,10 +2,10 @@
 
 This module provides pricing information for OpenAI models and calculates
 costs based on token usage. Pricing is based on OpenAI's official rates
-as of January 2025.
+as of July 2025.
 
 Note: Pricing should be manually updated when OpenAI changes their rates.
-Last updated: January 2025
+Last updated: July 2025
 """
 
 import logging
@@ -27,7 +27,7 @@ class OpenAIModelPricing:
     output_cost_per_million: float  # USD per 1M output tokens
     image_cost_per_million: float = 0.0  # USD per 1M image tokens (vision models)
     context_length: int = 0
-    supports_vision: bool = False
+    supports_image_input: bool = False
 
     @property
     def input_cost_per_token(self) -> float:
@@ -45,37 +45,16 @@ class OpenAIModelPricing:
         return self.image_cost_per_million / 1_000_000
 
 
-# OpenAI Model Pricing Table (as of January 2025)
+# OpenAI Model Pricing Table (as of July 2025)
 # Source: https://openai.com/api/pricing/
 OPENAI_PRICING = {
     # GPT-4o models
     "gpt-4o": OpenAIModelPricing(
         model_id="gpt-4o",
-        input_cost_per_million=5.00,
-        output_cost_per_million=15.00,
-        context_length=128_000,
-        supports_vision=True,
-    ),
-    "gpt-4o-2024-11-20": OpenAIModelPricing(
-        model_id="gpt-4o-2024-11-20",
-        input_cost_per_million=5.00,
-        output_cost_per_million=15.00,
-        context_length=128_000,
-        supports_vision=True,
-    ),
-    "gpt-4o-2024-08-06": OpenAIModelPricing(
-        model_id="gpt-4o-2024-08-06",
         input_cost_per_million=2.50,
         output_cost_per_million=10.00,
         context_length=128_000,
-        supports_vision=True,
-    ),
-    "gpt-4o-2024-05-13": OpenAIModelPricing(
-        model_id="gpt-4o-2024-05-13",
-        input_cost_per_million=5.00,
-        output_cost_per_million=15.00,
-        context_length=128_000,
-        supports_vision=True,
+        supports_image_input=True,
     ),
     # GPT-4o-mini models
     "gpt-4o-mini": OpenAIModelPricing(
@@ -83,144 +62,7 @@ OPENAI_PRICING = {
         input_cost_per_million=0.15,
         output_cost_per_million=0.60,
         context_length=128_000,
-        supports_vision=True,
-    ),
-    "gpt-4o-mini-2024-07-18": OpenAIModelPricing(
-        model_id="gpt-4o-mini-2024-07-18",
-        input_cost_per_million=0.15,
-        output_cost_per_million=0.60,
-        context_length=128_000,
-        supports_vision=True,
-    ),
-    # GPT-4 Turbo models
-    "gpt-4-turbo": OpenAIModelPricing(
-        model_id="gpt-4-turbo",
-        input_cost_per_million=10.00,
-        output_cost_per_million=30.00,
-        context_length=128_000,
-        supports_vision=True,
-    ),
-    "gpt-4-turbo-2024-04-09": OpenAIModelPricing(
-        model_id="gpt-4-turbo-2024-04-09",
-        input_cost_per_million=10.00,
-        output_cost_per_million=30.00,
-        context_length=128_000,
-        supports_vision=True,
-    ),
-    "gpt-4-turbo-preview": OpenAIModelPricing(
-        model_id="gpt-4-turbo-preview",
-        input_cost_per_million=10.00,
-        output_cost_per_million=30.00,
-        context_length=128_000,
-        supports_vision=False,
-    ),
-    "gpt-4-0125-preview": OpenAIModelPricing(
-        model_id="gpt-4-0125-preview",
-        input_cost_per_million=10.00,
-        output_cost_per_million=30.00,
-        context_length=128_000,
-        supports_vision=False,
-    ),
-    "gpt-4-1106-preview": OpenAIModelPricing(
-        model_id="gpt-4-1106-preview",
-        input_cost_per_million=10.00,
-        output_cost_per_million=30.00,
-        context_length=128_000,
-        supports_vision=False,
-    ),
-    # GPT-4 models
-    "gpt-4": OpenAIModelPricing(
-        model_id="gpt-4",
-        input_cost_per_million=30.00,
-        output_cost_per_million=60.00,
-        context_length=8_192,
-        supports_vision=False,
-    ),
-    "gpt-4-0613": OpenAIModelPricing(
-        model_id="gpt-4-0613",
-        input_cost_per_million=30.00,
-        output_cost_per_million=60.00,
-        context_length=8_192,
-        supports_vision=False,
-    ),
-    "gpt-4-32k": OpenAIModelPricing(
-        model_id="gpt-4-32k",
-        input_cost_per_million=60.00,
-        output_cost_per_million=120.00,
-        context_length=32_768,
-        supports_vision=False,
-    ),
-    "gpt-4-32k-0613": OpenAIModelPricing(
-        model_id="gpt-4-32k-0613",
-        input_cost_per_million=60.00,
-        output_cost_per_million=120.00,
-        context_length=32_768,
-        supports_vision=False,
-    ),
-    # GPT-3.5 Turbo models
-    "gpt-3.5-turbo": OpenAIModelPricing(
-        model_id="gpt-3.5-turbo",
-        input_cost_per_million=0.50,
-        output_cost_per_million=1.50,
-        context_length=16_385,
-        supports_vision=False,
-    ),
-    "gpt-3.5-turbo-0125": OpenAIModelPricing(
-        model_id="gpt-3.5-turbo-0125",
-        input_cost_per_million=0.50,
-        output_cost_per_million=1.50,
-        context_length=16_385,
-        supports_vision=False,
-    ),
-    "gpt-3.5-turbo-1106": OpenAIModelPricing(
-        model_id="gpt-3.5-turbo-1106",
-        input_cost_per_million=1.00,
-        output_cost_per_million=2.00,
-        context_length=16_385,
-        supports_vision=False,
-    ),
-    # o1 models (reasoning models)
-    "o1": OpenAIModelPricing(
-        model_id="o1",
-        input_cost_per_million=15.00,
-        output_cost_per_million=60.00,
-        context_length=200_000,
-        supports_vision=True,
-    ),
-    "o1-2024-12-17": OpenAIModelPricing(
-        model_id="o1-2024-12-17",
-        input_cost_per_million=15.00,
-        output_cost_per_million=60.00,
-        context_length=200_000,
-        supports_vision=True,
-    ),
-    "o1-preview": OpenAIModelPricing(
-        model_id="o1-preview",
-        input_cost_per_million=15.00,
-        output_cost_per_million=60.00,
-        context_length=128_000,
-        supports_vision=False,
-    ),
-    "o1-preview-2024-09-12": OpenAIModelPricing(
-        model_id="o1-preview-2024-09-12",
-        input_cost_per_million=15.00,
-        output_cost_per_million=60.00,
-        context_length=128_000,
-        supports_vision=False,
-    ),
-    "o1-mini": OpenAIModelPricing(
-        model_id="o1-mini",
-        input_cost_per_million=3.00,
-        output_cost_per_million=12.00,
-        context_length=128_000,
-        supports_vision=False,
-    ),
-    "o1-mini-2024-09-12": OpenAIModelPricing(
-        model_id="o1-mini-2024-09-12",
-        input_cost_per_million=3.00,
-        output_cost_per_million=12.00,
-        context_length=128_000,
-        supports_vision=False,
+        supports_image_input=True,
     ),
 }
 
@@ -292,7 +134,7 @@ class OpenAIPricing:
         vision_models = [
             (model_id, pricing)
             for model_id, pricing in self.pricing.items()
-            if pricing.supports_vision
+            if pricing.supports_image_input
         ]
 
         if not vision_models:

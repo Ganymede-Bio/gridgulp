@@ -103,7 +103,7 @@ class OpenAIVisionModel(VisionModel):
         return True
 
     async def analyze_image(self, image_bytes: bytes, prompt: str) -> VisionModelResponse:
-        """Analyze image using OpenAI GPT-4 Vision.
+        """Analyze image using OpenAI GPT-4o.
 
         Args:
             image_bytes: PNG image data
@@ -142,7 +142,7 @@ class OpenAIVisionModel(VisionModel):
             content = response.choices[0].message.content or ""
             usage = {
                 "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
-                "completion_tokens": response.usage.completion_tokens if response.usage else 0,
+                "completion_tokens": (response.usage.completion_tokens if response.usage else 0),
                 "total_tokens": response.usage.total_tokens if response.usage else 0,
             }
 
@@ -207,7 +207,10 @@ class OllamaVisionModel(VisionModel):
                 "prompt": prompt,
                 "images": [base64_image],
                 "stream": False,
-                "options": {"temperature": 0.1, "num_predict": self.config.max_tokens_per_table},
+                "options": {
+                    "temperature": 0.1,
+                    "num_predict": self.config.max_tokens_per_table,
+                },
             }
 
             # Call Ollama API

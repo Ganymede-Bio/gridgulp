@@ -402,6 +402,7 @@ class IslandDetector:
             )
 
             table_info = TableInfo(
+                id=f"island_{island.min_row}_{island.min_col}",
                 range=table_range,
                 suggested_name=f"{sheet_name}_table_{i + 1}",
                 confidence=island.confidence,

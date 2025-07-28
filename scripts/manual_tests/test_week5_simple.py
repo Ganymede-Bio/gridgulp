@@ -8,22 +8,25 @@ This test file demonstrates Week 5 functionality:
 """
 
 import asyncio
+import sys
 import tempfile
 from pathlib import Path
-
-import sys
 
 sys.path.insert(0, "src")
 
 from gridporter import GridPorter  # noqa: E402
-from gridporter.config import Config  # noqa: E402
-from gridporter.models.sheet_data import SheetData, CellData  # noqa: E402
-from gridporter.models.table import TableRange  # noqa: E402
-from gridporter.detectors.multi_header_detector import MultiHeaderDetector  # noqa: E402
-from gridporter.detectors.format_analyzer import SemanticFormatAnalyzer, RowType  # noqa: E402
+
+# noqa: E402
 from gridporter.agents.complex_table_agent import ComplexTableAgent  # noqa: E402
+from gridporter.config import Config  # noqa: E402
+from gridporter.detectors.format_analyzer import (
+    RowType,
+    SemanticFormatAnalyzer,
+)
+from gridporter.detectors.multi_header_detector import MultiHeaderDetector  # noqa: E402
+from gridporter.models.sheet_data import CellData, SheetData  # noqa: E402
+from gridporter.models.table import TableRange  # noqa: E402
 from gridporter.telemetry import get_feature_collector  # noqa: E402
-from gridporter.telemetry.feature_store import FeatureStore  # noqa: E402
 
 
 def test_multi_row_headers():

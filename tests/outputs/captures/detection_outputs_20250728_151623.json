@@ -1,0 +1,203 @@
+[
+  {
+    "file": "tests/manual/level0/test_comma.csv",
+    "timestamp": "2025-07-28T15:16:23.583826",
+    "results": [
+      {
+        "sheet_name": "test_comma",
+        "tables": [],
+        "complexity_score": 0.12333573333333334,
+        "detection_strategy": "hybrid_traditional"
+      }
+    ]
+  },
+  {
+    "file": "tests/manual/level0/test_basic.xlsx",
+    "timestamp": "2025-07-28T15:16:23.609453",
+    "results": [
+      {
+        "sheet_name": "Sheet1",
+        "tables": [],
+        "complexity_score": 0.14333733333333332,
+        "detection_strategy": "hybrid_traditional"
+      }
+    ]
+  },
+  {
+    "file": "tests/manual/level0/test_multi_sheet.xlsx",
+    "timestamp": "2025-07-28T15:16:23.636254",
+    "results": [
+      {
+        "sheet_name": "Sales",
+        "tables": [],
+        "complexity_score": 0.12333773333333334,
+        "detection_strategy": "hybrid_traditional"
+      },
+      {
+        "sheet_name": "Employee",
+        "tables": [],
+        "complexity_score": 0.12333573333333334,
+        "detection_strategy": "hybrid_traditional"
+      },
+      {
+        "sheet_name": "Empty",
+        "tables": [],
+        "complexity_score": 0.3000002,
+        "detection_strategy": "hybrid_traditional"
+      }
+    ]
+  },
+  {
+    "file": "tests/manual/level0/test_formatting.xlsx",
+    "timestamp": "2025-07-28T15:16:23.661821",
+    "results": [
+      {
+        "sheet_name": "Formatted",
+        "tables": [],
+        "complexity_score": 0.16623207017543862,
+        "detection_strategy": "hybrid_traditional"
+      }
+    ]
+  },
+  {
+    "file": "tests/manual/level1/simple_table.csv",
+    "timestamp": "2025-07-28T15:16:23.683778",
+    "results": [
+      {
+        "sheet_name": "simple_table",
+        "tables": [],
+        "complexity_score": 0.12333813333333334,
+        "detection_strategy": "hybrid_traditional"
+      }
+    ]
+  },
+  {
+    "file": "tests/manual/level1/simple_table.xlsx",
+    "timestamp": "2025-07-28T15:16:23.707687",
+    "results": [
+      {
+        "sheet_name": "SimpleTable",
+        "tables": [],
+        "complexity_score": 0.14333813333333334,
+        "detection_strategy": "hybrid_traditional"
+      }
+    ]
+  },
+  {
+    "file": "tests/manual/level1/complex_table.xlsx",
+    "timestamp": "2025-07-28T15:16:23.733909",
+    "results": [
+      {
+        "sheet_name": "ComplexTable",
+        "tables": [
+          {
+            "id": "table_0_0",
+            "range": "A1:I10",
+            "suggested_name": null,
+            "detection_method": "complex_detection",
+            "confidence": 0.875,
+            "headers": null
+          }
+        ],
+        "complexity_score": 0.30001799999999995,
+        "detection_strategy": "hybrid_traditional"
+      }
+    ]
+  },
+  {
+    "file": "tests/manual/level2/creative_tables.xlsx",
+    "timestamp": "2025-07-28T15:16:23.774968",
+    "results": [
+      {
+        "sheet_name": "SeparateRegions",
+        "tables": [
+          {
+            "id": "table_0_0",
+            "range": "A1:K25",
+            "suggested_name": null,
+            "detection_method": "complex_detection",
+            "confidence": 0.85,
+            "headers": null
+          }
+        ],
+        "complexity_score": 0.28805499999999995,
+        "detection_strategy": "hybrid_traditional"
+      },
+      {
+        "sheet_name": "MultiRowHeaders",
+        "tables": [],
+        "complexity_score": 0.22405601904761904,
+        "detection_strategy": "hybrid_traditional"
+      },
+      {
+        "sheet_name": "HeaderGap",
+        "tables": [],
+        "complexity_score": 0.27959293333333335,
+        "detection_strategy": "hybrid_traditional"
+      },
+      {
+        "sheet_name": "JaggedRows",
+        "tables": [],
+        "complexity_score": 0.20733833333333335,
+        "detection_strategy": "hybrid_traditional"
+      },
+      {
+        "sheet_name": "NestedTables",
+        "tables": [],
+        "complexity_score": 0.24459933333333334,
+        "detection_strategy": "hybrid_traditional"
+      },
+      {
+        "sheet_name": "OffsetTable",
+        "tables": [
+          {
+            "id": "table_0_0",
+            "range": "A1:F11",
+            "suggested_name": null,
+            "detection_method": "complex_detection",
+            "confidence": 0.85,
+            "headers": null
+          }
+        ],
+        "complexity_score": 0.3688010787878787,
+        "detection_strategy": "hybrid_traditional"
+      }
+    ]
+  },
+  {
+    "file": "tests/manual/level2/weird_tables.xlsx",
+    "timestamp": "2025-07-28T15:16:23.804261",
+    "results": [
+      {
+        "sheet_name": "MergedHeaders",
+        "tables": [
+          {
+            "id": "table_0_0",
+            "range": "A1:G6",
+            "suggested_name": null,
+            "detection_method": "simple_case",
+            "confidence": 0.6446428571428571,
+            "headers": null
+          }
+        ],
+        "complexity_score": 0.22126800061443933,
+        "detection_strategy": "full_vision"
+      },
+      {
+        "sheet_name": "AlternatingBlocks",
+        "tables": [
+          {
+            "id": "table_0_0",
+            "range": "A1:D14",
+            "suggested_name": null,
+            "detection_method": "complex_detection",
+            "confidence": 0.7467948717948718,
+            "headers": null
+          }
+        ],
+        "complexity_score": 0.28941596190476193,
+        "detection_strategy": "full_vision"
+      }
+    ]
+  }
+]

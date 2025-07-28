@@ -171,8 +171,17 @@ class Config(BaseModel):
 
     @classmethod
     def from_env(cls) -> "Config":
-        """Create config from environment variables with auto-detection of LLM provider."""
+        """Create config from environment variables with auto-detection of LLM provider.
+
+        This method will automatically load from a .env file if present, then read
+        configuration from environment variables.
+        """
         import os
+
+        from dotenv import load_dotenv
+
+        # Load .env file if it exists (will not override existing env vars)
+        load_dotenv()
 
         # Get OpenAI configuration
         openai_api_key = os.getenv("OPENAI_API_KEY")

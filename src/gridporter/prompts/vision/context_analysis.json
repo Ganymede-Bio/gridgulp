@@ -1,0 +1,64 @@
+{
+  "name": "context_analysis",
+  "version": "1.0",
+  "description": "Templates for analyzing context cells around proposed table boundaries",
+
+  "templates": {
+    "CONTEXT_CELL_ANALYSIS": {
+      "description": "Analyze cells surrounding a proposed table boundary",
+      "template": "Examine the context cells around this proposed table region.\n\nPROPOSED TABLE BOUNDARY:\n- Region: {table_bounds}\n- Shown with: Red border\n\nCONTEXT AREA:\n- Extended region: {context_bounds}\n- Context margin: {context_cells} cells\n- Shown with: Yellow highlight\n\nANALYZE:\n1. Are the cells immediately outside the red border empty or contain unrelated data?\n2. Is there a clear visual break (empty rows/columns) separating this table?\n3. Do the context cells suggest the table should be extended?\n4. Are there any headers or labels in the context area?\n\nPROVIDE:\n- Confirmation if boundaries are correct\n- Suggested adjustments if needed\n- Confidence level (0-1)\n- Reasoning for your assessment",
+      "variables": [
+        "table_bounds",
+        "context_bounds",
+        "context_cells"
+      ]
+    },
+
+    "BOUNDARY_VERIFICATION": {
+      "description": "Verify exact boundaries using context",
+      "template": "Verify the exact boundaries of this table using the surrounding context.\n\nCURRENT PROPOSAL:\n{current_bounds}\n\nCONTEXT OBSERVATIONS:\n- Top edge: {top_context}\n- Bottom edge: {bottom_context}\n- Left edge: {left_context}\n- Right edge: {right_context}\n\nVERIFY EACH EDGE:\n1. Top boundary: Should it include row {top_row}? Check for headers above.\n2. Bottom boundary: Should it include row {bottom_row}? Check for totals/summaries.\n3. Left boundary: Should it include column {left_col}? Check for row labels.\n4. Right boundary: Should it include column {right_col}? Check for additional data.\n\nOUTPUT:\n- Verified boundaries\n- Adjustments needed (if any)\n- Confidence per edge\n- Overall confidence",
+      "variables": [
+        "current_bounds",
+        "top_context",
+        "bottom_context",
+        "left_context",
+        "right_context",
+        "top_row",
+        "bottom_row",
+        "left_col",
+        "right_col"
+      ]
+    }
+  },
+
+  "context_patterns": {
+    "empty_separator": {
+      "description": "Empty rows/columns indicating table boundary",
+      "indicators": [
+        "3+ consecutive empty rows",
+        "2+ consecutive empty columns",
+        "Consistent empty border around data"
+      ]
+    },
+
+    "format_change": {
+      "description": "Formatting changes indicating new section",
+      "indicators": [
+        "Different background colors",
+        "Change in font style/size",
+        "Different border styles",
+        "Change from data to labels"
+      ]
+    },
+
+    "content_shift": {
+      "description": "Content type changes indicating boundary",
+      "indicators": [
+        "From structured data to notes/comments",
+        "From one data type to another",
+        "From detailed data to summary",
+        "Change in language or terminology"
+      ]
+    }
+  }
+}

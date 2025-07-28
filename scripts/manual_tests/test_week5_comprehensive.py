@@ -17,27 +17,25 @@ import sys
 sys.path.insert(0, "src")
 
 import asyncio  # noqa: E402
-import pytest  # noqa: E402
+import os  # noqa: E402
+import random  # noqa: E402
 import tempfile  # noqa: E402
 import time  # noqa: E402
-import random  # noqa: E402
-import psutil  # noqa: E402
-import os  # noqa: E402
 from pathlib import Path  # noqa: E402
-from typing import Any  # noqa: E402
 
+import psutil  # noqa: E402
+import pytest  # noqa: E402
 from gridporter import GridPorter  # noqa: E402
-from gridporter.config import Config  # noqa: E402
-from gridporter.models.sheet_data import SheetData, CellData  # noqa: E402
-from gridporter.models.table import TableRange, TableInfo  # noqa: E402
-from gridporter.detectors.multi_header_detector import MultiHeaderDetector  # noqa: E402
-from gridporter.detectors.merged_cell_analyzer import MergedCellAnalyzer  # noqa: E402
-from gridporter.detectors.format_analyzer import SemanticFormatAnalyzer, RowType  # noqa: E402
 from gridporter.agents.complex_table_agent import ComplexTableAgent  # noqa: E402
-from gridporter.vision.integrated_pipeline import IntegratedVisionPipeline  # noqa: E402
+from gridporter.config import Config  # noqa: E402
+from gridporter.detectors.format_analyzer import RowType, SemanticFormatAnalyzer  # noqa: E402
+from gridporter.detectors.merged_cell_analyzer import MergedCellAnalyzer  # noqa: E402
+from gridporter.detectors.multi_header_detector import MultiHeaderDetector  # noqa: E402
+from gridporter.models.sheet_data import CellData, SheetData  # noqa: E402
+from gridporter.models.table import TableRange  # noqa: E402
 from gridporter.telemetry import get_feature_collector  # noqa: E402
 from gridporter.telemetry.feature_store import FeatureStore  # noqa: E402
-
+from gridporter.vision.integrated_pipeline import IntegratedVisionPipeline  # noqa: E402
 
 # ================================================================================
 # SECTION 1: Multi-Row Header Detection

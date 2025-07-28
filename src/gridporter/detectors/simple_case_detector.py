@@ -117,24 +117,36 @@ class SimpleCaseDetector:
         )
 
     def _find_data_bounds(self, sheet_data: "SheetData") -> tuple[int, int, int, int]:
-        """Find the bounding box of all data in the sheet.
+        """Find the bounding box of all data in the sheet - OPTIMIZED for performance.
 
         Returns:
             Tuple of (min_row, max_row, min_col, max_col) in 0-based indices
         """
+        # PERFORMANCE OPTIMIZATION: Use sheet_data's pre-computed bounds if available
+        if hasattr(sheet_data, "max_row") and hasattr(sheet_data, "max_column"):
+            # For dense tables starting at A1, use the sheet bounds directly
+            non_empty_cells = sheet_data.get_non_empty_cells()
+            if non_empty_cells:
+                # Quick check: if we have data at (0,0) and sheet is reasonably dense,
+                # use sheet bounds to avoid cell iteration
+                first_cell = sheet_data.get_cell(0, 0)
+                if first_cell and first_cell.value is not None:
+                    total_cells = (sheet_data.max_row + 1) * (sheet_data.max_column + 1)
+                    if len(non_empty_cells) / total_cells > 0.3:  # 30%+ density
+                        return 0, sheet_data.max_row, 0, sheet_data.max_column
+
+        # Fallback to cell iteration for sparse or complex layouts
         min_row = float("inf")
         max_row = -1
         min_col = float("inf")
         max_col = -1
 
-        # SheetData stores cells by address string, not tuple
-        for _, cell in sheet_data.cells.items():
-            if cell.value is not None:
-                # Use cell's row and column attributes
-                min_row = min(min_row, cell.row)
-                max_row = max(max_row, cell.row)
-                min_col = min(min_col, cell.column)
-                max_col = max(max_col, cell.column)
+        # Use get_non_empty_cells() which is more efficient
+        for cell_data in sheet_data.get_non_empty_cells():
+            min_row = min(min_row, cell_data.row)
+            max_row = max(max_row, cell_data.row)
+            min_col = min(min_col, cell_data.column)
+            max_col = max(max_col, cell_data.column)
 
         # Handle edge case of no data
         if min_row == float("inf"):
@@ -150,23 +162,21 @@ class SimpleCaseDetector:
         min_col: int,
         max_col: int,
     ) -> list[int]:
-        """Find empty rows within the data bounds.
+        """Find empty rows within the data bounds - OPTIMIZED for performance.
 
         Returns:
             List of 0-based row indices that are empty
         """
+        # PERFORMANCE OPTIMIZATION: Use set lookup instead of nested loops
+        non_empty_cells = sheet_data.get_non_empty_cells()
+        cell_positions = set()
+        for cell_data in non_empty_cells:
+            cell_positions.add((cell_data.row, cell_data.column))
+
         empty_rows = []
-
         for row in range(min_row, max_row + 1):
-            has_data = False
-            for col in range(min_col, max_col + 1):
-                if (
-                    sheet_data.get_cell(row, col)
-                    and sheet_data.get_cell(row, col).value is not None
-                ):
-                    has_data = True
-                    break
-
+            # Check if any cell in this row has data
+            has_data = any((row, col) in cell_positions for col in range(min_col, max_col + 1))
             if not has_data:
                 empty_rows.append(row)
 
@@ -180,23 +190,24 @@ class SimpleCaseDetector:
         min_col: int,
         max_col: int,
     ) -> list[int]:
-        """Find empty columns within the data bounds.
+        """Find empty columns within the data bounds - OPTIMIZED for performance.
 
         Returns:
             List of 0-based column indices that are empty
         """
+        # PERFORMANCE OPTIMIZATION: Reuse cell_positions from memory if possible
+        if not hasattr(self, "_cached_cell_positions"):
+            non_empty_cells = sheet_data.get_non_empty_cells()
+            self._cached_cell_positions = set()
+            for cell_data in non_empty_cells:
+                self._cached_cell_positions.add((cell_data.row, cell_data.column))
+
         empty_cols = []
-
         for col in range(min_col, max_col + 1):
-            has_data = False
-            for row in range(min_row, max_row + 1):
-                if (
-                    sheet_data.get_cell(row, col)
-                    and sheet_data.get_cell(row, col).value is not None
-                ):
-                    has_data = True
-                    break
-
+            # Check if any cell in this column has data
+            has_data = any(
+                (row, col) in self._cached_cell_positions for row in range(min_row, max_row + 1)
+            )
             if not has_data:
                 empty_cols.append(col)
 
@@ -337,6 +348,7 @@ class SimpleCaseDetector:
             )
 
             return TableInfo(
+                id=f"simple_{start_row}_{start_col}",
                 range=table_range,
                 suggested_name=f"{sheet_name}_table",
                 confidence=result.confidence,

@@ -8,7 +8,11 @@ import asyncio
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
 from gridporter import Config, GridPorter
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 async def example_auto_detection():
@@ -40,7 +44,7 @@ async def example_openai_configuration():
     config = Config(
         use_local_llm=False,
         openai_api_key=os.getenv("OPENAI_API_KEY"),
-        openai_model="gpt-4o-mini",
+        openai_model="gpt-4o",
         suggest_names=True,
         confidence_threshold=0.8,
     )

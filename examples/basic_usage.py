@@ -4,7 +4,11 @@ import asyncio
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
 from gridporter import GridPorter
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 async def detect_tables_example():

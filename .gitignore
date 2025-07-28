@@ -214,3 +214,5 @@ exports/
 
 .env
 test_venv
+
+examples/proprietary/

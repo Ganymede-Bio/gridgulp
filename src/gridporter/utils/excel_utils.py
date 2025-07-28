@@ -115,3 +115,19 @@ def format_range(start_row: int, start_col: int, end_row: int, end_col: int) -> 
     start_cell = indices_to_cell(start_row, start_col)
     end_cell = indices_to_cell(end_row, end_col)
     return f"{start_cell}:{end_cell}"
+
+
+def to_excel_range(top_row: int, left_col: int, bottom_row: int, right_col: int) -> str:
+    """Convert cell bounds to Excel A1 notation range.
+
+    Args:
+        top_row: Top row (0-indexed)
+        left_col: Left column (0-indexed)
+        bottom_row: Bottom row (0-indexed)
+        right_col: Right column (0-indexed)
+
+    Returns:
+        Excel range string (e.g., 'A1:Z100')
+    """
+    # Alias to format_range for compatibility
+    return format_range(top_row, left_col, bottom_row, right_col)
