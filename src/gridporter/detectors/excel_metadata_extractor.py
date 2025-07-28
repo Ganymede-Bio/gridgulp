@@ -359,11 +359,7 @@ class ExcelMetadataExtractor:
                 refers_to = refers_to.split("!")[-1]
 
             # Check if it's a range (contains colon)
-            if ":" not in refers_to:
-                return False
-
-            # Could add more sophisticated checks here
-            return True
+            return ":" in refers_to
 
         except Exception:
             return False

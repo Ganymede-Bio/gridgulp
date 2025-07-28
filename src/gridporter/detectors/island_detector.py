@@ -360,10 +360,7 @@ class IslandDetector:
             return True
 
         # Check diagonal distance for small gaps
-        if v_distance <= max_distance and h_distance <= max_distance:
-            return True
-
-        return False
+        return v_distance <= max_distance and h_distance <= max_distance
 
     def convert_to_table_infos(
         self, islands: list[DataIsland], sheet_name: str, min_confidence: float = 0.3
