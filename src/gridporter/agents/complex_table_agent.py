@@ -1,22 +1,27 @@
 """Complex table detection agent using multi-agent architecture."""
 
 import asyncio
-import logging
 import time
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..config import Config
+from ..core.constants import COMPLEX_TABLE
+from ..detectors.excel_metadata_extractor import ExcelMetadata, ExcelMetadataExtractor
 from ..detectors.format_analyzer import SemanticFormatAnalyzer, TableStructure
+from ..detectors.island_detector import IslandDetector
 from ..detectors.merged_cell_analyzer import MergedCellAnalyzer
 from ..detectors.multi_header_detector import MultiHeaderDetector, MultiRowHeader
+from ..detectors.simple_case_detector import SimpleCaseDetector
 from ..models.sheet_data import SheetData
 from ..models.table import HeaderInfo, TableInfo, TableRange
 from ..models.vision_result import VisionResult
+from ..utils.cost_optimizer import CostOptimizer, DetectionMethod
+from ..utils.logging_context import OperationContext, TableContext, get_contextual_logger
 from ..vision.pattern_detector import SparsePatternDetector
 
-logger = logging.getLogger(__name__)
+logger = get_contextual_logger(__name__)
 
 # Optional feature collection import
 try:
@@ -49,6 +54,25 @@ class ComplexTableAgent:
         self.merged_cell_analyzer = MergedCellAnalyzer()
         self.pattern_detector = SparsePatternDetector()
 
+        # Week 6: Initialize new detectors
+        self.simple_case_detector = SimpleCaseDetector()
+        self.island_detector = IslandDetector()
+        self.excel_metadata_extractor = ExcelMetadataExtractor()
+
+        # Week 6: Initialize cost optimizer
+        self.cost_optimizer = CostOptimizer(
+            max_cost_per_session=config.max_cost_per_session
+            if hasattr(config, "max_cost_per_session")
+            else 1.0,
+            max_cost_per_file=config.max_cost_per_file
+            if hasattr(config, "max_cost_per_file")
+            else 0.1,
+            confidence_threshold=config.confidence_threshold
+            if hasattr(config, "confidence_threshold")
+            else 0.8,
+            enable_caching=config.enable_cache,
+        )
+
         # Initialize feature collector if enabled
         if HAS_FEATURE_COLLECTION and config.enable_feature_collection:
             feature_collector = get_feature_collector()
@@ -60,6 +84,7 @@ class ComplexTableAgent:
         sheet_data: SheetData,
         vision_result: VisionResult | None = None,
         simple_tables: list[TableRange] | None = None,
+        excel_metadata: ExcelMetadata | None = None,
     ) -> ComplexTableDetectionResult:
         """
         Detect complex tables with multi-row headers and semantic structure.
@@ -68,18 +93,17 @@ class ComplexTableAgent:
             sheet_data: Sheet data to analyze
             vision_result: Optional vision analysis results
             simple_tables: Optional list of simple table ranges to enhance
+            excel_metadata: Optional Excel metadata (ListObjects, named ranges, etc.)
 
         Returns:
             ComplexTableDetectionResult with enhanced table information
         """
-        logger.info("Starting complex table detection")
+        logger.info("Starting complex table detection with hybrid approach")
 
-        # If we have simple tables, enhance them
-        if simple_tables:
-            tables = await self._enhance_simple_tables(sheet_data, simple_tables, vision_result)
-        else:
-            # Otherwise, detect tables from scratch
-            tables = await self._detect_tables_from_scratch(sheet_data, vision_result)
+        # Week 6: Implement cost-aware hybrid detection
+        tables = await self._hybrid_table_detection(
+            sheet_data, vision_result, simple_tables, excel_metadata
+        )
 
         # Calculate overall confidence
         overall_confidence = sum(t.confidence for t in tables) / len(tables) if tables else 0.0
@@ -87,12 +111,111 @@ class ComplexTableAgent:
         return ComplexTableDetectionResult(
             tables=tables,
             detection_metadata={
-                "methods_used": ["multi_header", "format_analysis", "merged_cell"],
+                "methods_used": self._get_methods_used(tables),
                 "vision_used": vision_result is not None,
                 "table_count": len(tables),
+                "cost_report": self.cost_optimizer.get_cost_report(),
             },
             confidence=overall_confidence,
         )
+
+    async def _hybrid_table_detection(
+        self,
+        sheet_data: SheetData,
+        vision_result: VisionResult | None,
+        simple_tables: list[TableRange] | None,
+        excel_metadata: ExcelMetadata | None,
+    ) -> list[TableInfo]:
+        """Week 6: Hybrid detection with cost optimization."""
+
+        # Step 1: Check for simple case (single table)
+        simple_result = self.simple_case_detector.detect_simple_table(sheet_data)
+        if (
+            simple_result.is_simple_table
+            and simple_result.confidence >= self.cost_optimizer.confidence_threshold
+        ):
+            logger.info(f"Simple case detected with confidence {simple_result.confidence}")
+            self.cost_optimizer.tracker.add_usage(DetectionMethod.SIMPLE_CASE)
+
+            # Convert to TableInfo and enhance
+            table_range = self._parse_range(simple_result.table_range)
+            table = await self._analyze_single_table(sheet_data, table_range, None)
+            if table:
+                table.detection_method = "simple_case"
+                return [table]
+
+        # Step 2: Use Excel metadata if available
+        if excel_metadata:
+            hints = self.excel_metadata_extractor.convert_to_detection_hints(excel_metadata)
+            if hints:
+                high_confidence_hints = [
+                    h for h in hints if h["confidence"] >= self.cost_optimizer.confidence_threshold
+                ]
+                if high_confidence_hints:
+                    logger.info(
+                        f"Using {len(high_confidence_hints)} high-confidence Excel metadata hints"
+                    )
+                    self.cost_optimizer.tracker.add_usage(DetectionMethod.EXCEL_METADATA)
+
+                    tables = []
+                    for hint in high_confidence_hints:
+                        table_range = self._parse_range(hint["range"])
+                        if table_range:
+                            table = await self._analyze_single_table(sheet_data, table_range, None)
+                            if table:
+                                table.detection_method = "excel_metadata"
+                                table.suggested_name = hint.get("name")
+                                tables.append(table)
+
+                    if tables:
+                        return tables
+
+        # Step 3: Try island detection
+        islands = self.island_detector.detect_islands(sheet_data)
+        if islands:
+            logger.info(f"Found {len(islands)} data islands")
+            self.cost_optimizer.tracker.add_usage(DetectionMethod.ISLAND_DETECTION)
+
+            table_infos = self.island_detector.convert_to_table_infos(
+                islands,
+                sheet_data.name or "Sheet",
+                min_confidence=COMPLEX_TABLE.MIN_CONFIDENCE_FOR_ISLAND,
+            )
+
+            # If island detection gives good results, use them
+            if table_infos and all(
+                t.confidence >= COMPLEX_TABLE.MIN_CONFIDENCE_FOR_GOOD_ISLAND for t in table_infos
+            ):
+                # Enhance with complex detection
+                enhanced_tables = []
+                for table_info in table_infos:
+                    table_range = self._parse_range(table_info.range)
+                    if table_range:
+                        enhanced = await self._analyze_single_table(sheet_data, table_range, None)
+                        if enhanced:
+                            enhanced.detection_method = "island_detection"
+                            enhanced_tables.append(enhanced)
+
+                if enhanced_tables:
+                    return enhanced_tables
+
+        # Step 4: Fall back to original detection logic (with vision if available)
+        logger.info("Using vision-based or heuristic detection")
+
+        # Track vision usage
+        if vision_result:
+            self.cost_optimizer.tracker.add_usage(
+                DetectionMethod.VISION_FULL,
+                tokens=COMPLEX_TABLE.VISION_FULL_TOKEN_ESTIMATE,
+                cost=COMPLEX_TABLE.VISION_FULL_COST_ESTIMATE,
+            )
+
+        # If we have simple tables, enhance them
+        if simple_tables:
+            return await self._enhance_simple_tables(sheet_data, simple_tables, vision_result)
+        else:
+            # Otherwise, detect tables from scratch
+            return await self._detect_tables_from_scratch(sheet_data, vision_result)
 
     async def _enhance_simple_tables(
         self,
@@ -114,7 +237,7 @@ class ComplexTableAgent:
         self, sheet_data: SheetData, vision_result: VisionResult | None
     ) -> list[TableInfo]:
         """Detect tables from scratch using vision and local analysis."""
-        tables = []
+        tasks = []
 
         # Use vision results if available
         if vision_result and vision_result.regions:
@@ -125,18 +248,18 @@ class ComplexTableAgent:
                     end_row=region.end_row,
                     end_col=region.end_col,
                 )
-                table = await self._analyze_single_table(sheet_data, table_range, vision_result)
-                if table:
-                    tables.append(table)
+                task = self._analyze_single_table(sheet_data, table_range, vision_result)
+                tasks.append(task)
         else:
             # Fallback to heuristic detection
             detected_ranges = self._detect_table_ranges_heuristically(sheet_data)
             for table_range in detected_ranges:
-                table = await self._analyze_single_table(sheet_data, table_range, None)
-                if table:
-                    tables.append(table)
+                task = self._analyze_single_table(sheet_data, table_range, None)
+                tasks.append(task)
 
-        return tables
+        # Run all analyses in parallel
+        results = await asyncio.gather(*tasks)
+        return [r for r in results if r is not None]
 
     async def _analyze_single_table(
         self,
@@ -146,127 +269,136 @@ class ComplexTableAgent:
     ) -> TableInfo | None:
         """Analyze a single table for complex structures."""
         start_time = time.time()  # Start timing here
-        try:
-            # Detect multi-row headers
-            multi_header = self.multi_header_detector.detect_multi_row_headers(
-                sheet_data, table_range
-            )
 
-            # Determine header info
-            if multi_header:
-                header_info = self._create_header_info(multi_header)
-                header_row_count = multi_header.end_row - multi_header.start_row + 1
-            else:
-                # Single row header
-                header_info = self._create_simple_header_info(sheet_data, table_range)
-                header_row_count = 1 if header_info else 0
+        with TableContext(table_range.excel_range):
+            try:
+                # Detect multi-row headers
+                with OperationContext("multi_header_detection"):
+                    multi_header = self.multi_header_detector.detect_multi_row_headers(
+                        sheet_data, table_range
+                    )
 
-            # Analyze semantic structure
-            structure = self.format_analyzer.analyze_table_structure(
-                sheet_data, table_range, header_row_count
-            )
+                # Determine header info
+                if multi_header:
+                    header_info = self._create_header_info(multi_header)
+                    header_row_count = multi_header.end_row - multi_header.start_row + 1
+                else:
+                    # Single row header
+                    header_info = self._create_simple_header_info(sheet_data, table_range)
+                    header_row_count = 1 if header_info else 0
 
-            # Extract pattern information if available
-            pattern_info = self._extract_pattern_info(table_range, vision_result)
+                # Analyze semantic structure
+                with OperationContext("semantic_analysis"):
+                    structure = self.format_analyzer.analyze_table_structure(
+                        sheet_data, table_range, header_row_count
+                    )
 
-            # Build table info
-            table = TableInfo(
-                range=table_range,
-                confidence=self._calculate_table_confidence(multi_header, structure, pattern_info),
-                detection_method="complex_detection",
-                header_info=header_info,
-                has_headers=header_info is not None,
-                semantic_structure=self._structure_to_dict(structure),
-                format_preservation=self._extract_format_preservation(structure),
-                suggested_name=(
-                    await self._suggest_table_name(sheet_data, table_range, header_info)
-                    if self.config.use_vision
-                    else None
-                ),
-            )
+                # Extract pattern information if available
+                pattern_info = self._extract_pattern_info(table_range, vision_result)
 
-            # Add data preview
-            table.data_preview = self._generate_data_preview(
-                sheet_data, table_range, header_row_count
-            )
+                # Build table info
+                table = TableInfo(
+                    range=table_range,
+                    confidence=self._calculate_table_confidence(
+                        multi_header, structure, pattern_info
+                    ),
+                    detection_method="complex_detection",
+                    header_info=header_info,
+                    has_headers=header_info is not None,
+                    semantic_structure=self._structure_to_dict(structure),
+                    format_preservation=self._extract_format_preservation(structure),
+                    suggested_name=(
+                        await self._suggest_table_name(sheet_data, table_range, header_info)
+                        if self.config.use_vision
+                        else None
+                    ),
+                )
 
-            # Infer data types
-            table.data_types = self._infer_data_types(sheet_data, table_range, header_row_count)
+                # Add data preview
+                table.data_preview = self._generate_data_preview(
+                    sheet_data, table_range, header_row_count
+                )
 
-            # Record features if collection is enabled
-            if HAS_FEATURE_COLLECTION:
-                try:
-                    feature_collector = get_feature_collector()
-                    if feature_collector.enabled:
-                        logger.debug(f"Recording features for table at {table.range.excel_range}")
-                        # Build format features
-                        format_features = {
-                            "header_row_count": header_row_count,
-                            "has_bold_headers": self._check_bold_headers(
-                                sheet_data, table_range, header_row_count
-                            ),
-                            "has_totals": structure.has_grand_total,
-                            "has_subtotals": structure.has_subtotals,
-                            "section_count": len(structure.sections),
-                            "separator_row_count": sum(
-                                1
-                                for r in structure.semantic_rows
-                                if r.row_type.value == "separator"
-                            ),
-                        }
+                # Infer data types
+                table.data_types = self._infer_data_types(sheet_data, table_range, header_row_count)
 
-                        # Build hierarchical features
-                        hierarchical_features = {
-                            "has_multi_headers": multi_header is not None,
-                            "max_hierarchy_depth": (
-                                multi_header.end_row - multi_header.start_row + 1
+                # Record features if collection is enabled
+                if HAS_FEATURE_COLLECTION:
+                    try:
+                        feature_collector = get_feature_collector()
+                        if feature_collector.enabled:
+                            logger.debug(
+                                f"Recording features for table at {table.range.excel_range}"
                             )
-                            if multi_header
-                            else header_row_count,
-                            "has_indentation": False,  # Multi-header is different from indentation
-                        }
+                            # Build format features
+                            format_features = {
+                                "header_row_count": header_row_count,
+                                "has_bold_headers": self._check_bold_headers(
+                                    sheet_data, table_range, header_row_count
+                                ),
+                                "has_totals": structure.has_grand_total,
+                                "has_subtotals": structure.has_subtotals,
+                                "section_count": len(structure.sections),
+                                "separator_row_count": sum(
+                                    1
+                                    for r in structure.semantic_rows
+                                    if r.row_type.value == "separator"
+                                ),
+                            }
 
-                        # Build content features
-                        content_features = {
-                            "total_cells": table_range.row_count * table_range.col_count,
-                            "filled_cells": len([c for c in table.data_preview or [] if c]),
-                            "numeric_ratio": sum(
-                                1 for dt in (table.data_types or {}).values() if dt == "numeric"
+                            # Build hierarchical features
+                            hierarchical_features = {
+                                "has_multi_headers": multi_header is not None,
+                                "max_hierarchy_depth": (
+                                    multi_header.end_row - multi_header.start_row + 1
+                                )
+                                if multi_header
+                                else header_row_count,
+                                "has_indentation": False,  # Multi-header is different from indentation
+                            }
+
+                            # Build content features
+                            content_features = {
+                                "total_cells": table_range.row_count * table_range.col_count,
+                                "filled_cells": sum(1 for c in table.data_preview or [] if c),
+                                "numeric_ratio": sum(
+                                    1 for dt in (table.data_types or {}).values() if dt == "numeric"
+                                )
+                                / max(len(table.data_types or {"x": 1}), 1),
+                                "date_columns": sum(
+                                    1 for dt in (table.data_types or {}).values() if dt == "date"
+                                ),
+                                "text_columns": sum(
+                                    1 for dt in (table.data_types or {}).values() if dt == "text"
+                                ),
+                            }
+
+                            # Record the detection
+                            processing_time = max(
+                                COMPLEX_TABLE.MIN_PROCESSING_TIME_MS,
+                                int((time.time() - start_time) * 1000),
                             )
-                            / max(len(table.data_types or {"x": 1}), 1),
-                            "date_columns": sum(
-                                1 for dt in (table.data_types or {}).values() if dt == "date"
-                            ),
-                            "text_columns": sum(
-                                1 for dt in (table.data_types or {}).values() if dt == "text"
-                            ),
-                        }
+                            feature_collector.record_detection(
+                                file_path=getattr(sheet_data, "file_path", "unknown"),
+                                file_type=getattr(sheet_data, "file_type", "unknown"),
+                                sheet_name=getattr(sheet_data, "name", None),
+                                table_range=table.range.excel_range,
+                                detection_method="complex_detection",
+                                confidence=table.confidence,
+                                success=True,
+                                format_features=format_features,
+                                hierarchical_features=hierarchical_features,
+                                content_features=content_features,
+                                processing_time_ms=processing_time,
+                            )
+                    except Exception as e:
+                        logger.debug(f"Failed to record complex table features: {e}")
 
-                        # Record the detection
-                        processing_time = max(
-                            1, int((time.time() - start_time) * 1000)
-                        )  # Ensure at least 1ms
-                        feature_collector.record_detection(
-                            file_path=getattr(sheet_data, "file_path", "unknown"),
-                            file_type=getattr(sheet_data, "file_type", "unknown"),
-                            sheet_name=getattr(sheet_data, "name", None),
-                            table_range=table.range.excel_range,
-                            detection_method="complex_detection",
-                            confidence=table.confidence,
-                            success=True,
-                            format_features=format_features,
-                            hierarchical_features=hierarchical_features,
-                            content_features=content_features,
-                            processing_time_ms=processing_time,
-                        )
-                except Exception as e:
-                    logger.debug(f"Failed to record complex table features: {e}")
+                return table
 
-            return table
-
-        except Exception as e:
-            logger.error(f"Error analyzing table at {table_range.excel_range}: {e}")
-            return None
+            except Exception as e:
+                logger.error(f"Error analyzing table: {e}")
+                return None
 
     def _create_header_info(self, multi_header: MultiRowHeader) -> HeaderInfo:
         """Create HeaderInfo from multi-row header detection."""
@@ -322,11 +454,13 @@ class ComplexTableAgent:
         if multi_header:
             scores.append(multi_header.confidence)
         else:
-            scores.append(0.7)  # Default for simple headers
+            scores.append(COMPLEX_TABLE.DEFAULT_SIMPLE_HEADER_CONFIDENCE)
 
         # Structure confidence
         semantic_rows = [r for r in structure.semantic_rows if r.row_type != "data"]
-        structure_score = min(len(semantic_rows) / 5, 1.0)  # More semantic rows = higher confidence
+        structure_score = min(
+            len(semantic_rows) / COMPLEX_TABLE.SEMANTIC_ROW_SCORE_DIVISOR, 1.0
+        )  # More semantic rows = higher confidence
         scores.append(structure_score)
 
         # Pattern confidence
@@ -412,7 +546,7 @@ class ComplexTableAgent:
     ) -> list[dict[str, Any]]:
         """Generate a preview of table data."""
         preview = []
-        preview_rows = min(5, table_range.row_count - header_rows)
+        preview_rows = min(COMPLEX_TABLE.PREVIEW_ROW_COUNT, table_range.row_count - header_rows)
 
         # Get headers for column names
         headers = []
@@ -454,7 +588,7 @@ class ComplexTableAgent:
         data_types = {}
 
         # Sample rows for type inference
-        sample_size = min(20, table_range.row_count - header_rows)
+        sample_size = min(COMPLEX_TABLE.DATA_TYPE_SAMPLE_SIZE, table_range.row_count - header_rows)
 
         for col_offset in range(table_range.col_count):
             col_idx = table_range.start_col + col_offset
@@ -525,7 +659,7 @@ class ComplexTableAgent:
                     if cell.is_bold:
                         bold_count += 1
 
-        return bold_count > 0 and bold_count >= total_count * 0.5  # At least 50% bold
+        return bold_count > 0 and bold_count >= total_count * COMPLEX_TABLE.BOLD_HEADER_THRESHOLD
 
     def _detect_table_ranges_heuristically(self, sheet_data: SheetData) -> list[TableRange]:
         """Detect table ranges using heuristics when vision is not available."""
@@ -546,3 +680,44 @@ class ComplexTableAgent:
             )
 
         return ranges
+
+    def _parse_range(self, range_str: str | None) -> TableRange | None:
+        """Parse an Excel range string into a TableRange object."""
+        if not range_str:
+            return None
+
+        try:
+            # Handle sheet prefix if present
+            if "!" in range_str:
+                range_str = range_str.split("!")[-1]
+
+            # Parse A1:B10 format
+            if ":" in range_str:
+                start, end = range_str.split(":")
+                from ..utils.excel_utils import cell_to_indices
+
+                start_row, start_col = cell_to_indices(start)
+                end_row, end_col = cell_to_indices(end)
+
+                return TableRange(
+                    start_row=start_row,
+                    start_col=start_col,
+                    end_row=end_row,
+                    end_col=end_col,
+                )
+        except Exception as e:
+            logger.warning(f"Failed to parse range '{range_str}': {e}")
+
+        return None
+
+    def _get_methods_used(self, tables: list[TableInfo]) -> list[str]:
+        """Get unique detection methods used."""
+        methods = set()
+        for table in tables:
+            if table.detection_method:
+                methods.add(table.detection_method)
+
+        # Add standard methods that are always used
+        methods.update(["multi_header", "format_analysis", "merged_cell"])
+
+        return sorted(methods)

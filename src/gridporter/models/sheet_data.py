@@ -2,9 +2,23 @@
 
 from datetime import datetime
 from decimal import Decimal
+from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+class CellDataType(str, Enum):
+    """Cell data types."""
+
+    STRING = "string"
+    NUMBER = "number"
+    BOOLEAN = "boolean"
+    DATETIME = "datetime"
+    DATE = "date"
+    EMPTY = "empty"
+    FORMULA = "formula"
+    ERROR = "error"
 
 
 class CellData(BaseModel):
@@ -102,6 +116,10 @@ class SheetData(BaseModel):
     file_path: str | None = Field(None, description="Source file path (for tracking)")
     file_type: str | None = Field(None, description="File type (xlsx, csv, etc.)")
 
+    def has_data(self) -> bool:
+        """Check if sheet has any data."""
+        return len(self.cells) > 0
+
     def get_cell(self, row: int, column: int) -> CellData | None:
         """Get cell data by row and column indices."""
         address = self._get_address(row, column)
@@ -130,6 +148,13 @@ class SheetData(BaseModel):
 
     def set_cell(self, row: int, column: int, cell_data: CellData) -> None:
         """Set cell data at specific position."""
+        if row < 0:
+            raise ValueError(f"Row index must be non-negative, got {row}")
+        if column < 0:
+            raise ValueError(f"Column index must be non-negative, got {column}")
+        if cell_data is None:
+            raise ValueError("cell_data cannot be None")
+
         address = self._get_address(row, column)
         cell_data.row = row
         cell_data.column = column
@@ -151,6 +176,11 @@ class SheetData(BaseModel):
         self, start_row: int, start_col: int, end_row: int, end_col: int
     ) -> list[list[CellData | None]]:
         """Get cells in a specific range."""
+        if start_row < 0 or start_col < 0:
+            raise ValueError("Start indices must be non-negative")
+        if end_row < start_row or end_col < start_col:
+            raise ValueError("End indices must be greater than or equal to start indices")
+
         result = []
         for row in range(start_row, end_row + 1):
             row_data = []
@@ -207,6 +237,26 @@ class SheetData(BaseModel):
                 cells_in_region.append(cell)
 
         return cells_in_region
+
+    def get_cells_batch(self, positions: list[tuple[int, int]]) -> list[CellData | None]:
+        """Get multiple cells by their positions in a single batch operation.
+
+        Args:
+            positions: List of (row, col) tuples
+
+        Returns:
+            List of CellData objects or None for each position
+        """
+        return [self.get_cell(row, col) for row, col in positions]
+
+    def set_cells_batch(self, cells: list[tuple[int, int, CellData]]) -> None:
+        """Set multiple cells in a single batch operation.
+
+        Args:
+            cells: List of (row, col, cell_data) tuples
+        """
+        for row, col, cell_data in cells:
+            self.set_cell(row, col, cell_data)
 
     def get_dimensions(self) -> tuple[int, int]:
         """Get sheet dimensions as (rows, columns)."""

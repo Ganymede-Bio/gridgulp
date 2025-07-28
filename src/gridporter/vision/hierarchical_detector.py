@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
+from ..core.constants import KEYWORDS
 from ..models.sheet_data import CellData, SheetData
 from .bitmap_analyzer import TableOrientation
 from .pattern_detector import PatternType, TableBounds, TablePattern
@@ -54,16 +55,7 @@ class HierarchicalPatternDetector:
         """
         self.min_indent_consistency = min_indent_consistency
         self.min_hierarchical_rows = min_hierarchical_rows
-        self.subtotal_keywords = subtotal_keywords or [
-            "total",
-            "subtotal",
-            "sum",
-            "sub-total",
-            "grand total",
-            "net",
-            "gross",
-            "overall",
-        ]
+        self.subtotal_keywords = subtotal_keywords or list(KEYWORDS.HIERARCHICAL_SUBTOTAL_KEYWORDS)
 
     def detect_hierarchical_patterns(
         self, sheet_data: SheetData, bounds: TableBounds | None = None
@@ -170,7 +162,8 @@ class HierarchicalPatternDetector:
         # Fall back to analyzing leading spaces in text
         if isinstance(cell.value, str):
             # Count leading spaces (each 2-4 spaces = 1 indent level)
-            leading_spaces = len(cell.value) - len(cell.value.lstrip())
+            value = cell.value
+            leading_spaces = len(value) - len(value.lstrip())
             return leading_spaces // 3  # Assume 3 spaces per indent level
 
         return 0

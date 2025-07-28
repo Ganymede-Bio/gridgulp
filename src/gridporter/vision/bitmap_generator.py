@@ -21,13 +21,8 @@ try:
 except ImportError:
     HAS_TELEMETRY = False
 
-logger = logging.getLogger(__name__)
 
-# Excel size limits
-XLSX_MAX_ROWS = 1048576
-XLSX_MAX_COLS = 16384
-XLS_MAX_ROWS = 65536
-XLS_MAX_COLS = 256
+logger = logging.getLogger(__name__)
 
 
 class CompressionMode(Enum):
@@ -558,19 +553,13 @@ class BitmapGenerator:
         for i in range(sampled_rows):
             for j in range(sampled_cols):
                 # Check if any cell in the sample region is filled
-                has_data = False
-                is_header = False
-
-                for r in range(i * row_sample, min((i + 1) * row_sample, rows)):
-                    for c in range(j * col_sample, min((j + 1) * col_sample, cols)):
-                        cell = sheet_data.get_cell(start_row + r, start_col + c)
-                        if cell and not cell.is_empty:
-                            has_data = True
-                            if cell.is_bold:
-                                is_header = True
-                                break
-                    if is_header:
-                        break
+                has_data, is_header = self._check_sample_region(
+                    sheet_data,
+                    start_row + i * row_sample,
+                    start_col + j * col_sample,
+                    min(row_sample, rows - i * row_sample),
+                    min(col_sample, cols - j * col_sample),
+                )
 
                 if has_data:
                     y_start = i * cell_size
@@ -609,6 +598,40 @@ class BitmapGenerator:
         )
 
         return img_data, metadata
+
+    def _check_sample_region(
+        self, sheet_data: SheetData, start_row: int, start_col: int, height: int, width: int
+    ) -> tuple[bool, bool]:
+        """Check if a sample region has data and if it contains headers.
+
+        Args:
+            sheet_data: Sheet data to check
+            start_row: Starting row index
+            start_col: Starting column index
+            height: Number of rows to check
+            width: Number of columns to check
+
+        Returns:
+            Tuple of (has_data, is_header)
+        """
+        has_data = False
+        is_header = False
+
+        for r in range(height):
+            row_idx = start_row + r
+            for c in range(width):
+                col_idx = start_col + c
+                cell = sheet_data.get_cell(row_idx, col_idx)
+
+                if not cell or cell.is_empty:
+                    continue
+
+                has_data = True
+                if cell.is_bold:
+                    is_header = True
+                    return has_data, is_header  # Early return when header found
+
+        return has_data, is_header
 
     def generate_from_visualization_plan(
         self, sheet_data: SheetData, regions: list[VisualizationRegion]

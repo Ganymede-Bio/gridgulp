@@ -7,6 +7,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from ..detectors.excel_metadata_extractor import ExcelMetadata, ExcelMetadataExtractor
 from ..models.file_info import FileInfo, FileType
 from ..models.sheet_data import CellData, FileData, SheetData
 from .base_reader import (
@@ -17,6 +18,33 @@ from .base_reader import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Optional imports - cached at module level
+try:
+    import olefile
+
+    HAS_OLEFILE = True
+except ImportError:
+    HAS_OLEFILE = False
+
+try:
+    from openpyxl import load_workbook
+    from openpyxl.utils.exceptions import InvalidFileException
+
+    HAS_OPENPYXL = True
+except ImportError:
+    HAS_OPENPYXL = False
+
+try:
+    import xlrd
+    from xlrd import XLRDError
+
+    HAS_XLRD = True
+except ImportError:
+    HAS_XLRD = False
+
+    class XLRDError(Exception):  # Define a dummy class to prevent NameError
+        pass
 
 
 class ExcelReader(SyncBaseReader):
@@ -36,6 +64,8 @@ class ExcelReader(SyncBaseReader):
             FileType.XLSM,
             FileType.XLSB,
         }
+        self._metadata_extractor = ExcelMetadataExtractor()
+        self._excel_metadata: ExcelMetadata | None = None
 
     def can_read(self) -> bool:
         """Check if can read Excel files."""
@@ -50,15 +80,37 @@ class ExcelReader(SyncBaseReader):
         """Get supported Excel formats."""
         return ["xlsx", "xls", "xlsm", "xlsb"]
 
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - cleanup resources."""
+        self.close()
+
+    def close(self):
+        """Close workbook and free resources."""
+        if self._workbook is not None:
+            try:
+                if hasattr(self._workbook, "close"):
+                    self._workbook.close()
+            except Exception as e:
+                self.logger.debug(f"Error closing workbook: {e}")
+            finally:
+                self._workbook = None
+
     def _is_password_protected(self) -> bool:
         """Check if Excel file is password protected.
 
         Password-protected Excel files are stored as OLE containers
         with EncryptedPackage and EncryptionInfo streams.
         """
-        try:
-            import olefile
+        if not HAS_OLEFILE:
+            # If olefile is not available, we can't detect password protection
+            # Let it fail with the normal error later
+            return False
 
+        try:
             if olefile.isOleFile(str(self.file_path)):
                 with olefile.OleFileIO(str(self.file_path)) as ole:
                     streams = ole.listdir()
@@ -67,10 +119,6 @@ class ExcelReader(SyncBaseReader):
                         stream_str = "/".join(stream) if isinstance(stream, list) else str(stream)
                         if "EncryptedPackage" in stream_str or "EncryptionInfo" in stream_str:
                             return True
-            return False
-        except ImportError:
-            # If olefile is not available, we can't detect password protection
-            # Let it fail with the normal error later
             return False
         except Exception:
             # Any error in detection, assume not password protected
@@ -98,20 +146,21 @@ class ExcelReader(SyncBaseReader):
             else:
                 return self._read_with_xlrd()
         except Exception as e:
-            if "password" in str(e).lower():
+            error_msg = str(e).lower()
+            if "password" in error_msg:
                 raise PasswordProtectedError(f"File is password protected: {self.file_path}") from e
-            elif "corrupt" in str(e).lower() or "invalid" in str(e).lower():
+            elif "corrupt" in error_msg or "invalid" in error_msg:
                 raise CorruptedFileError(f"File appears to be corrupted: {self.file_path}") from e
             else:
                 raise ReaderError(f"Failed to read Excel file: {e}") from e
 
     def _read_with_openpyxl(self) -> FileData:
         """Read modern Excel file using openpyxl."""
-        try:
-            from openpyxl import load_workbook
-            from openpyxl.utils.exceptions import InvalidFileException
-        except ImportError as e:
-            raise ReaderError("openpyxl is required to read .xlsx files") from e
+        if not HAS_OPENPYXL:
+            raise ReaderError(
+                "openpyxl is required to read .xlsx files. "
+                "Please install it with: pip install openpyxl"
+            )
 
         try:
             # Load workbook with data_only=False to preserve formulas
@@ -128,6 +177,11 @@ class ExcelReader(SyncBaseReader):
             # Extract file metadata
             metadata = self._extract_openpyxl_metadata()
 
+            # Extract Excel-specific metadata
+            self._excel_metadata = self._metadata_extractor.extract_metadata_openpyxl(
+                self._workbook
+            )
+
             file_data = FileData(
                 sheets=sheets,
                 metadata=metadata,
@@ -140,9 +194,14 @@ class ExcelReader(SyncBaseReader):
             return file_data
 
         except InvalidFileException as e:
+            self.close()  # Ensure cleanup on error
             raise CorruptedFileError(f"Invalid Excel file format: {e}") from e
         except Exception as e:
+            self.close()  # Ensure cleanup on error
             raise ReaderError(f"Failed to read with openpyxl: {e}") from e
+        finally:
+            # Always close the workbook after reading
+            self.close()
 
     def _read_openpyxl_sheet(self, worksheet) -> SheetData:
         """Read a single sheet using openpyxl.
@@ -238,11 +297,10 @@ class ExcelReader(SyncBaseReader):
 
     def _read_with_xlrd(self) -> FileData:
         """Read legacy Excel file using xlrd."""
-        try:
-            import xlrd
-            from xlrd.biffh import XLRDError
-        except ImportError as e:
-            raise ReaderError("xlrd is required to read .xls files") from e
+        if not HAS_XLRD:
+            raise ReaderError(
+                "xlrd is required to read .xls files. " "Please install it with: pip install xlrd"
+            )
 
         try:
             self._workbook = xlrd.open_workbook(str(self.file_path), formatting_info=True)
@@ -256,6 +314,9 @@ class ExcelReader(SyncBaseReader):
             # Extract metadata
             metadata = self._extract_xlrd_metadata()
 
+            # Extract Excel-specific metadata (limited for xlrd)
+            self._excel_metadata = self._metadata_extractor.extract_metadata_xlrd(self._workbook)
+
             file_data = FileData(
                 sheets=sheets,
                 metadata=metadata,
@@ -267,9 +328,14 @@ class ExcelReader(SyncBaseReader):
             return file_data
 
         except XLRDError as e:
+            self.close()  # Ensure cleanup on error
             raise CorruptedFileError(f"Invalid XLS file: {e}") from e
         except Exception as e:
+            self.close()  # Ensure cleanup on error
             raise ReaderError(f"Failed to read with xlrd: {e}") from e
+        finally:
+            # Always close the workbook after reading
+            self.close()
 
     def _read_xlrd_sheet(self, worksheet) -> SheetData:
         """Read a single sheet using xlrd.
@@ -448,3 +514,22 @@ class ExcelReader(SyncBaseReader):
             self.logger.debug(f"Failed to extract xlrd metadata: {e}")
 
         return metadata
+
+    def get_excel_metadata(self) -> ExcelMetadata | None:
+        """Get Excel-specific metadata (ListObjects, named ranges, print areas).
+
+        Returns:
+            ExcelMetadata object if available, None if file hasn't been read yet
+        """
+        return self._excel_metadata
+
+    def get_detection_hints(self) -> list[dict[str, Any]]:
+        """Get table detection hints from Excel metadata.
+
+        Returns:
+            List of detection hints with range and confidence information
+        """
+        if not self._excel_metadata:
+            return []
+
+        return self._metadata_extractor.convert_to_detection_hints(self._excel_metadata)

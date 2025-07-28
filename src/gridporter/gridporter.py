@@ -10,9 +10,15 @@ from gridporter.utils.file_magic import detect_file_info
 
 from .agents.complex_table_agent import ComplexTableAgent
 from .config import Config
+from .utils.logging_context import (
+    FileContext,
+    OperationContext,
+    SheetContext,
+    get_contextual_logger,
+)
 from .vision.integrated_pipeline import IntegratedVisionPipeline
 
-logger = logging.getLogger(__name__)
+logger = get_contextual_logger(__name__)
 
 
 class GridPorter:
@@ -104,115 +110,127 @@ class GridPorter:
         start_time = time.time()
         file_path = Path(file_path)
 
-        logger.info(f"Starting table detection for: {file_path}")
+        with FileContext(str(file_path)):
+            logger.info("Starting table detection")
 
-        # Validate file
-        self._validate_file(file_path)
+            # Validate file
+            with OperationContext("file_validation"):
+                self._validate_file(file_path)
 
-        # Detect file type
-        file_info = await self._analyze_file(file_path)
-        logger.info(f"Detected file type: {file_info.type}")
+            # Detect file type
+            with OperationContext("file_type_detection"):
+                file_info = await self._analyze_file(file_path)
+                logger.info(f"Detected file type: {file_info.type}")
 
-        # Read file data using appropriate reader
-        try:
-            reader = create_reader(file_path, file_info)
-            file_data = await reader.read()
-            logger.info(f"Successfully read {file_data.sheet_count} sheets")
-        except ReaderError as e:
-            logger.error(f"Failed to read file: {e}")
-            raise ValueError(f"Could not read file: {e}") from e
+            # Read file data using appropriate reader
+            with OperationContext("file_reading"):
+                try:
+                    reader = create_reader(file_path, file_info)
+                    file_data = await reader.read()
+                    logger.info(f"Successfully read {file_data.sheet_count} sheets")
+                except ReaderError as e:
+                    logger.error(f"Failed to read file: {e}")
+                    raise ValueError(
+                        f"Could not read file '{file_path}': {type(e).__name__}: {e}. "
+                        f"Please check if the file exists and is in a supported format."
+                    ) from e
 
-        # Run table detection using complex table agent
-        sheets = []
-        total_llm_calls = 0
-        total_llm_tokens = 0
+            # Run table detection using complex table agent
+            sheets = []
+            total_llm_calls = 0
+            total_llm_tokens = 0
 
-        for sheet_data in file_data.sheets:
-            from gridporter.models import SheetResult
+            for sheet_data in file_data.sheets:
+                from gridporter.models import SheetResult
 
-            sheet_start_time = time.time()
-            sheet_errors = []
+                with SheetContext(sheet_data.name):
+                    sheet_start_time = time.time()
+                    sheet_errors = []
 
-            # Set file path and type for feature collection
-            sheet_data.file_path = str(file_path)
-            sheet_data.file_type = file_info.type.value
+                    # Set file path and type for feature collection
+                    sheet_data.file_path = str(file_path)
+                    sheet_data.file_type = file_info.type.value
 
-            try:
-                # Run vision pipeline if enabled
-                vision_result = None
-                if self.config.use_vision and self._vision_pipeline:
-                    pipeline_result = self._vision_pipeline.process_sheet(sheet_data)
-                    # Convert pipeline result to vision result format
-                    # (This is simplified - real implementation would do proper conversion)
-                    vision_result = pipeline_result
+                    try:
+                        # Run vision pipeline if enabled
+                        vision_result = None
+                        with OperationContext("vision_analysis"):
+                            if self.config.use_vision and self._vision_pipeline:
+                                pipeline_result = self._vision_pipeline.process_sheet(sheet_data)
+                                # Convert pipeline result to vision result format
+                                # (This is simplified - real implementation would do proper conversion)
+                                vision_result = pipeline_result
 
-                # Detect complex tables
-                detection_result = await self._complex_table_agent.detect_complex_tables(
-                    sheet_data,
-                    vision_result=vision_result,
-                    simple_tables=None,  # Could pass simple tables from initial detection
-                )
+                        # Detect complex tables
+                        with OperationContext("table_detection"):
+                            detection_result = await self._complex_table_agent.detect_complex_tables(
+                                sheet_data,
+                                vision_result=vision_result,
+                                simple_tables=None,  # Could pass simple tables from initial detection
+                            )
 
-                # Track LLM usage if applicable
-                if hasattr(detection_result, "llm_calls"):
-                    total_llm_calls += detection_result.llm_calls
-                if hasattr(detection_result, "llm_tokens"):
-                    total_llm_tokens += detection_result.llm_tokens
+                        # Track LLM usage if applicable
+                        if hasattr(detection_result, "llm_calls"):
+                            total_llm_calls += detection_result.llm_calls
+                        if hasattr(detection_result, "llm_tokens"):
+                            total_llm_tokens += detection_result.llm_tokens
 
-                sheet_result = SheetResult(
-                    name=sheet_data.name,
-                    tables=detection_result.tables,
-                    processing_time=time.time() - sheet_start_time,
-                    errors=sheet_errors,
-                    metadata=detection_result.detection_metadata,
-                )
-            except Exception as e:
-                logger.error(f"Error processing sheet {sheet_data.name}: {e}")
-                sheet_errors.append(str(e))
-                sheet_result = SheetResult(
-                    name=sheet_data.name,
-                    tables=[],
-                    processing_time=time.time() - sheet_start_time,
-                    errors=sheet_errors,
-                )
+                        sheet_result = SheetResult(
+                            name=sheet_data.name,
+                            tables=detection_result.tables,
+                            processing_time=time.time() - sheet_start_time,
+                            errors=sheet_errors,
+                            metadata=detection_result.detection_metadata,
+                        )
+                    except Exception as e:
+                        logger.error(f"Error processing sheet: {e}")
+                        sheet_errors.append(str(e))
+                        sheet_result = SheetResult(
+                            name=sheet_data.name,
+                            tables=[],
+                            processing_time=time.time() - sheet_start_time,
+                            errors=sheet_errors,
+                        )
 
-            sheets.append(sheet_result)
+                    sheets.append(sheet_result)
 
-        detection_time = time.time() - start_time
+            detection_time = time.time() - start_time
 
-        # Collect methods used
-        methods_used = ["file_reading", "complex_detection"]
-        if self.config.use_vision:
-            methods_used.extend(["vision_analysis", "bitmap_detection"])
+            # Collect methods used
+            methods_used = ["file_reading", "complex_detection"]
+            if self.config.use_vision:
+                methods_used.extend(["vision_analysis", "bitmap_detection"])
 
-        result = DetectionResult(
-            file_info=file_info,
-            sheets=sheets,
-            detection_time=detection_time,
-            methods_used=methods_used,
-            metadata={
-                "file_data_available": True,
-                "total_cells": sum(len(sheet.get_non_empty_cells()) for sheet in file_data.sheets),
-                "reader_metadata": file_data.metadata,
-                "total_tables": sum(len(sheet.tables) for sheet in sheets),
-                "vision_enabled": self.config.use_vision,
-                "multi_row_headers_detected": sum(
-                    1
-                    for sheet in sheets
-                    for table in sheet.tables
-                    if table.header_info and table.header_info.is_multi_row
-                ),
-                "llm_calls": total_llm_calls,
-                "llm_tokens": total_llm_tokens,
-            },
-        )
+            result = DetectionResult(
+                file_info=file_info,
+                sheets=sheets,
+                detection_time=detection_time,
+                methods_used=methods_used,
+                metadata={
+                    "file_data_available": True,
+                    "total_cells": sum(
+                        len(sheet.get_non_empty_cells()) for sheet in file_data.sheets
+                    ),
+                    "reader_metadata": file_data.metadata,
+                    "total_tables": sum(len(sheet.tables) for sheet in sheets),
+                    "vision_enabled": self.config.use_vision,
+                    "multi_row_headers_detected": sum(
+                        1
+                        for sheet in sheets
+                        for table in sheet.tables
+                        if table.header_info and table.header_info.is_multi_row
+                    ),
+                    "llm_calls": total_llm_calls,
+                    "llm_tokens": total_llm_tokens,
+                },
+            )
 
-        logger.info(
-            f"Detection completed in {detection_time:.2f}s. "
-            f"Read {len(file_data.sheets)} sheets with {result.metadata.get('total_cells', 0)} non-empty cells."
-        )
+            logger.info(
+                f"Detection completed in {detection_time:.2f}s. "
+                f"Read {len(file_data.sheets)} sheets with {result.metadata.get('total_cells', 0)} non-empty cells."
+            )
 
-        return result
+            return result
 
     def _validate_file(self, file_path: Path) -> None:
         """Validate that file exists and is within size limits."""
@@ -260,16 +278,21 @@ class GridPorter:
         Returns:
             List of DetectionResult objects
         """
-        results = []
-        for file_path in file_paths:
+        import asyncio
+
+        async def process_file(file_path: str | Path) -> DetectionResult | None:
             try:
-                result = await self.detect_tables(file_path)
-                results.append(result)
+                return await self.detect_tables(file_path)
             except Exception as e:
                 logger.error(f"Error processing {file_path}: {e}")
-                # Could create an error result instead of skipping
-                continue
-        return results
+                return None
+
+        # Process files concurrently
+        tasks = [process_file(file_path) for file_path in file_paths]
+        results = await asyncio.gather(*tasks)
+
+        # Filter out None results from errors
+        return [result for result in results if result is not None]
 
     def get_supported_formats(self) -> list[str]:
         """Get list of supported file formats."""
