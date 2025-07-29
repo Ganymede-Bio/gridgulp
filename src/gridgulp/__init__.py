@@ -1,6 +1,6 @@
 """GridGulp - Intelligent spreadsheet ingestion framework."""
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 from gridgulp.gridgulp import GridGulp
 from gridgulp.models import DetectionResult, TableInfo
