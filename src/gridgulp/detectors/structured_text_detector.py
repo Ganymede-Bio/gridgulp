@@ -8,7 +8,6 @@ multiple tables with different formats.
 import logging
 from typing import TYPE_CHECKING
 
-from ..core.constants import ISLAND_DETECTION
 from ..models.table import TableInfo, TableRange
 from .island_detector import IslandDetector
 
@@ -24,10 +23,10 @@ class StructuredTextDetector:
     def __init__(self):
         """Initialize the structured text detector."""
         self.logger = logger
-        # Use structural analysis with stricter parameters for text files
+        # Use structural analysis with reasonable parameters for text files
         self.island_detector = IslandDetector(
-            max_gap=ISLAND_DETECTION.TEXT_FILE_MAX_GAP,  # Use gap=0 for strict separation
-            min_island_size=4,
+            max_gap=2,  # Allow 2-row gaps to properly separate tables
+            min_island_size=2,  # Lower threshold for smaller tables
             include_diagonal=False,  # No diagonal connections for text files
             use_structural_analysis=True,  # Enable column-based analysis
         )
@@ -52,6 +51,13 @@ class StructuredTextDetector:
         # First, detect islands using structural analysis
         islands = self.island_detector.detect_islands(sheet_data)
 
+        # Log for debugging
+        self.logger.debug(f"Detected {len(islands)} islands in {sheet_data.name}")
+        for island in islands:
+            self.logger.debug(
+                f"Island: {island.min_row},{island.min_col} to {island.max_row},{island.max_col}"
+            )
+
         # Also check for wide single-row or few-row tables that might be plate data
         wide_tables = self._detect_wide_tables(sheet_data)
 
@@ -65,18 +71,31 @@ class StructuredTextDetector:
                 continue
 
             # Check if it's a plate map
+            self.logger.debug(f"Checking plate format for island {island_range}")
             plate_table = self._check_plate_format(sheet_data, island)
             if plate_table:
+                self.logger.debug(f"Found plate table: {plate_table.metadata}")
                 tables.append(plate_table)
                 processed_ranges.add(island_range)
                 continue
+
+            # Check if this is a wide table that should be handled by wide table detector
+            if island.max_col is not None and island.min_col is not None:
+                col_count = island.max_col - island.min_col + 1
+                if col_count >= 50:
+                    # Skip this island - let wide table detector handle it
+                    continue
 
             # Convert regular island to table
             table_infos = self.island_detector.convert_to_table_infos([island], sheet_data.name)
             if table_infos:
                 table = table_infos[0]
-                # Enhance with metadata detection
+                # Enhance with metadata detection (this may set has_headers)
                 self._enhance_table_metadata(sheet_data, table)
+                # Extract headers if present
+                if table.has_headers:
+                    headers = self._extract_headers(sheet_data, table.range)
+                    table.headers = headers
                 tables.append(table)
                 processed_ranges.add(island_range)
 
@@ -107,7 +126,12 @@ class StructuredTextDetector:
         Returns:
             TableInfo if plate format detected, None otherwise
         """
-        if not island.min_row or not island.max_row or not island.min_col or not island.max_col:
+        if (
+            island.min_row is None
+            or island.max_row is None
+            or island.min_col is None
+            or island.max_col is None
+        ):
             return None
 
         # Standard plate formats: wells -> (rows, cols)
@@ -120,36 +144,51 @@ class StructuredTextDetector:
         }
 
         # Check dimensions (accounting for row/col headers)
-        data_rows = island.max_row - island.min_row  # Don't add 1 as we expect headers
-        data_cols = island.max_col - island.min_col
+        data_rows = island.max_row - island.min_row + 1
+        data_cols = island.max_col - island.min_col + 1
+
+        # Log for debugging
+        self.logger.debug(
+            f"Checking plate format for island {island.min_row},{island.min_col} to {island.max_row},{island.max_col}"
+        )
+        self.logger.debug(f"Island dimensions: {data_rows}x{data_cols}")
 
         for wells, dimensions in PLATE_FORMATS.items():
             for expected_rows, expected_cols in dimensions:
-                # Check if dimensions match (with some tolerance for headers)
+                # Check if dimensions match (with tolerance for headers)
+                # A 96-well plate (8x12) would be 9x13 with headers (row labels + col numbers)
+                self.logger.debug(
+                    f"Checking {wells}-well plate: expected {expected_rows}+1 x {expected_cols}+1, got {data_rows}x{data_cols}"
+                )
                 if (
-                    expected_rows <= data_rows <= expected_rows + 2
-                    and expected_cols <= data_cols <= expected_cols + 2
-                    and self._verify_plate_row_headers(sheet_data, island, expected_rows)
+                    data_rows == expected_rows + 1  # +1 for column headers
+                    and data_cols == expected_cols + 1  # +1 for row labels
                 ):
-                    # Found a plate map!
-                    table_range = TableRange(
-                        start_row=island.min_row,
-                        start_col=island.min_col,
-                        end_row=island.max_row,
-                        end_col=island.max_col,
+                    # Verify row headers
+                    headers_valid = self._verify_plate_row_headers(
+                        sheet_data, island, expected_rows
                     )
+                    self.logger.debug(f"Row headers valid: {headers_valid}")
+                    if headers_valid:
+                        # Found a plate map!
+                        table_range = TableRange(
+                            start_row=island.min_row,
+                            start_col=island.min_col,
+                            end_row=island.max_row,
+                            end_col=island.max_col,
+                        )
 
-                    return TableInfo(
-                        id=f"plate_{wells}well_{island.min_row}_{island.min_col}",
-                        range=table_range,
-                        suggested_name=f"{wells}_well_plate",
-                        confidence=0.95,
-                        detection_method="plate_format_detection",
-                        metadata={
-                            "plate_format": f"{wells}-well",
-                            "plate_dimensions": f"{expected_rows}x{expected_cols}",
-                        },
-                    )
+                        return TableInfo(
+                            id=f"plate_{wells}well_{island.min_row}_{island.min_col}",
+                            range=table_range,
+                            suggested_name=f"{wells}_well_plate",
+                            confidence=0.95,
+                            detection_method="plate_format_detection",
+                            metadata={
+                                "plate_format": f"{wells}-well",
+                                "plate_dimensions": f"{expected_rows}x{expected_cols}",
+                            },
+                        )
 
         return None
 
@@ -166,7 +205,7 @@ class StructuredTextDetector:
         Returns:
             True if plate row headers found
         """
-        if not island.min_row or not island.min_col:
+        if island.min_row is None or island.min_col is None:
             return False
 
         # Check first column for row labels
@@ -182,6 +221,25 @@ class StructuredTextDetector:
 
         # Accept if we found at least 75% of expected labels
         return found_labels >= expected_rows * 0.75
+
+    def _extract_headers(self, sheet_data: "SheetData", table_range: TableRange) -> list[str]:
+        """Extract headers from the first row of the table range.
+
+        Args:
+            sheet_data: Sheet data
+            table_range: Table range
+
+        Returns:
+            List of header strings
+        """
+        headers = []
+        for col in range(table_range.start_col, table_range.end_col + 1):
+            cell = sheet_data.get_cell(table_range.start_row, col)
+            if cell and cell.value:
+                headers.append(str(cell.value))
+            else:
+                headers.append(f"Column_{col + 1}")
+        return headers
 
     def _enhance_table_metadata(self, sheet_data: "SheetData", table: TableInfo) -> None:
         """Enhance table with metadata specific to instrument output.
@@ -254,7 +312,11 @@ class StructuredTextDetector:
             max_col = max(cell.column for cell in sheet_data.cells.values()) + 1
 
         # Look for rows with many columns of data
+        processed_rows = set()
         for row in range(min(10, max_row)):  # Check first 10 rows
+            if row in processed_rows:
+                continue
+
             cols_with_data = []
             for col in range(min(200, max_col)):  # Check up to 200 columns
                 if (
@@ -284,6 +346,7 @@ class StructuredTextDetector:
                     if len(next_cols) < len(cols_with_data) * 0.3:
                         break
                     end_row = next_row
+                    processed_rows.add(next_row)
 
                 # Create table if it's wide enough
                 if max_col - min_col >= 50:
@@ -303,6 +366,8 @@ class StructuredTextDetector:
                         suggested_name=plate_format or "wide_data_table",
                         confidence=0.85,
                         detection_method="wide_table_detection",
+                        has_headers=True,
+                        headers=self._extract_headers(sheet_data, table_range),
                         metadata={
                             "table_type": "wide_table",
                             "width": max_col - min_col + 1,
