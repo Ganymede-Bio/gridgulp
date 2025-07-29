@@ -39,7 +39,7 @@ dependencies = [
     "chardet",
     "aiofiles",
     "rich", # For nice CLI output
-    "python-calamine>=0.2.0", # Fast Excel/ODS reader (Rust-based)
+    "python-calamine", # Fast Excel/ODS reader (Rust-based)
 ]
 
 [project.optional-dependencies]
@@ -49,9 +49,8 @@ dev = [
     "pytest-cov>=4.1.0",
     "pytest-xdist>=3.8.0",
     "ruff>=0.12.0",
-    "mypy>=1.17.0",
     "pre-commit>=3.3.0",
-    "ipykernel>=6.25.0",  # For Jupyter examples
+    "ipykernel>=6.25.0",
     "psutil>=7.0.0"
 ]
 
@@ -107,37 +106,6 @@ lint.ignore = [
     "F841",  # Local variable assigned but never used
     "ARG002", # Unused method argument
 ]
-
-[tool.mypy]
-python_version = "3.11"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-strict_equality = true
-exclude = [
-    "tests/",
-    "examples/",
-]
-
-[[tool.mypy.overrides]]
-module = [
-    "xlrd.*",
-    "sklearn.*",
-    "skimage.*",
-    "magic.*",
-    "PIL.*",
-    "httpx.*",
-    "openai.*",
-]
-ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "7.0"
