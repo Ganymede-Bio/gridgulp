@@ -224,6 +224,149 @@ class GridGulp:
             # No running event loop, we can use asyncio.run directly
             return asyncio.run(self.detect_tables(file_path))
 
+    async def detect_tables_in_directory(
+        self,
+        directory: str | Path,
+        patterns: list[str] | None = None,
+        recursive: bool = True,
+        progress_callback: Any = None,
+    ) -> dict[Path, DetectionResult]:
+        """Detect tables in all spreadsheet files within a directory.
+
+        Args:
+            directory: Path to the directory to process
+            patterns: File patterns to match (e.g., ["*.xlsx", "*.csv"]).
+                     If None, processes all supported formats
+            recursive: Whether to search subdirectories recursively (default: True)
+            progress_callback: Optional callback function called with (current_file, total_files)
+
+        Returns:
+            Dictionary mapping file paths to their DetectionResults
+
+        Raises:
+            ValueError: If directory doesn't exist
+
+        Example:
+            >>> gg = GridGulp()
+            >>> # Process all spreadsheets in a directory
+            >>> results = await gg.detect_tables_in_directory("~/data")
+            >>> for file_path, result in results.items():
+            ...     print(f"{file_path}: {result.total_tables} tables")
+
+            >>> # Process only Excel files
+            >>> results = await gg.detect_tables_in_directory(
+            ...     "~/reports",
+            ...     patterns=["*.xlsx", "*.xls"]
+            ... )
+
+            >>> # With progress tracking
+            >>> def show_progress(current, total):
+            ...     print(f"Processing {current}/{total} files...")
+            >>> results = await gg.detect_tables_in_directory(
+            ...     "~/data",
+            ...     progress_callback=show_progress
+            ... )
+        """
+        directory = Path(directory).expanduser().resolve()
+
+        if not directory.exists():
+            raise ValueError(f"Directory not found: {directory}")
+
+        if not directory.is_dir():
+            raise ValueError(f"Not a directory: {directory}")
+
+        # Default patterns for all supported formats
+        if patterns is None:
+            patterns = ["*.xlsx", "*.xls", "*.xlsm", "*.xlsb", "*.csv", "*.tsv", "*.txt"]
+
+        # Collect all matching files
+        all_files: list[Path] = []
+        for pattern in patterns:
+            if recursive:
+                all_files.extend(directory.rglob(pattern))
+            else:
+                all_files.extend(directory.glob(pattern))
+
+        # Remove duplicates and sort
+        all_files = sorted(set(all_files))
+
+        # Skip hidden and temporary files
+        all_files = [
+            f for f in all_files if not f.name.startswith(".") and not f.name.startswith("~")
+        ]
+
+        results = {}
+        total_files = len(all_files)
+
+        for i, file_path in enumerate(all_files, 1):
+            if progress_callback:
+                progress_callback(i, total_files)
+
+            try:
+                result = await self.detect_tables(file_path)
+                results[file_path] = result
+            except Exception as e:
+                logger.warning(f"Failed to process {file_path}: {e}")
+                # Create a minimal error result
+                results[file_path] = DetectionResult(
+                    file_info=FileInfo(
+                        path=file_path,
+                        type=FileType.UNKNOWN,
+                        size=0,
+                    ),
+                    sheets=[],
+                    detection_time=0,
+                    total_tables=0,
+                    methods_used=[],
+                    metadata={"error": str(e)},
+                )
+
+        return results
+
+    def detect_tables_in_directory_sync(
+        self,
+        directory: str | Path,
+        patterns: list[str] | None = None,
+        recursive: bool = True,
+        progress_callback: Any = None,
+    ) -> dict[Path, DetectionResult]:
+        """Synchronous version of detect_tables_in_directory for use in Jupyter notebooks.
+
+        See detect_tables_in_directory for full documentation.
+
+        Example:
+            >>> gg = GridGulp()
+            >>> results = gg.detect_tables_in_directory_sync("~/data")
+            >>> # Summary statistics
+            >>> total_files = len(results)
+            >>> total_tables = sum(r.total_tables for r in results.values())
+            >>> print(f"Found {total_tables} tables across {total_files} files")
+        """
+        import asyncio
+
+        try:
+            # Check if there's a running event loop (e.g., in Jupyter)
+            asyncio.get_running_loop()
+            # If we're here, we're in an async context (like Jupyter)
+            # Run in a separate thread to avoid event loop conflicts
+            import concurrent.futures
+
+            def _run_async() -> dict[Path, DetectionResult]:
+                return asyncio.run(
+                    self.detect_tables_in_directory(
+                        directory, patterns, recursive, progress_callback
+                    )
+                )
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(_run_async)
+                return future.result()
+        except RuntimeError:
+            # No running event loop, we can use asyncio.run directly
+            return asyncio.run(
+                self.detect_tables_in_directory(directory, patterns, recursive, progress_callback)
+            )
+
     # Backwards compatibility alias
     def extract_from_file(self, file_path: str | Path) -> DetectionResult:
         """Deprecated: Use detect_tables_sync instead."""

@@ -1,0 +1,26 @@
+# CODEOWNERS for GridGulp
+# This file defines code ownership for automatic PR review assignments
+
+# Global owners - these users will be requested for review on all PRs
+* @bensonlee
+
+# Source code
+/src/ @bensonlee
+
+# Documentation
+/docs/ @bensonlee
+*.md @bensonlee
+
+# Configuration and CI/CD
+/.github/ @bensonlee
+/pyproject.toml @bensonlee
+/Makefile @bensonlee
+
+# Tests
+/tests/ @bensonlee
+
+# Scripts
+/scripts/ @bensonlee
+
+# Examples
+/examples/ @bensonlee
