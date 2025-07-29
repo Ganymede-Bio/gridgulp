@@ -17,8 +17,7 @@ from gridgulp.models import (
     TableInfo,
     TableRange,
 )
-from gridgulp.models.file_data import FileData
-from gridgulp.models.sheet_data import SheetData
+from gridgulp.models.sheet_data import SheetData, FileData
 from gridgulp.models.file_info import UnsupportedFormatError
 
 
@@ -111,29 +110,38 @@ class TestDetectTables:
         """Test successful table detection."""
         gg = GridGulp()
 
-        with patch("gridgulp.gridgulp.detect_file_info") as mock_detect:
-            mock_detect.return_value = mock_detection_result.file_info
+        # Patch file validation
+        with patch.object(gg, "_validate_file"):
+            with patch.object(gg, "_analyze_file", new_callable=AsyncMock) as mock_analyze:
+                mock_analyze.return_value = mock_detection_result.file_info
 
-            with patch("gridgulp.gridgulp.create_reader") as mock_create_reader:
-                mock_reader = Mock()
-                mock_reader.read_sync.return_value = FileData(
-                    sheets=[Mock(name="Sheet1")], metadata={}, file_format="xlsx"
-                )
-                mock_create_reader.return_value = mock_reader
+                with patch("gridgulp.gridgulp.create_reader") as mock_create_reader:
+                    from gridgulp.readers.base_reader import SyncBaseReader
 
-                with patch("gridgulp.detection.TableDetectionAgent") as mock_agent:
-                    mock_agent.return_value.detect_tables = AsyncMock(
-                        return_value=Mock(
-                            tables=[mock_detection_result.sheets[0].tables[0]],
-                            processing_metadata={},
-                        )
+                    mock_reader = Mock(spec=SyncBaseReader)
+                    # Create proper SheetData
+                    sheet_data = SheetData(name="Sheet1")
+                    mock_reader.read_sync.return_value = FileData(
+                        sheets=[sheet_data], metadata={}, file_format="xlsx"
                     )
+                    mock_create_reader.return_value = mock_reader
 
-                    result = await gg.detect_tables("test.xlsx")
+                    # Patch TableDetectionAgent at the module level where it's imported
+                    with patch("gridgulp.gridgulp.TableDetectionAgent") as mock_agent_class:
+                        mock_agent_instance = Mock()
+                        mock_agent_instance.detect_tables = AsyncMock(
+                            return_value=Mock(
+                                tables=[mock_detection_result.sheets[0].tables[0]],
+                                processing_metadata={},
+                            )
+                        )
+                        mock_agent_class.return_value = mock_agent_instance
 
-                    assert result.total_tables == 1
-                    assert len(result.sheets) == 1
-                    assert result.sheets[0].name == "Sheet1"
+                        result = await gg.detect_tables("test.xlsx")
+
+                        assert result.total_tables == 1
+                        assert len(result.sheets) == 1
+                        assert result.sheets[0].name == "Sheet1"
 
     @pytest.mark.asyncio
     async def test_detect_tables_file_not_found(self):
@@ -165,16 +173,21 @@ class TestDetectTables:
         """Test handling of reader errors."""
         gg = GridGulp()
 
-        with patch("gridgulp.gridgulp.detect_file_info") as mock_detect:
-            mock_detect.return_value = mock_file_info
+        # Patch _validate_file to skip file existence check
+        with patch.object(gg, "_validate_file"):
+            # Patch _analyze_file to return mock file info
+            with patch.object(gg, "_analyze_file", new_callable=AsyncMock) as mock_analyze:
+                mock_analyze.return_value = mock_file_info
 
-            with patch("gridgulp.gridgulp.create_reader") as mock_create_reader:
-                mock_reader = Mock()
-                mock_reader.read_sync.side_effect = Exception("Read error")
-                mock_create_reader.return_value = mock_reader
+                with patch("gridgulp.gridgulp.create_reader") as mock_create_reader:
+                    from gridgulp.readers.base_reader import SyncBaseReader, ReaderError
 
-                with pytest.raises(ValueError, match="Could not read file"):
-                    await gg.detect_tables("test.xlsx")
+                    mock_reader = Mock(spec=SyncBaseReader)
+                    mock_reader.read_sync.side_effect = ReaderError("Read error")
+                    mock_create_reader.return_value = mock_reader
+
+                    with pytest.raises(ValueError, match="Could not read file"):
+                        await gg.detect_tables("test.xlsx")
 
 
 class TestDetectTablesInDirectory:
@@ -344,9 +357,19 @@ class TestPathHandling:
         gg = GridGulp()
 
         with patch.object(gg, "_validate_file"):
-            with patch("gridgulp.gridgulp.detect_file_info"):
-                with patch("gridgulp.gridgulp.create_reader"):
-                    with patch("gridgulp.detection.TableDetectionAgent"):
+            with patch.object(gg, "_analyze_file", new_callable=AsyncMock) as mock_analyze:
+                mock_analyze.return_value = mock_detection_result.file_info
+
+                with patch("gridgulp.gridgulp.create_reader") as mock_create_reader:
+                    from gridgulp.readers.base_reader import SyncBaseReader
+
+                    mock_reader = Mock(spec=SyncBaseReader)
+                    mock_reader.read_sync.return_value = FileData(
+                        sheets=[], metadata={}, file_format="xlsx"
+                    )
+                    mock_create_reader.return_value = mock_reader
+
+                    with patch("gridgulp.gridgulp.TableDetectionAgent"):
                         await gg.detect_tables("test.xlsx")
 
     @pytest.mark.asyncio
@@ -355,9 +378,19 @@ class TestPathHandling:
         gg = GridGulp()
 
         with patch.object(gg, "_validate_file"):
-            with patch("gridgulp.gridgulp.detect_file_info"):
-                with patch("gridgulp.gridgulp.create_reader"):
-                    with patch("gridgulp.detection.TableDetectionAgent"):
+            with patch.object(gg, "_analyze_file", new_callable=AsyncMock) as mock_analyze:
+                mock_analyze.return_value = mock_detection_result.file_info
+
+                with patch("gridgulp.gridgulp.create_reader") as mock_create_reader:
+                    from gridgulp.readers.base_reader import SyncBaseReader
+
+                    mock_reader = Mock(spec=SyncBaseReader)
+                    mock_reader.read_sync.return_value = FileData(
+                        sheets=[], metadata={}, file_format="xlsx"
+                    )
+                    mock_create_reader.return_value = mock_reader
+
+                    with patch("gridgulp.gridgulp.TableDetectionAgent"):
                         await gg.detect_tables(Path("test.xlsx"))
 
     @pytest.mark.asyncio

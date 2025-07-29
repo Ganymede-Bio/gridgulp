@@ -136,60 +136,58 @@ class TestIslandDetector:
 
     def test_detect_multiple_islands(self, island_detector, sheet_with_multiple_tables):
         """Test detection of multiple separate tables."""
-        result = island_detector.detect_islands(sheet_with_multiple_tables)
+        islands = island_detector.detect_islands(sheet_with_multiple_tables)
 
-        assert result is not None
-        assert len(result.islands) == 3
-        assert result.confidence > 0.8
+        assert islands is not None
+        assert len(islands) == 3
 
         # Verify island boundaries
-        islands = sorted(result.islands, key=lambda i: (i.start_row, i.start_col))
+        islands = sorted(islands, key=lambda i: (i.min_row, i.min_col))
 
         # Table 1: A1:C3
-        assert islands[0].start_row == 0
-        assert islands[0].start_col == 0
-        assert islands[0].end_row == 2
-        assert islands[0].end_col == 2
+        assert islands[0].min_row == 0
+        assert islands[0].min_col == 0
+        assert islands[0].max_row == 2
+        assert islands[0].max_col == 2
 
         # Table 2: E5:G7
-        assert islands[1].start_row == 4
-        assert islands[1].start_col == 4
-        assert islands[1].end_row == 6
-        assert islands[1].end_col == 6
+        assert islands[1].min_row == 4
+        assert islands[1].min_col == 4
+        assert islands[1].max_row == 6
+        assert islands[1].max_col == 6
 
         # Table 3: A10:B12
-        assert islands[2].start_row == 9
-        assert islands[2].start_col == 0
-        assert islands[2].end_row == 11
-        assert islands[2].end_col == 1
+        assert islands[2].min_row == 9
+        assert islands[2].min_col == 0
+        assert islands[2].max_row == 11
+        assert islands[2].max_col == 1
 
     def test_detect_single_island(self, island_detector, sheet_with_single_table):
         """Test detection when there's only one table."""
-        result = island_detector.detect_islands(sheet_with_single_table)
+        islands = island_detector.detect_islands(sheet_with_single_table)
 
-        # Should return None or single island with low confidence
-        # when there's only one table (SimpleCaseDetector is better)
-        if result:
-            assert len(result.islands) == 1
-            assert result.confidence < 0.5  # Low confidence for single table
+        # Should return single island
+        assert islands is not None
+        assert len(islands) == 1
 
     def test_detect_adjacent_tables(self, island_detector, sheet_with_adjacent_tables):
         """Test detection of tables separated by minimal gaps."""
-        result = island_detector.detect_islands(sheet_with_adjacent_tables)
+        islands = island_detector.detect_islands(sheet_with_adjacent_tables)
 
-        assert result is not None
-        assert len(result.islands) == 2
+        assert islands is not None
+        assert len(islands) == 2
 
         # Tables should be detected as separate despite being close
-        islands = sorted(result.islands, key=lambda i: i.start_col)
-        assert islands[0].end_col < islands[1].start_col
+        islands = sorted(islands, key=lambda i: i.min_col)
+        assert islands[0].max_col < islands[1].min_col
 
     def test_empty_sheet(self, island_detector):
         """Test detection on empty sheet."""
         sheet = SheetData(name="Empty")
-        result = island_detector.detect_islands(sheet)
+        islands = island_detector.detect_islands(sheet)
 
-        assert result is None or len(result.islands) == 0
+        assert islands is not None
+        assert len(islands) == 0
 
     def test_single_cell_islands(self, island_detector):
         """Test handling of isolated single cells."""
@@ -200,12 +198,12 @@ class TestIslandDetector:
         sheet.cells[(5, 5)] = CellData(row=5, column=5, value="B", data_type="s")
         sheet.cells[(10, 10)] = CellData(row=10, column=10, value="C", data_type="s")
 
-        result = island_detector.detect_islands(sheet)
+        islands = island_detector.detect_islands(sheet)
 
-        # Single cells might be filtered out or detected based on min_size
-        if result:
-            # Each single cell could be its own island
-            assert len(result.islands) <= 3
+        # Single cells might be filtered out or detected based on min_cells
+        assert islands is not None
+        # Each single cell could be its own island
+        assert len(islands) <= 3
 
     def test_large_sparse_sheet(self, island_detector):
         """Test performance with large sparse sheet."""
@@ -224,12 +222,12 @@ class TestIslandDetector:
                     row=100 + i, column=50 + j, value=f"T2_{i}_{j}", data_type="s"
                 )
 
-        result = island_detector.detect_islands(sheet)
+        islands = island_detector.detect_islands(sheet)
 
-        assert result is not None
-        assert len(result.islands) == 2
-        assert result.islands[0].end_row < 50  # First table is in top area
-        assert result.islands[1].start_row >= 100  # Second table is far below
+        assert islands is not None
+        assert len(islands) == 2
+        assert islands[0].max_row < 50  # First table is in top area
+        assert islands[1].min_row >= 100  # Second table is far below
 
     def test_connected_component_labeling(self, island_detector):
         """Test the connected component algorithm with complex shapes."""
@@ -246,15 +244,15 @@ class TestIslandDetector:
             sheet.cells[(i, 0)] = CellData(row=i, column=0, value=f"V{i}", data_type="s")
             sheet.cells[(i, 1)] = CellData(row=i, column=1, value=i, data_type="n")
 
-        result = island_detector.detect_islands(sheet)
+        islands = island_detector.detect_islands(sheet)
 
-        assert result is not None
+        assert islands is not None
         # L-shape should be detected as single connected component
-        assert len(result.islands) == 1
-        assert result.islands[0].start_row == 0
-        assert result.islands[0].start_col == 0
-        assert result.islands[0].end_row == 5
-        assert result.islands[0].end_col == 4
+        assert len(islands) == 1
+        assert islands[0].min_row == 0
+        assert islands[0].min_col == 0
+        assert islands[0].max_row == 5
+        assert islands[0].max_col == 4
 
     def test_min_cells_threshold(self, island_detector):
         """Test that very small islands are filtered out."""
@@ -273,25 +271,27 @@ class TestIslandDetector:
         if hasattr(island_detector, "min_cells"):
             island_detector.min_cells = 5
 
-        result = island_detector.detect_islands(sheet)
+        islands = island_detector.detect_islands(sheet)
 
         # Should detect the main table, tiny island might be filtered
-        assert result is not None
-        assert len(result.islands) >= 1
+        assert islands is not None
+        assert len(islands) >= 1
 
         # Main table should be detected
-        main_table = next(i for i in result.islands if i.end_row < 10)
-        assert main_table.start_row == 0
-        assert main_table.end_col == 2
+        main_table = next(i for i in islands if i.max_row < 10)
+        assert main_table.min_row == 0
+        assert main_table.max_col == 2
 
     def test_metadata_collection(self, island_detector, sheet_with_multiple_tables):
         """Test that metadata about islands is collected."""
-        result = island_detector.detect_islands(sheet_with_multiple_tables)
+        islands = island_detector.detect_islands(sheet_with_multiple_tables)
 
-        assert result is not None
-        assert hasattr(result, "metadata")
+        assert islands is not None
+        assert len(islands) == 3
 
-        # Check for expected metadata
-        if result.metadata:
-            # Might include things like gaps between islands, density, etc.
-            assert isinstance(result.metadata, dict)
+        # Check island properties
+        for island in islands:
+            assert hasattr(island, "density")
+            assert hasattr(island, "confidence")
+            assert island.density >= 0.0
+            assert 0.0 <= island.confidence <= 1.0
