@@ -4,7 +4,7 @@ Automatically detect and extract tables from Excel, CSV, and text files.
 
 ## What is GridGulp?
 
-GridGulp finds tables in your spreadsheets - even when there are multiple tables on one sheet or when tables don't start at cell A1. No configuration required.
+GridGulp finds tables in your spreadsheets - even when there are multiple tables on one sheet or when tables don't start at cell A1. It comes with reasonable defaults and is fully configurable.
 
 **Supported formats:** `.xlsx`, `.xls`, `.xlsm`, `.xlsb`, `.csv`, `.tsv`, `.txt`
 
@@ -52,7 +52,8 @@ for sheet_result in result.sheets:
 
 ## Key Features
 
-- **Automatic Detection** - Finds all tables without configuration
+- **Automatic Detection** - Finds all tables with sensible defaults
+- **Fully Configurable** - Customize detection thresholds and behavior
 - **Smart Headers** - Detects single and multi-row headers automatically
 - **Multiple Tables** - Handles sheets with multiple separate tables
 - **Quality Scoring** - Confidence scores for each detected table
