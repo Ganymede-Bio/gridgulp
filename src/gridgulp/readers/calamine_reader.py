@@ -192,10 +192,7 @@ class CalamineReader(SyncBaseReader):
 
                 # Process each cell
                 for col_idx, value in enumerate(row):
-                    if value is None:
-                        continue
-
-                    # Create cell data
+                    # Create cell data (handles None values)
                     cell = self._create_cell(value, row_idx, col_idx)
                     sheet_data.set_cell(row_idx, col_idx, cell)
 

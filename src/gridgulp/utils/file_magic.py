@@ -177,7 +177,7 @@ class FileFormatDetector:
     def _check_magic_availability(self) -> bool:
         """Check if python-magic is available."""
         try:
-            import magic  # type: ignore[import]
+            import magic
 
             # Test if it actually works
             magic.Magic()
