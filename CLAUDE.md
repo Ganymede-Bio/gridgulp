@@ -1,39 +1,38 @@
-# GridPorter Project Instructions
+# GridGulp Project Instructions
 
 ## Overview
-GridPorter is an multi-agent tool for intelligently ingesting spreadsheet files (Excel and CSV) with automatic multi-table detection. It uses openai-agents-python to orchestrate a multi-stage detection pipeline that can identify and extract multiple tables from complex spreadsheets.
+GridGulp is a lightweight, efficient spreadsheet table detection framework with zero external dependencies. It automatically detects and extracts tables from spreadsheets (Excel, CSV, and text files) using proven algorithmic detection methods that handle 97% of real-world use cases.
 
 ## Core Architecture
 
 ### Detection Pipeline
 The system follows a hierarchical detection strategy:
 
-1. **File Type Detection**: Use file magic to determine actual file type
-2. **Single Table Check**: Fast check if file/sheet contains only one table
-3. **ListObjects Detection**: For Excel files, check native table objects
-4. **Island Detection**: Mask-based approach to find disconnected data regions
-5. **Heuristic Augmentation**: Apply header/format analysis for accuracy
-6. **LLM Range Naming**: Use AI to suggest meaningful names for detected ranges
+1. **File Type Detection**: Use file magic and content analysis to determine actual file type
+2. **Single Table Check**: Fast check if file/sheet contains only one table (handles ~80% of cases)
+3. **Excel Metadata**: For Excel files, check native table objects and named ranges
+4. **Island Detection**: Algorithm to find disconnected data regions for multi-table sheets
+5. **Heuristic Analysis**: Apply header/format analysis for improved accuracy
 
-### Agent Design Patterns
+### Detection Components
 
-#### TableDetectorAgent
-- Orchestrates the entire detection pipeline
-- Manages fallback strategies
-- Aggregates results from different detection methods
-- Handles confidence scoring
+#### SimpleCaseDetector
+- Handles ~80% of spreadsheets with a single table starting near A1
+- Fast path optimization for common cases
+- Uses gap detection and data density analysis
+- Returns high confidence scores for clear single-table layouts
 
-#### RangeNamerAgent
-- Takes detected table ranges and their content
-- Analyzes headers, data patterns, and context
-- Suggests meaningful names using LLM
-- Provides confidence scores for suggestions
+#### IslandDetector
+- Identifies multiple disconnected data regions
+- Creates binary mask of non-empty cells
+- Uses connected component analysis
+- Handles complex multi-table layouts
 
-#### FormatAnalyzerAgent
-- Analyzes cell formatting patterns
-- Detects headers based on formatting
-- Identifies data types and patterns
-- Assists in table boundary detection
+#### ExcelMetadataExtractor
+- Extracts Excel ListObjects (native tables)
+- Reads named ranges
+- Preserves Excel-defined table structures
+- Zero-overhead when metadata is available
 
 ### Data Models (Pydantic 2)
 
@@ -45,12 +44,11 @@ from pydantic import BaseModel, Field, ConfigDict
 class TableInfo(BaseModel):
     model_config = ConfigDict(strict=True)
 
-    range: str = Field(..., description="Excel-style range (e.g., 'A1:D10')")
-    suggested_name: str | None = Field(None, description="LLM-suggested name")
+    range: CellRange = Field(..., description="Table boundaries")
     confidence: float = Field(..., ge=0.0, le=1.0)
     detection_method: str
     headers: list[str] | None = None
-    data_preview: list[dict] | None = None
+    shape: tuple[int, int] = Field(..., description="(rows, columns)")
 ```
 
 ### File Handling Strategy
@@ -60,37 +58,39 @@ class TableInfo(BaseModel):
 - Use xlrd for legacy .xls files
 - Preserve formatting metadata for detection
 - Handle multiple sheets independently
+- Support for python-calamine for fast parsing
 
-#### CSV Files
+#### CSV/Text Files
 - Auto-detect delimiter using csv.Sniffer
-- Use chardet for encoding detection
+- Sophisticated encoding detection (BOM, chardet, pattern-based)
 - Handle various delimiters (comma, tab, pipe, semicolon)
+- Support UTF-8, UTF-16 (LE/BE), Latin-1, and more
 - Detect header rows using heuristics
 
 #### File Type Detection
 - Check file signatures before trusting extensions
-- Use python-magic for robust detection
+- Use python-magic and Magika for robust detection
 - Provide clear error messages for unsupported formats
 - Handle compressed files appropriately
 
 ### API Design Principles
 
-1. **Async-First**: All I/O operations should be async
+1. **Async-First**: All I/O operations are async for performance
 2. **Progressive Enhancement**: Start with simple detection, add complexity as needed
 3. **Fail Gracefully**: Always return partial results rather than failing completely
 4. **Confidence Scores**: Every detection includes confidence metrics
-5. **Streaming Support**: Large files should be processed in chunks
+5. **Memory Efficient**: Stream large files without loading entirely into memory
 
 ### Output Format
 
-The framework outputs a standardized JSON structure:
+The framework outputs a standardized structure:
 
 ```json
 {
   "file_info": {
     "path": "path/to/file.xlsx",
     "type": "xlsx",
-    "size": 1048576,
+    "size_mb": 1.5,
     "detected_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
   },
   "sheets": [
@@ -98,114 +98,129 @@ The framework outputs a standardized JSON structure:
       "name": "Sheet1",
       "tables": [
         {
-          "range": "A1:E100",
-          "suggested_name": "sales_data",
+          "range": {
+            "start_row": 0,
+            "start_col": 0,
+            "end_row": 99,
+            "end_col": 4,
+            "excel_range": "A1:E100"
+          },
           "confidence": 0.95,
-          "detection_method": "island_detection",
-          "headers": ["Date", "Product", "Quantity", "Price", "Total"],
-          "data_preview": [...]
+          "detection_method": "simple_case_fast",
+          "shape": [100, 5],
+          "headers": ["Date", "Product", "Quantity", "Price", "Total"]
         }
       ]
     }
   ],
   "metadata": {
-    "detection_time": 1.23,
-    "methods_used": ["single_table", "island_detection", "llm_naming"]
+    "detection_time": 0.15,
+    "total_tables": 1,
+    "methods_used": ["simple_case_fast"]
   }
 }
 ```
 
 ## Testing Requirements
 
-1. **Unit Tests**: Each detector module must have comprehensive tests
+1. **Unit Tests**: Each detector module has comprehensive tests
 2. **Integration Tests**: Test the full pipeline with various file types
 3. **Performance Tests**: Ensure reasonable performance on large files
 4. **Edge Cases**: Test with malformed files, empty sheets, merged cells
-5. **LLM Mocking**: Mock LLM calls in tests for reproducibility
+5. **Manual Tests**: Test suite in tests/manual/ for real-world files
 
 ## Development Guidelines
 
-1. **Type Hints**: Use Python 3.10+ type hints everywhere
+1. **Type Hints**: Use Python 3.11+ type hints everywhere
 2. **Error Handling**: Never let exceptions bubble up without context
-3. **Logging**: Use structured logging with appropriate levels
+3. **Logging**: Use Python's logging module with appropriate levels
 4. **Documentation**: Every public method needs docstrings
-5. **Code Style**: Follow PEP 8 with Black formatting
+5. **Code Style**: Follow PEP 8 with Ruff for linting
 
 ## Performance Considerations
 
-1. **Lazy Loading**: Don't load entire files into memory
-2. **Caching**: Cache detection results for repeated operations
-3. **Parallel Processing**: Process multiple sheets concurrently
-4. **Early Exit**: Stop processing when confidence is high enough
-5. **Resource Limits**: Set maximum file size and processing time limits
+1. **Fast Path**: SimpleCaseDetector handles 80% of cases in <50ms
+2. **Streaming**: Process files larger than available RAM
+3. **Early Exit**: Stop processing when confidence is high enough
+4. **Resource Limits**: Configurable file size and timeout limits
+5. **Async I/O**: Non-blocking file operations
 
 ## Security Considerations
 
 1. **File Validation**: Always validate file types before processing
-2. **Size Limits**: Enforce reasonable file size limits
-3. **Sandboxing**: Process untrusted files in isolated environments
-4. **No Macros**: Never execute Excel macros or formulas
-5. **Input Sanitization**: Sanitize all data before sending to LLM
+2. **Size Limits**: Enforce reasonable file size limits (default: 2GB)
+3. **No Code Execution**: Never execute Excel macros or formulas
+4. **Memory Protection**: Prevent memory exhaustion attacks
+5. **Input Validation**: Validate all user inputs
 
 ## Extension Points
 
-The framework should be designed for easy extension:
+The framework is designed for easy extension:
 
-1. **Custom Detectors**: Allow plugins for new detection strategies
+1. **Custom Detectors**: Add new detection algorithms
 2. **Format Support**: Easy to add new file formats
-3. **LLM Providers**: Support multiple LLM backends
-4. **Output Formats**: Pluggable output serializers
-5. **UI Integration**: Clear hooks for UI feedback
+3. **Output Formats**: Export to different formats
+4. **Reader Plugins**: Add support for new file types
+5. **Configuration**: Extensive configuration options
 
 ## Common Patterns
 
-### Handling Multiple Tables
+### Basic Usage
 ```python
-async def detect_tables(file_path: str) -> DetectionResult:
-    # 1. Detect file type
-    file_type = await detect_file_type(file_path)
+import asyncio
+from gridgulp import GridGulp
 
-    # 2. Load appropriate reader
-    reader = get_reader(file_type)
-
-    # 3. Run detection pipeline
-    for sheet in reader.sheets():
-        if await is_single_table(sheet):
-            tables = [extract_single_table(sheet)]
-        else:
-            tables = await detect_multiple_tables(sheet)
-
-        # 4. Enhance with LLM
-        for table in tables:
-            table.suggested_name = await suggest_name(table)
-
-    return DetectionResult(...)
+async def detect_tables(file_path: str):
+    porter = GridGulp()
+    result = await porter.detect_tables(file_path)
+    return result
 ```
 
-### Error Recovery
+### Error Handling
 ```python
+from gridgulp import GridGulp, ReaderError
+
 try:
-    result = await primary_detection(file)
-except DetectionError:
-    # Fallback to simpler method
-    result = await fallback_detection(file)
-finally:
-    # Always return something useful
-    return result or empty_result()
+    result = await porter.detect_tables(file_path)
+except FileNotFoundError:
+    # Handle missing file
+except ReaderError as e:
+    # Handle read errors
+except Exception as e:
+    # Handle unexpected errors
+```
+
+### Custom Configuration
+```python
+from gridgulp import GridGulp, Config
+
+config = Config(
+    confidence_threshold=0.8,
+    max_tables_per_sheet=50,
+    enable_simple_case_detection=True,
+    enable_island_detection=True,
+)
+porter = GridGulp(config)
 ```
 
 ## Debugging Tips
 
-1. **Verbose Mode**: Enable detailed logging for troubleshooting
-2. **Visualization**: Export detection masks as images
-3. **Step Mode**: Run pipeline step-by-step
-4. **Profiling**: Built-in performance profiling
-5. **Test Fixtures**: Comprehensive test file collection
+1. **Logging**: Set logging level to DEBUG for detailed output
+2. **Test Scripts**: Use scripts/test_manual_files.py for testing
+3. **Performance**: Time detection phases to identify bottlenecks
+4. **Memory**: Monitor memory usage for large files
+5. **Test Files**: Comprehensive test suite in tests/manual/
 
-## Future Enhancements
+## Architecture Benefits
 
-- Support for Google Sheets API
-- ML-based table detection (using table-transformer)
-- Automatic data type inference
-- Table relationship detection
-- Export to various formats (Parquet, Arrow, etc.)
+- **Zero Dependencies**: No external services or AI APIs required
+- **Fast**: Processes most files in under 1 second
+- **Accurate**: 97% success rate on real-world spreadsheets
+- **Lightweight**: Small memory footprint
+- **Portable**: Pure Python implementation
+
+# important-instruction-reminders
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.

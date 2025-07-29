@@ -1,6 +1,6 @@
-# Contributing to GridPorter
+# Contributing to GridGulp
 
-Thank you for your interest in contributing to GridPorter! This document provides guidelines and instructions for contributing to the project.
+Thank you for your interest in contributing to GridGulp! This document provides guidelines and instructions for contributing to the project.
 
 ## Development Setup
 
@@ -14,8 +14,8 @@ Thank you for your interest in contributing to GridPorter! This document provide
 
 1. **Fork and clone the repository**
    ```bash
-   git clone https://github.com/yourusername/gridporter.git
-   cd gridporter
+   git clone https://github.com/yourusername/gridgulp.git
+   cd gridgulp
    ```
 
 2. **Create a virtual environment with uv**
@@ -35,27 +35,18 @@ Thank you for your interest in contributing to GridPorter! This document provide
    pre-commit install
    ```
 
-5. **Create a `.env` file for API keys**
-   ```bash
-   cp .env.example .env
-   # Edit .env to add your OpenAI API key
-   ```
-
 ## Code Standards
 
 ### Style Guide
 
-- We use [Black](https://black.readthedocs.io/) for code formatting (88 character line length)
 - We use [Ruff](https://github.com/astral-sh/ruff) for linting
-- Type hints are required for all new code (enforced by mypy)
+- Type hints are required for all new code
 - Follow PEP 8 naming conventions
 
 ### Pre-commit Hooks
 
 Pre-commit hooks will automatically run when you commit. They include:
-- Black formatting
 - Ruff linting
-- mypy type checking
 - Trailing whitespace removal
 - File size checks
 
@@ -99,19 +90,19 @@ pytest -v
 - Place tests in the `tests/` directory
 - Use descriptive test names: `test_should_detect_single_table_when_no_gaps`
 - Include both positive and negative test cases
-- Mock external API calls (especially LLM calls)
-- Aim for >90% code coverage
+- Test edge cases and error conditions
+- Aim for >80% code coverage
 
 Example test:
 ```python
 import pytest
-from gridporter.detectors import SingleTableDetector
+from gridgulp.detectors import SimpleCaseDetector
 
-@pytest.mark.asyncio
-async def test_single_table_detection():
-    detector = SingleTableDetector()
-    result = await detector.detect(test_data)
-    assert result.is_single_table
+def test_simple_case_detection():
+    detector = SimpleCaseDetector()
+    sheet_data = create_test_sheet_data()
+    result = detector.detect_simple_table(sheet_data)
+    assert result.is_simple_table
     assert result.confidence > 0.9
 ```
 
@@ -164,9 +155,9 @@ async def test_single_table_detection():
 ## Project Structure
 
 ```
-gridporter/
-├── src/gridporter/        # Main package
-│   ├── agents/           # Agent implementations
+gridgulp/
+├── src/gridgulp/        # Main package
+│   ├── core/             # Core functionality
 │   ├── detectors/        # Detection strategies
 │   ├── models/           # Pydantic models
 │   ├── readers/          # File readers
@@ -200,6 +191,7 @@ def detect_tables(file_path: str) -> DetectionResult:
 ## Questions?
 
 If you have questions or need help:
+
 1. Check existing issues and discussions
 2. Open a new issue with your question
 3. Join our community discussions

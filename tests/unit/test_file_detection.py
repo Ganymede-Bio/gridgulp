@@ -5,8 +5,8 @@ import zipfile
 from pathlib import Path
 
 import pytest
-from gridporter.models.file_info import FileType, UnsupportedFormatError
-from gridporter.utils.file_magic import (
+from gridgulp.models.file_info import FileType, UnsupportedFormatError
+from gridgulp.utils.file_magic import (
     DetectionResult,
     FileFormatDetector,
     detect_file_info,
@@ -184,6 +184,7 @@ class TestFileFormatDetector:
             assert text_result.detected_type in [
                 FileType.CSV,
                 FileType.TSV,
+                FileType.TXT,
                 FileType.UNKNOWN,
             ]
 
@@ -279,13 +280,19 @@ class TestFileFormatDetector:
         try:
             result = self.detector.detect(file_path)
 
-            assert result.detected_type == FileType.UNKNOWN
+            # TXT is now a valid detected type for text files
+            assert result.detected_type in [FileType.TXT, FileType.UNKNOWN]
             # With Magika, it might detect the file type or fall back to extension
             if self.detector.magika_available:
                 assert result.method in ["magika", "extension", "extension_fallback"]
+                # Magika can detect TXT files with high confidence
+                if result.detected_type == FileType.TXT:
+                    assert result.confidence > 0.5
+                else:
+                    assert result.confidence <= 0.3
             else:
                 assert result.method == "extension_fallback"
-            assert result.confidence <= 0.3
+                assert result.confidence <= 0.3
 
         finally:
             file_path.unlink()

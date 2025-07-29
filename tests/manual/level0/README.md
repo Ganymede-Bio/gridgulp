@@ -1,6 +1,6 @@
 # Manual Test Files
 
-This directory contains sample files for manual testing of GridPorter's vision components.
+This directory contains sample files for manual testing of GridGulp's vision components.
 
 ## Creating Test Files
 
@@ -28,8 +28,8 @@ These files are referenced in the `docs/testing/WEEK3_TESTING_GUIDE.md`. The tes
 ### Example Usage
 
 ```python
-from gridporter.readers import get_reader
-from gridporter.vision import BitmapGenerator
+from gridgulp.readers import get_reader
+from gridgulp.vision import BitmapGenerator
 
 # Load test file
 reader = get_reader("tests/manual/simple_table.xlsx")

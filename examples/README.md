@@ -1,6 +1,6 @@
-# GridPorter Example Spreadsheets
+# GridGulp Example Spreadsheets
 
-This directory contains sample spreadsheet files to test and demonstrate GridPorter's table detection capabilities across different formats and complexities.
+This directory contains sample spreadsheet files to test and demonstrate GridGulp's table detection capabilities across different formats and complexities.
 
 ## Directory Structure
 
@@ -11,7 +11,7 @@ examples/
 │   ├── sales/       # Sales and business data examples
 │   ├── financial/   # Financial statements and accounting data
 │   └── complex/     # Multi-table layouts and complex structures
-├── basic_usage.py   # Basic GridPorter usage
+├── basic_usage.py   # Basic GridGulp usage
 ├── feature_collection_example.py  # Feature collection demo
 ├── week5_complex_tables_with_features.py  # Complex table detection (v0.2.1)
 └── week5_feature_collection_example.py   # Advanced feature analysis (v0.2.1)
@@ -63,7 +63,7 @@ examples/
 
 **`week5_complex_tables_with_features.py`**
 
-Demonstrates GridPorter's new semantic understanding capabilities:
+Demonstrates GridGulp's new semantic understanding capabilities:
 - Multi-row header detection with merged cells
 - Financial report analysis with sections and subtotals
 - Hierarchical data structure recognition
@@ -107,10 +107,10 @@ Features collected include:
 
 ```python
 import asyncio
-from gridporter import GridPorter
+from gridgulp import GridGulp
 
 async def test_simple_detection():
-    porter = GridPorter()
+    porter = GridGulp()
 
     # Test basic table detection
     result = await porter.detect_tables("examples/spreadsheets/simple/basic_table.csv")
@@ -129,7 +129,7 @@ asyncio.run(test_simple_detection())
 
 ```python
 async def test_complex_detection():
-    porter = GridPorter(
+    porter = GridGulp(
         use_local_llm=True,  # Use Ollama for better table naming
         ollama_vision_model="qwen2.5vl:7b"  # Vision model for layout analysis
     )
@@ -156,7 +156,7 @@ asyncio.run(test_complex_detection())
 
 ```python
 async def test_batch_processing():
-    porter = GridPorter()
+    porter = GridGulp()
 
     # Process all example files
     files = [
@@ -248,7 +248,7 @@ python examples/week5_feature_collection_example.py
 ### Requirements
 
 - Python 3.10+
-- GridPorter installed (`pip install -e .`)
+- GridGulp installed (`pip install -e .`)
 - For Week 5 examples: `pip install pandas openpyxl`
 - Optional: Ollama with models for enhanced detection
 

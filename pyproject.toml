@@ -3,14 +3,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "gridporter"
-version = "0.2.2"
-description = "Intelligent spreadsheet ingestion framework with automatic table detection"
+name = "gridgulp"
+version = "0.3.0"
+description = "Simplified intelligent spreadsheet ingestion framework with automatic table detection"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "GridPorter Contributors"},
+    {name = "GridGulp Contributors"},
 ]
 keywords = ["excel", "csv", "table-detection", "data-extraction", "spreadsheet"]
 classifiers = [
@@ -27,30 +27,19 @@ classifiers = [
 
 dependencies = [
     "pydantic>=2.0,<3.0",
-    "openai>=1.0.0,<2.0.0",
-    "openai-agents>=0.2.0",
-    "openpyxl>=3.1.0",
-    "xlrd>=2.0.0",
-    "olefile>=0.46", # For password-protected Excel detection
+    "openpyxl",
+    "xlrd",
+    "olefile", # For password-protected Excel detection
     "pandas>=2.0.0",
-    "numpy>=2.3.0",
+    "numpy",
     "scipy>=1.11.0",
-    "scikit-image>=0.25.0",
-    "python-magic>=0.4.27",
+    "python-magic",
     "filetype>=1.2.0", # Fallback for file type detection
-    "magika>=0.6.1", # AI-powered file type detection
-    "chardet>=5.0.0",
-    "aiofiles>=23.0.0",
-    "rich>=13.0.0", # For nice CLI output
-    "click>=8.1.0", # For CLI
-    "Pillow>=10.0.0", # For bitmap generation in vision components
-    "httpx>=0.25.0", # For HTTP requests to vision models
-    "python-dotenv>=1.0.0", # For loading environment variables from .env files
-    "python-calamine>=0.2.0", # Fast Excel/ODS reader (Rust-based)
-    "polars>=0.20.0", # High-performance DataFrame library
-    "opentelemetry-api>=1.20.0", # Telemetry API
-    "opentelemetry-sdk>=1.20.0", # Telemetry SDK
-    "opentelemetry-instrumentation-openai>=0.43.0", # OpenAI instrumentation
+    "magika", # AI-powered file type detection
+    "chardet",
+    "aiofiles",
+    "rich", # For nice CLI output
+    "python-calamine", # Fast Excel/ODS reader (Rust-based)
 ]
 
 [project.optional-dependencies]
@@ -59,21 +48,19 @@ dev = [
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.1.0",
     "pytest-xdist>=3.8.0",
-    "black>=23.0.0",
     "ruff>=0.12.0",
-    "mypy>=1.17.0",
     "pre-commit>=3.3.0",
-    "ipykernel>=6.25.0",  # For Jupyter examples
+    "ipykernel>=6.25.0",
     "psutil>=7.0.0"
 ]
 
 [project.urls]
-Homepage = "https://github.com/Ganymede-Bio/gridporter"
-Repository = "https://github.com/Ganymede-Bio/gridporter"
-Issues = "https://github.com/Ganymede-Bio/gridporter/issues"
+Homepage = "https://github.com/Ganymede-Bio/gridgulp"
+Repository = "https://github.com/Ganymede-Bio/gridgulp"
+Issues = "https://github.com/Ganymede-Bio/gridgulp/issues"
 
 [project.scripts]
-gridporter = "gridporter.cli:main"
+gridgulp = "gridgulp.cli:main"
 
 [tool.hatch.build]
 sources = ["src"]
@@ -106,45 +93,26 @@ lint.ignore = [
     "F401",  # Unused imports (may be used for fixtures)
     "F811",  # Redefinition of unused names (common with fixtures)
     "I",     # Import sorting (less strict in tests)
+    "E402",  # Module level import not at top of file (due to sys.path manipulation)
 ]
-
-[tool.mypy]
-python_version = "3.11"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-strict_equality = true
-exclude = [
-    "tests/",
-    "examples/",
+"examples/**/*.py" = [
+    "E402",  # Module level import not at top of file (due to sys.path manipulation)
+    "F841",  # Local variable assigned but never used (common in examples)
+    "B007",  # Loop control variable not used within loop body
+    "E722",  # Do not use bare except (examples may have simple error handling)
 ]
-
-[[tool.mypy.overrides]]
-module = [
-    "xlrd.*",
-    "sklearn.*",
-    "skimage.*",
-    "magic.*",
-    "PIL.*",
-    "httpx.*",
-    "openai.*",
+"scripts/**/*.py" = [
+    "E402",  # Module level import not at top of file (due to sys.path manipulation)
+    "F841",  # Local variable assigned but never used
+    "ARG002", # Unused method argument
 ]
-ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = [
     "-ra",
     "--strict-markers",
-    "--cov=gridporter",
+    "--cov=gridgulp",
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",
@@ -155,7 +123,7 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
-source = ["src/gridporter"]
+source = ["src/gridgulp"]
 omit = [
     "*/tests/*",
     "*/__init__.py",

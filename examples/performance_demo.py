@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Demonstration of GridPorter performance improvements."""
+"""Demonstration of GridGulp performance improvements."""
 
 import asyncio
 import sys
@@ -9,10 +9,9 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from gridporter.config import GridPorterConfig  # noqa: E402
-from gridporter.models import FileInfo, FileType  # noqa: E402
-from gridporter.readers import CalamineReader, ExcelReader, ReaderAdapter  # noqa: E402
-from gridporter.telemetry import get_tracker  # noqa: E402
+from gridgulp.config import GridGulpConfig  # noqa: E402
+from gridgulp.models import FileInfo, FileType  # noqa: E402
+from gridgulp.readers import CalamineReader, ExcelReader, ReaderAdapter  # noqa: E402
 
 
 async def benchmark_readers(file_path: Path):
@@ -22,7 +21,9 @@ async def benchmark_readers(file_path: Path):
 
     # Create file info
     file_info = FileInfo(
-        path=file_path, type=FileType.XLSX, size_mb=file_path.stat().st_size / (1024 * 1024)
+        path=file_path,
+        type=FileType.XLSX,
+        size_mb=file_path.stat().st_size / (1024 * 1024),
     )
 
     # Test 1: Calamine reader (fast)
@@ -60,60 +61,30 @@ async def benchmark_readers(file_path: Path):
     print(f"   Calamine→Polars is {openpyxl_time/polars_time:.1f}x faster than openpyxl")
 
 
-async def demonstrate_telemetry():
-    """Show how LLM tracking works with OpenTelemetry."""
-    print("\n\nDemonstrating LLM Telemetry")
-    print("=" * 50)
-
-    # Get the tracker
-    tracker = get_tracker()
-
-    # Simulate LLM calls
-    with tracker.track_call("gpt-4", "table_detection"):
-        print("Simulating table detection with GPT-4...")
-        time.sleep(0.1)  # Simulate processing
-
-        # Record token usage
-        tracker.record_tokens(prompt_tokens=150, completion_tokens=50)
-
-    with tracker.track_call("gpt-4", "name_suggestion"):
-        print("Simulating name suggestion...")
-        time.sleep(0.05)
-        tracker.record_tokens(prompt_tokens=80, completion_tokens=20)
-
-    # Show totals
-    totals = tracker.get_totals()
-    print("\n📊 LLM Usage Summary:")
-    print(f"   Total calls: {totals['calls']}")
-    print(f"   Total tokens: {totals['total_tokens']}")
-    print(f"   Prompt tokens: {totals['prompt_tokens']}")
-    print(f"   Completion tokens: {totals['completion_tokens']}")
-
-
 async def demonstrate_adapter():
     """Show how the adapter provides flexibility."""
     print("\n\nDemonstrating Reader Adapter")
     print("=" * 50)
 
     # Configuration 1: Use Calamine for speed
-    config1 = GridPorterConfig(excel_reader="calamine", use_polars=True)
+    config1 = GridGulpConfig(excel_reader="calamine", use_polars=True)
     ReaderAdapter(config1)
     print(f"Config 1: excel_reader={config1.excel_reader}, use_polars={config1.use_polars}")
 
     # Configuration 2: Use openpyxl for features
-    config2 = GridPorterConfig(excel_reader="openpyxl", use_polars=False)
+    config2 = GridGulpConfig(excel_reader="openpyxl", use_polars=False)
     ReaderAdapter(config2)
     print(f"Config 2: excel_reader={config2.excel_reader}, use_polars={config2.use_polars}")
 
     # Configuration 3: Auto-select
-    config3 = GridPorterConfig(excel_reader="auto", use_polars=True)
+    config3 = GridGulpConfig(excel_reader="auto", use_polars=True)
     ReaderAdapter(config3)
     print(f"Config 3: excel_reader={config3.excel_reader}, use_polars={config3.use_polars}")
 
 
 async def main():
     """Run all demonstrations."""
-    print("GridPorter Performance Improvements Demo")
+    print("GridGulp Performance Improvements Demo")
     print("=" * 50)
 
     # Find a sample Excel file
@@ -136,7 +107,6 @@ async def main():
         print("   Create a file named 'sample.xlsx' to test")
 
     # Always run these demos
-    await demonstrate_telemetry()
     await demonstrate_adapter()
 
     print("\n✅ Demo complete!")

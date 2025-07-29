@@ -1,8 +1,8 @@
-# Semantic Understanding in GridPorter
+# Semantic Understanding in GridGulp
 
 ## Overview
 
-GridPorter v0.2.1 introduces semantic understanding capabilities that go beyond simple cell detection to understand the meaning and structure of complex spreadsheets. This guide explains how GridPorter interprets spreadsheet semantics and how to leverage these features.
+GridGulp v0.2.1 introduces semantic understanding capabilities that go beyond simple cell detection to understand the meaning and structure of complex spreadsheets. This guide explains how GridGulp interprets spreadsheet semantics and how to leverage these features.
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ GridPorter v0.2.1 introduces semantic understanding capabilities that go beyond 
 
 ## What is Semantic Understanding?
 
-Semantic understanding in GridPorter means recognizing not just where data is located, but what it represents and how it's structured. This includes:
+Semantic understanding in GridGulp means recognizing not just where data is located, but what it represents and how it's structured. This includes:
 
 - **Hierarchical Headers**: Understanding multi-level column structures
 - **Data Sections**: Identifying logical groupings within tables
@@ -27,7 +27,7 @@ Semantic understanding in GridPorter means recognizing not just where data is lo
 
 ## Multi-Row Headers
 
-Many enterprise spreadsheets use multiple header rows to create hierarchical column structures. GridPorter's `MultiHeaderDetector` automatically identifies and maps these structures.
+Many enterprise spreadsheets use multiple header rows to create hierarchical column structures. GridGulp's `MultiHeaderDetector` automatically identifies and maps these structures.
 
 ### Example: Financial Report Headers
 
@@ -38,7 +38,7 @@ Many enterprise spreadsheets use multiple header rows to create hierarchical col
 | North Region    |   100   |    10,000   |   120   |    12,000   |
 ```
 
-GridPorter detects:
+GridGulp detects:
 - 2 header rows
 - Column hierarchy:
   - Columns 1-2: "Q1 Sales" → "Units" / "Revenue ($)"
@@ -47,10 +47,10 @@ GridPorter detects:
 ### Using Multi-Row Header Detection
 
 ```python
-from gridporter import GridPorter
+from gridgulp import GridGulp
 
-gridporter = GridPorter()
-result = await gridporter.detect_tables("financial_report.xlsx")
+gridgulp = GridGulp()
+result = await gridgulp.detect_tables("financial_report.xlsx")
 
 for table in result.sheets[0].tables:
     if table.multi_row_headers:
@@ -74,7 +74,7 @@ Merged cells often indicate structural relationships in spreadsheets. The `Merge
 ### Example: Pivot Table Structure
 
 ```python
-# GridPorter automatically detects merged cells
+# GridGulp automatically detects merged cells
 analyzer = MergedCellAnalyzer()
 merged_cells = analyzer.analyze_merged_cells(sheet_data)
 
@@ -90,7 +90,7 @@ The `SemanticFormatAnalyzer` identifies the meaning of different rows based on c
 
 ### Row Types
 
-GridPorter classifies rows into semantic types:
+GridGulp classifies rows into semantic types:
 
 - **HEADER**: Column headers (often bold, at top)
 - **DATA**: Regular data rows
@@ -117,7 +117,7 @@ for start, end in structure.sections:
 
 ### Detecting Totals and Subtotals
 
-GridPorter identifies summary rows through:
+GridGulp identifies summary rows through:
 - Keywords ("Total", "Subtotal", "Sum")
 - Formatting (bold, borders, background)
 - Position (bottom of sections/table)
@@ -125,7 +125,7 @@ GridPorter identifies summary rows through:
 
 ## Format Pattern Detection
 
-Formatting often carries semantic meaning. GridPorter detects and interprets format patterns.
+Formatting often carries semantic meaning. GridGulp detects and interprets format patterns.
 
 ### Common Patterns
 
@@ -138,7 +138,7 @@ Formatting often carries semantic meaning. GridPorter detects and interprets for
 ### Example: Detecting Hierarchical Data
 
 ```python
-# GridPorter detects indentation patterns
+# GridGulp detects indentation patterns
 financial_data = """
 Revenue                    1,000,000
   Product Sales              700,000
@@ -165,8 +165,8 @@ The `ComplexTableAgent` orchestrates all semantic understanding components to ha
 ### Example: Complete Semantic Analysis
 
 ```python
-from gridporter.agents import ComplexTableAgent
-from gridporter.config import Config
+from gridgulp.agents import ComplexTableAgent
+from gridgulp.config import Config
 
 config = Config(
     use_vision=True,
@@ -199,10 +199,10 @@ for table in result.tables:
 # - Grand total at bottom
 # - Format-based sections
 
-result = await gridporter.detect_tables("quarterly_sales.xlsx")
+result = await gridgulp.detect_tables("quarterly_sales.xlsx")
 table = result.sheets[0].tables[0]
 
-# GridPorter identifies:
+# GridGulp identifies:
 # - 3 header rows with hierarchy
 # - 4 sections (one per region)
 # - 4 subtotal rows
@@ -219,7 +219,7 @@ table = result.sheets[0].tables[0]
 # - Multiple subtotal levels
 # - Formatted total rows
 
-# GridPorter automatically:
+# GridGulp automatically:
 # - Detects indentation levels (up to 4 deep)
 # - Identifies account groupings
 # - Preserves calculation structure
@@ -235,7 +235,7 @@ table = result.sheets[0].tables[0]
 # - Nested totals
 # - Cross-tabulation data
 
-# GridPorter handles:
+# GridGulp handles:
 # - Multi-dimensional headers
 # - Merged cell interpretation
 # - Aggregate identification
@@ -293,13 +293,13 @@ if table.semantic_features.get('has_alternating_rows'):
 Enable feature collection to improve detection over time:
 
 ```python
-gridporter = GridPorter(
+gridgulp = GridGulp(
     enable_feature_collection=True,
-    feature_db_path="~/.gridporter/features.db"
+    feature_db_path="~/.gridgulp/features.db"
 )
 
 # Later, analyze patterns
-from gridporter.telemetry import get_feature_collector
+from gridgulp.telemetry import get_feature_collector
 collector = get_feature_collector()
 stats = collector.get_summary_statistics()
 ```
@@ -308,10 +308,10 @@ stats = collector.get_summary_statistics()
 
 ### Custom Semantic Rules
 
-You can extend GridPorter with custom semantic rules:
+You can extend GridGulp with custom semantic rules:
 
 ```python
-from gridporter.detectors import SemanticFormatAnalyzer
+from gridgulp.detectors import SemanticFormatAnalyzer
 
 class CustomAnalyzer(SemanticFormatAnalyzer):
     def __init__(self):
@@ -389,7 +389,7 @@ Enable detailed logging for troubleshooting:
 
 ```python
 import logging
-logging.getLogger("gridporter.semantic").setLevel(logging.DEBUG)
+logging.getLogger("gridgulp.semantic").setLevel(logging.DEBUG)
 
 # This will show:
 # - Row classification decisions
@@ -399,7 +399,7 @@ logging.getLogger("gridporter.semantic").setLevel(logging.DEBUG)
 
 ## Summary
 
-GridPorter's semantic understanding transforms spreadsheet ingestion from a mechanical process to an intelligent interpretation. By understanding not just the data but its meaning and structure, GridPorter can handle the complex, real-world spreadsheets that traditional parsers fail on.
+GridGulp's semantic understanding transforms spreadsheet ingestion from a mechanical process to an intelligent interpretation. By understanding not just the data but its meaning and structure, GridGulp can handle the complex, real-world spreadsheets that traditional parsers fail on.
 
 Key benefits:
 - **Automatic Structure Detection**: No manual configuration needed

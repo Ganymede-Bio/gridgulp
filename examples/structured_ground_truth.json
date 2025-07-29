@@ -1,0 +1,101 @@
+{
+  "files": {
+    "proprietary/EXP25001399_Ganymede RiboGreen Gen5v12-3_Plate 1.xlsx": {
+      "Sheet1": {
+        "expected_ranges": [
+          "A1:B11",
+          "A13:N38",
+          "A41:N50",
+          "A53:K86",
+          "A88:K129",
+          "A131:C152",
+          "A154:F156"
+        ],
+        "table_count": 7
+      }
+    },
+    "spreadsheets/complex/multi_table_report.csv": {
+      "multi_table_report": {
+        "expected_ranges": [
+          "A3:E9",
+          "A12:E19",
+          "A22:E30",
+          "A33:E40"
+        ],
+        "table_count": 4
+      }
+    },
+    "spreadsheets/complex/multiple ranges.xlsx": {
+      "Sheet1": {
+        "expected_ranges": [
+          "A1:B3"
+        ],
+        "table_count": 1
+      },
+      "1": {
+        "expected_ranges": [
+          "A6:F12",
+          "A1:B2"
+        ],
+        "table_count": 2
+      }
+    },
+    "spreadsheets/financial/balance_sheet.csv": {
+      "balance_sheet": {
+        "expected_ranges": [
+          "A1:C7",
+          "A9:C15",
+          "A17:B17",
+          "A20:C26",
+          "A28:C33",
+          "A36:C40"
+        ],
+        "table_count": 6
+      }
+    },
+    "spreadsheets/financial/income_statement.csv": {
+      "income_statement": {
+        "expected_ranges": [
+          "A1:F35"
+        ],
+        "table_count": 1
+      }
+    },
+    "spreadsheets/sales/monthly_sales.csv": {
+      "monthly_sales": {
+        "expected_ranges": [
+          "A1:G17"
+        ],
+        "table_count": 1
+      }
+    },
+    "spreadsheets/scientific/Sample T, pH data.csv": {
+      "Sample T, pH data": {
+        "expected_ranges": [
+          "A1:W9066"
+        ],
+        "table_count": 1
+      }
+    },
+    "spreadsheets/simple/basic_table.xls": {
+      "basic_table": {
+        "expected_ranges": [
+          "a1:d6"
+        ],
+        "table_count": 1
+      }
+    },
+    "spreadsheets/simple/product_inventory.csv": {
+      "product_inventory": {
+        "expected_ranges": [
+          "A1:B7"
+        ],
+        "table_count": 1
+      }
+    }
+  },
+  "summary": {
+    "total_files": 9,
+    "total_tables": 25
+  }
+}

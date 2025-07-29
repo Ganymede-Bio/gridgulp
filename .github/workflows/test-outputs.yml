@@ -1,0 +1,93 @@
+name: Capture Test Outputs
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-and-capture:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Run Tests with Output Capture
+      run: |
+        pytest tests/ \
+          --capture-outputs \
+          --output-dir=tests/outputs/captures \
+          -v
+
+    - name: Generate Diff Reports
+      if: always()
+      run: |
+        python scripts/generate_output_diffs.py
+
+    - name: Upload Test Outputs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-outputs-${{ github.run_id }}
+        path: |
+          tests/outputs/captures/
+          tests/outputs/diffs/
+        retention-days: 30
+
+    - name: Comment PR with Results
+      if: github.event_name == 'pull_request' && always()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+
+          // Read diff summary
+          const summaryPath = 'tests/outputs/diffs/diff_summary.json';
+          let summary = { total_tests: 0, matches: 0, differences: 0 };
+
+          if (fs.existsSync(summaryPath)) {
+            summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
+          }
+
+          // Create comment
+          const comment = `## Test Output Comparison Results
+
+          - **Total Tests**: ${summary.total_tests}
+          - **Matches**: ${summary.matches} ✅
+          - **Differences**: ${summary.differences} ⚠️
+
+          ${summary.differences > 0 ?
+            `### Tests with Differences:\n${summary.reports
+              .filter(r => r.status === 'differences_found')
+              .map(r => `- ${r.test}`)
+              .join('\n')}` :
+            'All test outputs match expected results! 🎉'}
+
+          [View detailed reports](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
+
+          // Post comment
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+    - name: Update Golden Outputs (main branch only)
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      run: |
+        # This would update golden outputs when merging to main
+        # Only if explicitly enabled
+        echo "Golden outputs can be updated by running: pytest --update-golden"

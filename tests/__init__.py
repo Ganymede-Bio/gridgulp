@@ -1,1 +1,1 @@
-"""Test suite for GridPorter."""
+"""Test suite for GridGulp."""
