@@ -1,7 +1,7 @@
 """Simplified table detection module implementing Option 3 (Hybrid Approach).
 
 This module provides a lightweight interface that uses only the proven detection
-algorithms (SimpleCaseDetector and IslandDetector) that handle 97% of real-world cases.
+algorithms (SimpleCaseDetector and IslandDetector) that handle most real-world cases.
 """
 
 import time
@@ -39,6 +39,7 @@ class TableDetectionAgent:
         self.confidence_threshold = confidence_threshold
         self.file_type = file_type
         self.simple_detector = SimpleCaseDetector()
+        self.structured_text_detector: StructuredTextDetector | None = None
 
         # Configure island detector based on file type
         if file_type in (FileType.TXT, FileType.TSV):
@@ -50,7 +51,6 @@ class TableDetectionAgent:
         else:
             # Use default settings for Excel and other files
             self.island_detector = IslandDetector(max_gap=ISLAND_DETECTION.EXCEL_FILE_MAX_GAP)
-            self.structured_text_detector = None
 
     async def detect_tables(self, sheet_data: SheetData) -> DetectionResult:
         """Detect tables using fast-path algorithms."""
@@ -98,7 +98,10 @@ class TableDetectionAgent:
         # Multi-table detection (74% success rate)
         if not tables:
             # Use structured text detector for TSV/TXT files
-            if self.structured_text_detector and self.file_type in (FileType.TXT, FileType.TSV):
+            if self.structured_text_detector and self.file_type in (
+                FileType.TXT,
+                FileType.TSV,
+            ):
                 tables = self.structured_text_detector.detect_tables(sheet_data)
                 method_used = "structured_text_detection"
             else:
@@ -166,7 +169,10 @@ class TableDetectionAgent:
                 end_row, end_col = self._parse_cell(end_cell)
 
                 return TableRange(
-                    start_row=start_row, start_col=start_col, end_row=end_row, end_col=end_col
+                    start_row=start_row,
+                    start_col=start_col,
+                    end_row=end_row,
+                    end_col=end_col,
                 )
         except Exception as e:
             logger.warning(f"Failed to parse range {range_str}: {e}")
@@ -198,12 +204,14 @@ class TableDetectionAgent:
 
 # Convenience function for direct API usage
 def detect_tables(
-    sheet_data: SheetData, confidence_threshold: float = 0.6, file_type: FileType | None = None
+    sheet_data: SheetData,
+    confidence_threshold: float = 0.6,
+    file_type: FileType | None = None,
 ) -> list[TableInfo]:
     """Direct table detection function.
 
     This replaces the complex agent orchestration with direct
-    algorithm calls that handle 97% of real-world cases.
+    algorithm calls that handle most real-world cases.
 
     Args:
         sheet_data: The sheet data to analyze
@@ -217,14 +225,22 @@ def detect_tables(
     import asyncio
 
     # Run detection
-    if asyncio.get_event_loop().is_running():
-        # If we're already in an async context, we need to create a new loop
-        import concurrent.futures
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # If we're already in an async context, we need to create a new loop
+            import concurrent.futures
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(asyncio.run, agent.detect_tables(sheet_data))
-            result = future.result()
-    else:
+            def _run_async() -> DetectionResult:
+                return asyncio.run(agent.detect_tables(sheet_data))
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(_run_async)
+                result = future.result()
+        else:
+            result = asyncio.run(agent.detect_tables(sheet_data))
+    except RuntimeError:
+        # No event loop
         result = asyncio.run(agent.detect_tables(sheet_data))
 
     return result.tables

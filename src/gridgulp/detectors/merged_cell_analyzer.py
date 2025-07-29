@@ -49,7 +49,7 @@ class MergedCell:
 class MergedCellAnalyzer:
     """Analyzes merged cells in spreadsheets for header detection."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.header_row_threshold = 10  # Max rows to consider for headers
 
     def analyze_merged_cells(
@@ -83,7 +83,7 @@ class MergedCellAnalyzer:
         return merged_cells
 
     def find_header_merged_cells(
-        self, merged_cells: list[MergedCell], max_header_row: int = None
+        self, merged_cells: list[MergedCell], max_header_row: int | None = None
     ) -> list[MergedCell]:
         """
         Find merged cells that are likely to be headers.
@@ -115,7 +115,7 @@ class MergedCellAnalyzer:
 
         Args:
             merged_cells: List of merged cells
-            table_range: Table range
+            _table_range: Table range
 
         Returns:
             Dict mapping row index to list of (start_col, end_col) spans
@@ -306,7 +306,7 @@ class MergedCellAnalyzer:
         Returns:
             Dict mapping column index to list of header values (top to bottom)
         """
-        mapping = {col: [] for col in range(total_columns)}
+        mapping: dict[int, list[str]] = {col: [] for col in range(total_columns)}
 
         # Get hierarchical structure
         hierarchy = self.detect_hierarchical_headers(merged_cells)

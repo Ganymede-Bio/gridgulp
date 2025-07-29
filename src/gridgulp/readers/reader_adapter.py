@@ -61,7 +61,7 @@ class ReaderAdapter:
                 return self._auto_select_excel_reader(file_path, file_info)
 
         # For other file types, use factory default
-        return self.factory.create_reader(file_path, file_info)
+        return self.factory.get_reader(file_path, file_info)
 
     def _auto_select_excel_reader(self, file_path: Path, file_info: FileInfo) -> BaseReader:
         """Auto-select Excel reader based on file characteristics.

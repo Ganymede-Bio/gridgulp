@@ -123,7 +123,15 @@ class SheetData(BaseModel):
     def get_cell(self, row: int, column: int) -> CellData | None:
         """Get cell data by row and column indices."""
         address = self._get_address(row, column)
-        return self.cells.get(address)
+        # Support both string addresses and tuple keys for backward compatibility
+        cell = self.cells.get(address)
+        if cell is None:
+            # Try tuple key as fallback (for tests)
+            # Try tuple key as fallback (for tests) - cast to Any to avoid type error
+            from typing import Any, cast
+
+            cell = cast(dict[Any, CellData], self.cells).get((row, column))
+        return cell
 
     def __setitem__(self, address: str, cell_data: CellData) -> None:
         """Allow sheet["A1"] = CellData(...) syntax."""

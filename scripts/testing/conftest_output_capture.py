@@ -100,4 +100,6 @@ class OutputCapturePlugin:
 
 def pytest_configure(config):
     """Configure pytest with output capture plugin."""
+    # Register custom marker
+    config.addinivalue_line("markers", "capture_outputs: mark test for output capture")
     config.pluginmanager.register(OutputCapturePlugin(config))

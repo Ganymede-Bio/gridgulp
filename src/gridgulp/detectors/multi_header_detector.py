@@ -60,7 +60,7 @@ class MergedCellInfo:
 class MultiHeaderDetector:
     """Detects multi-row headers in spreadsheets."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.min_header_rows = 1
         self.max_header_rows = 10
         self.merged_cell_analyzer = MergedCellAnalyzer()
@@ -77,7 +77,7 @@ class MultiHeaderDetector:
         Args:
             sheet_data: The sheet data containing cell information
             table_range: The range of the table
-            data: Optional DataFrame representation of the data
+            _data: Optional DataFrame representation of the data
 
         Returns:
             MultiRowHeader if detected, None otherwise
@@ -254,7 +254,7 @@ class MultiHeaderDetector:
     ) -> list[HeaderCell]:
         """Extract all header cells from sheet data."""
         cells = []
-        processed_positions = set()
+        processed_positions: set[tuple[int, int]] = set()
 
         # Process merged cells first
         for merged in header_merged_cells:
@@ -394,7 +394,7 @@ class MultiHeaderDetector:
         header_merged_cells: list[MergedCell],
     ) -> float:
         """Calculate confidence score for multi-row header detection using sheet data."""
-        scores = []
+        scores: list[float] = []
 
         # Score 1: Presence of merged cells
         if header_cells:
@@ -405,9 +405,9 @@ class MultiHeaderDetector:
         hierarchy_depths = [len(h) for h in column_mappings.values() if h]
         if hierarchy_depths:
             avg_depth = sum(hierarchy_depths) / len(hierarchy_depths)
-            depth_variance = np.var(hierarchy_depths) if len(hierarchy_depths) > 1 else 0
+            depth_variance = float(np.var(hierarchy_depths)) if len(hierarchy_depths) > 1 else 0.0
             consistency_score = 1.0 - min(depth_variance / avg_depth, 1.0) if avg_depth > 0 else 0
-            scores.append(consistency_score)
+            scores.append(float(consistency_score))
 
         # Score 3: Non-empty header values
         non_empty = sum(1 for cell in header_cells if cell.value.strip())
@@ -521,7 +521,7 @@ class MultiHeaderDetector:
         mappings = {}
 
         for col_idx in range(table_range.col_count):
-            hierarchy = []
+            hierarchy: list[str] = []
 
             # Build hierarchy from top to bottom
             for row_idx in range(header_row_count):
@@ -565,7 +565,9 @@ class MultiHeaderDetector:
         if hierarchy_depths:
             avg_depth = sum(hierarchy_depths) / len(hierarchy_depths)
             depth_variance = np.var(hierarchy_depths)
-            consistency_score = 1.0 - min(depth_variance / avg_depth, 1.0) if avg_depth > 0 else 0
+            consistency_score = (
+                1.0 - min(float(depth_variance / avg_depth), 1.0) if avg_depth > 0 else 0
+            )
             scores.append(consistency_score)
 
         # Score 3: Non-empty header values

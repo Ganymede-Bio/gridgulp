@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2025-07-29
+
+### Changed
+- **Project Rename**: Renamed from GridPorter to GridGulp
+  - Updated all package references throughout codebase
+  - Renamed source directory from `src/gridporter/` to `src/gridgulp/`
+  - Updated project metadata and documentation
+- CI improvements:
+  - Added Python version matrix testing (3.10, 3.11, 3.12, 3.13)
+  - Updated ruff target version to py310 (minimum supported)
+
+### Fixed
+- Fixed build configuration to match new project name
+- Fixed all linting issues identified by ruff
+- Added appropriate lint rule exceptions for tests, examples, and scripts
+- Fixed CellRange/TableRange instantiation to use keyword arguments
+- Fixed StructuredTextDetector dimension calculations
+- Fixed header extraction in StructuredTextDetector
+- Fixed test compatibility issues in DataFrameExtractor tests
+
 ## [0.3.0] - 2025-07-28
 
 ### Added
@@ -19,9 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **BREAKING**: Simplified architecture - removed all agent dependencies
-- Reduced codebase by ~77% while maintaining functionality
+- Reduced codebase substantially while maintaining functionality
 - Replaced complex agent orchestration with direct detection approach
-- SimpleCaseDetector and IslandDetector now handle 97% of use cases
+- SimpleCaseDetector and IslandDetector now handle most use cases
 - Improved file type detection to handle UTF-16 files correctly
 - capture_detection_outputs.py now processes ALL files in examples directory
 

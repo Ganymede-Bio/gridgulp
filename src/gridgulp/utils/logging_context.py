@@ -2,8 +2,8 @@
 
 import contextvars
 import logging
-from collections.abc import Mapping
-from typing import Any
+from collections.abc import MutableMapping
+from typing import Any, cast
 
 # Context variables for tracking current processing context
 current_file = contextvars.ContextVar[str | None]("current_file", default=None)
@@ -15,7 +15,9 @@ current_operation = contextvars.ContextVar[str | None]("current_operation", defa
 class ContextualLogger(logging.LoggerAdapter):
     """Logger adapter that automatically includes context information."""
 
-    def process(self, msg: str, kwargs: Mapping[str, Any]) -> tuple[str, Mapping[str, Any]]:
+    def process(
+        self, msg: str, kwargs: MutableMapping[str, Any]
+    ) -> tuple[str, MutableMapping[str, Any]]:
         """Add context information to log records."""
         # Get current context values
         file_path = current_file.get()
@@ -24,7 +26,7 @@ class ContextualLogger(logging.LoggerAdapter):
         operation = current_operation.get()
 
         # Build extra context
-        extra = kwargs.get("extra", {})
+        extra = cast(dict[str, Any], kwargs.get("extra", {}))
         if file_path:
             extra["file"] = file_path
         if sheet_name:
@@ -72,13 +74,13 @@ class FileContext:
 
     def __init__(self, file_path: str):
         self.file_path = file_path
-        self.token = None
+        self.token: contextvars.Token[str | None] | None = None
 
-    def __enter__(self):
+    def __enter__(self) -> "FileContext":
         self.token = current_file.set(self.file_path)
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         if self.token:
             current_file.reset(self.token)
 
@@ -88,13 +90,13 @@ class SheetContext:
 
     def __init__(self, sheet_name: str):
         self.sheet_name = sheet_name
-        self.token = None
+        self.token: contextvars.Token[str | None] | None = None
 
-    def __enter__(self):
+    def __enter__(self) -> "SheetContext":
         self.token = current_sheet.set(self.sheet_name)
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         if self.token:
             current_sheet.reset(self.token)
 
@@ -104,13 +106,13 @@ class TableContext:
 
     def __init__(self, table_range: str):
         self.table_range = table_range
-        self.token = None
+        self.token: contextvars.Token[str | None] | None = None
 
-    def __enter__(self):
+    def __enter__(self) -> "TableContext":
         self.token = current_table.set(self.table_range)
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         if self.token:
             current_table.reset(self.token)
 
@@ -120,18 +122,18 @@ class OperationContext:
 
     def __init__(self, operation: str):
         self.operation = operation
-        self.token = None
+        self.token: contextvars.Token[str | None] | None = None
 
-    def __enter__(self):
+    def __enter__(self) -> "OperationContext":
         self.token = current_operation.set(self.operation)
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         if self.token:
             current_operation.reset(self.token)
 
 
-def setup_contextual_logging():
+def setup_contextual_logging() -> None:
     """Set up contextual logging with structured format.
 
     This should be called once at application startup.

@@ -96,7 +96,7 @@ def test_sheet_extraction_result():
 
     # Add extracted tables
     table1 = ExtractedTable(
-        range=CellRange(0, 0, 5, 5),
+        range=CellRange(start_row=0, start_col=0, end_row=5, end_col=5),
         detection_confidence=0.9,
         detection_method="simple",
         extraction_status="success",
@@ -104,7 +104,7 @@ def test_sheet_extraction_result():
     )
 
     table2 = ExtractedTable(
-        range=CellRange(10, 0, 15, 5),
+        range=CellRange(start_row=10, start_col=0, end_row=15, end_col=5),
         detection_confidence=0.8,
         detection_method="island",
         extraction_status="failed",
@@ -142,18 +142,20 @@ def test_file_extraction_result():
     # Add tables with different quality scores
     sheet1.extracted_tables = [
         ExtractedTable(
-            range=CellRange(0, 0, 5, 5),
+            range=CellRange(start_row=0, start_col=0, end_row=5, end_col=5),
             detection_confidence=0.9,
             detection_method="simple",
             extraction_status="success",
             quality_score=0.85,  # High quality
+            dataframe_dict={"col1": [1, 2, 3], "col2": [4, 5, 6]},  # Add dataframe for is_valid
         ),
         ExtractedTable(
-            range=CellRange(10, 0, 15, 5),
+            range=CellRange(start_row=10, start_col=0, end_row=15, end_col=5),
             detection_confidence=0.8,
             detection_method="island",
             extraction_status="success",
             quality_score=0.65,  # Low quality
+            dataframe_dict={"col1": [7, 8, 9], "col2": [10, 11, 12]},  # Add dataframe for is_valid
         ),
     ]
 
@@ -168,7 +170,7 @@ def test_model_validation():
     # Test invalid quality score
     with pytest.raises(ValueError):
         ExtractedTable(
-            range=CellRange(0, 0, 5, 5),
+            range=CellRange(start_row=0, start_col=0, end_row=5, end_col=5),
             detection_confidence=1.5,  # Invalid: > 1.0
             detection_method="simple",
             extraction_status="success",
@@ -177,7 +179,7 @@ def test_model_validation():
     # Test invalid data density
     with pytest.raises(ValueError):
         ExtractedTable(
-            range=CellRange(0, 0, 5, 5),
+            range=CellRange(start_row=0, start_col=0, end_row=5, end_col=5),
             detection_confidence=0.9,
             detection_method="simple",
             extraction_status="success",
@@ -208,7 +210,7 @@ def test_json_serialization():
     )
 
     table = ExtractedTable(
-        range=CellRange(0, 0, 10, 5),
+        range=CellRange(start_row=0, start_col=0, end_row=10, end_col=5),
         detection_confidence=0.95,
         detection_method="simple",
         extraction_status="success",

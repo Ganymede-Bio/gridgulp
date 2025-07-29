@@ -1,0 +1,113 @@
+site_name: GridGulp
+site_description: Automatically detect and extract tables from Excel, CSV, and text files
+site_url: https://ganymede-bio.github.io/gridgulp/
+repo_url: https://github.com/Ganymede-Bio/gridgulp
+repo_name: Ganymede-Bio/gridgulp
+
+# Use docs_src as the documentation directory
+docs_dir: docs_src
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.indexes
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            show_root_toc_entry: true
+            show_object_full_path: false
+            members_order: source
+            separate_signature: true
+            show_signature_annotations: true
+            unwrap_annotated: true
+            merge_init_into_class: true
+            docstring_section_style: list
+            filters: ["!^_"]
+  - gen-files:
+      scripts:
+        - scripts/gen_ref_pages.py
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - attr_list
+  - md_in_html
+  - def_list
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+    - Jupyter Usage: getting-started/jupyter.md
+  - User Guide:
+    - Basic Usage: user-guide/basic-usage.md
+    - Configuration: user-guide/configuration.md
+    - Detection Methods: user-guide/detection-methods.md
+    - DataFrame Extraction: user-guide/dataframe-extraction.md
+    - File Formats: user-guide/file-formats.md
+  - API Reference:
+    - reference/index.md
+  - Architecture:
+    - Overview: architecture/overview.md
+    - Detection Pipeline: architecture/detection-pipeline.md
+    - Semantic Understanding: architecture/semantic-understanding.md
+  - Development:
+    - Testing Guide: development/testing.md
+    - Contributing: development/contributing.md
+    - Changelog: development/changelog.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Ganymede-Bio/gridgulp
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/gridgulp/
+
+copyright: Copyright &copy; 2024 GridGulp Contributors

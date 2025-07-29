@@ -31,7 +31,9 @@ class HeaderDetectionResult(BaseModel):
     table_type: str = Field(
         "standard", description="Type of table: standard, plate_map, time_series"
     )
-    plate_format: str | None = Field(None, description="Plate format if detected (e.g., '96-well')")
+    plate_format: int | None = Field(
+        None, description="Plate format if detected (e.g., 96 for 96-well)"
+    )
 
 
 class DataFrameExtractor:
@@ -80,20 +82,33 @@ class DataFrameExtractor:
 
         # Check data density
         density = self._calculate_density(values_matrix)
+        logger.debug(f"Data density: {density:.2f}, min required: {self.min_data_density}")
         if density < self.min_data_density:
             logger.debug(f"Low data density: {density:.2f} < {self.min_data_density}")
             return None, None, 0.0
 
         # Detect headers if requested
         header_info = None
+        logger.debug(f"Detect headers: {detect_headers}")
         if detect_headers:
             header_info = self._detect_headers(values_matrix, sheet_data, cell_range)
+            logger.debug(f"Header info result: {header_info}")
 
         # Extract DataFrame based on header detection
         df = self._create_dataframe(values_matrix, header_info)
 
-        if df is None or len(df) < self.min_data_rows:
-            return None, None, 0.0
+        if df is None:
+            # Still return header info even if we can't create a valid dataframe
+            return None, header_info, 0.0
+
+        if len(df) < self.min_data_rows:
+            # For plate formats, we might have valid data even with few rows
+            if header_info and header_info.table_type == "plate_map":
+                # Plate maps are valid even with minimal data
+                quality_score = 0.95
+                return df, header_info, quality_score
+            else:
+                return None, header_info, 0.0
 
         # Calculate quality score
         quality_score = self._calculate_quality_score(df, header_info, density)
@@ -109,7 +124,7 @@ class DataFrameExtractor:
 
         values_matrix = []
         for row in range_data:
-            row_values = []
+            row_values: list[Any] = []
             for cell in row:
                 if cell is None or cell.is_empty:
                     row_values.append(None)
@@ -381,6 +396,9 @@ class DataFrameExtractor:
 
     def _detect_plate_format(self, values_matrix: list[list[Any]]) -> HeaderDetectionResult | None:
         """Detect if this is a standard plate map format."""
+        logger.debug(
+            f"Checking plate format. Matrix size: {len(values_matrix) if values_matrix else 0}"
+        )
         if not values_matrix or len(values_matrix) < 3:
             return None
 
@@ -393,35 +411,55 @@ class DataFrameExtractor:
             1536: [(32, 48), (48, 32)],
         }
 
-        # Check each possible plate format
+        # Check each possible plate format, preferring exact matches
+        best_match = None
+        best_score = 0
+
         for wells, dimensions in PLATE_FORMATS.items():
             for rows, cols in dimensions:
                 # Check if matrix dimensions are compatible (accounting for headers)
+                logger.debug(
+                    f"Checking {wells}-well: need {rows+1}x{cols+1}, have {len(values_matrix)}x{len(values_matrix[0]) if values_matrix else 0}"
+                )
                 if len(values_matrix) >= rows + 1 and len(values_matrix[0]) >= cols + 1:
                     # Check if first column contains row labels (A, B, C, etc.)
                     row_labels_valid = self._check_plate_row_labels(values_matrix, rows)
                     # Check if first row contains column numbers (1, 2, 3, etc.)
                     col_labels_valid = self._check_plate_col_labels(values_matrix[0], cols)
 
+                    logger.debug(
+                        f"  Row labels valid: {row_labels_valid}, Col labels valid: {col_labels_valid}"
+                    )
                     if row_labels_valid and col_labels_valid:
-                        # Found a plate map!
-                        headers = []
-                        for i in range(1, cols + 1):
-                            headers.append(str(i))
+                        # Calculate match score (prefer exact dimensions)
+                        row_diff = abs(len(values_matrix) - (rows + 1))
+                        col_diff = abs(len(values_matrix[0]) - (cols + 1))
+                        score = 1000 - (row_diff + col_diff)  # Higher score for exact match
 
-                        return HeaderDetectionResult(
-                            has_headers=True,
-                            header_rows=1,
-                            header_columns=0,
-                            orientation="vertical",
-                            headers=headers,
-                            confidence=0.95,
-                            title_rows=[],
-                            data_sample_size=0,
-                            column_types={},
-                            table_type="plate_map",
-                            plate_format=f"{wells}-well",
-                        )
+                        if score > best_score:
+                            best_score = score
+                            best_match = (wells, cols)
+
+        if best_match:
+            wells, cols = best_match
+            # Include row label column in headers
+            headers = ["Well"]  # First column for row labels
+            for i in range(1, cols + 1):
+                headers.append(str(i))
+
+            return HeaderDetectionResult(
+                has_headers=True,
+                header_rows=1,
+                header_columns=0,
+                orientation="vertical",
+                headers=headers,
+                confidence=0.95,
+                title_rows=[],
+                data_sample_size=0,
+                column_types={},
+                table_type="plate_map",
+                plate_format=wells,
+            )
 
         return None
 
@@ -746,7 +784,7 @@ class DataFrameExtractor:
 
             if header_parts:
                 # Join with space, avoiding duplicates
-                unique_parts = []
+                unique_parts: list[str] = []
                 for part in header_parts:
                     if not unique_parts or part != unique_parts[-1]:
                         unique_parts.append(part)

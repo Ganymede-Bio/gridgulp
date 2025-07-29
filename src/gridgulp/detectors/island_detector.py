@@ -204,7 +204,7 @@ class IslandDetector:
         }
 
         # Track visited cells
-        visited = set()
+        visited: set[tuple[int, int]] = set()
         islands = []
 
         # Find all islands using flood-fill
@@ -480,7 +480,7 @@ class IslandDetector:
         patterns = {}
 
         # Get all cells organized by row
-        rows_data = {}
+        rows_data: dict[int, list[int]] = {}
         for _address, cell in sheet_data.cells.items():
             if cell.value is not None:
                 row = cell.row

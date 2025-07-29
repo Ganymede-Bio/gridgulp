@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gridgulp"
-version = "0.3.0"
+version = "0.3.1"
 description = "Simplified intelligent spreadsheet ingestion framework with automatic table detection"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     {name = "GridGulp Contributors"},
@@ -18,6 +18,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -40,6 +41,7 @@ dependencies = [
     "aiofiles",
     "rich", # For nice CLI output
     "python-calamine", # Fast Excel/ODS reader (Rust-based)
+    "polars"
 ]
 
 [project.optional-dependencies]
@@ -51,7 +53,20 @@ dev = [
     "ruff>=0.12.0",
     "pre-commit>=3.3.0",
     "ipykernel>=6.25.0",
-    "psutil>=7.0.0"
+    "psutil>=7.0.0",
+    "mypy>=1.5.0",
+    "types-aiofiles",
+    "pandas-stubs>=2.0.0"
+]
+
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.0.0",
+    "mkdocstrings[python]>=0.24.0",
+    "mkdocs-gen-files>=0.5.0",
+    "mkdocs-literate-nav>=0.6.0",
+    "mkdocs-section-index>=0.3.0",
+    "pymdown-extensions>=10.0"
 ]
 
 [project.urls]
@@ -67,7 +82,7 @@ sources = ["src"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py310"
 lint.select = [
     "E",    # pycodestyle errors
     "W",    # pycodestyle warnings
@@ -145,3 +160,41 @@ dev = [
     "pytest-cov>=6.2.1",
     "pytest-xdist>=3.8.0",
 ]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+ignore_missing_imports = false
+namespace_packages = true
+explicit_package_bases = true
+mypy_path = "src"
+plugins = ["pydantic.mypy"]
+
+# Ignore missing imports for packages without type stubs
+[[tool.mypy.overrides]]
+module = [
+    "chardet.*",
+    "filetype.*",
+    "magika.*",
+    "olefile.*",
+    "openpyxl.*",
+    "polars.*",
+    "python_magic.*",
+    "rich.*",
+    "scipy.*",
+    "xlrd.*",
+    "python_calamine.*",
+    "psutil.*"
+]
+ignore_missing_imports = true

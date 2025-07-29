@@ -1,11 +1,8 @@
 """Table-related models."""
 
-from typing import Any
+from typing import Any, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field
-
-# Alias for backward compatibility
-CellRange = None  # Will be set after TableRange definition
 
 
 class TableRange(BaseModel):
@@ -171,4 +168,4 @@ class ExtractedTable(BaseModel):
 
 
 # Set alias for backward compatibility
-CellRange = TableRange
+CellRange: TypeAlias = TableRange

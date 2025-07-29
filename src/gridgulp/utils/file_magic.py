@@ -442,7 +442,7 @@ class FileFormatDetector:
                 return None, 0.0
 
             # Enhanced delimiter analysis for scientific/instrument data
-            delimiter_scores = {}
+            delimiter_scores: dict[str, float] = {}
             delimiters = [
                 "\t",
                 ",",
@@ -484,7 +484,7 @@ class FileFormatDetector:
 
             # Determine best delimiter and file type
             if delimiter_scores:
-                best_delimiter = max(delimiter_scores, key=delimiter_scores.get)
+                best_delimiter = max(delimiter_scores, key=lambda x: delimiter_scores[x])
                 score = delimiter_scores[best_delimiter]
 
                 logger.debug(f"Best delimiter '{best_delimiter}' with score {score}")
@@ -658,7 +658,7 @@ class FileFormatDetector:
         return text_ratio > 0.8
 
     def _detect_encoding_sophisticated(
-        self, header_bytes: bytes, file_path: Path = None
+        self, header_bytes: bytes, file_path: Path | None = None
     ) -> EncodingResult:
         """Sophisticated multi-layer encoding detection."""
 
@@ -709,7 +709,7 @@ class FileFormatDetector:
         return EncodingResult("utf-8", 0.0, "bom")
 
     def _detect_with_chardet(
-        self, header_bytes: bytes, file_path: Path = None
+        self, header_bytes: bytes, file_path: Path | None = None
     ) -> EncodingResult | None:
         """Use chardet with multiple buffer sizes for better accuracy."""
         try:
@@ -759,7 +759,7 @@ class FileFormatDetector:
                             encoding=encoding,
                             confidence=confidence,
                             method="chardet",
-                            chardet_raw=result,
+                            chardet_raw=dict(result),  # Convert to dict
                         )
                         best_confidence = confidence
 
@@ -786,7 +786,7 @@ class FileFormatDetector:
         self,
         header_bytes: bytes,
         encoding_result: EncodingResult,
-        file_path: Path = None,  # noqa: ARG002
+        file_path: Path | None = None,  # noqa: ARG002
     ) -> EncodingResult:
         """Validate encoding by attempting to decode and analyze content."""
         try:
@@ -896,7 +896,7 @@ class FileFormatDetector:
             import magic
 
             mime = magic.Magic(mime=True)
-            return mime.from_file(str(file_path))
+            return str(mime.from_file(str(file_path)))
         except Exception:
             return None
 
@@ -1000,7 +1000,7 @@ def detect_file_info_safe(
     return result
 
 
-def detect_file_info_with_config(file_path: Path, config=None) -> DetectionResult:
+def detect_file_info_with_config(file_path: Path, config: Any = None) -> DetectionResult:
     """
     Detect file format using configuration settings.
 

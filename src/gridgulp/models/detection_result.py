@@ -41,7 +41,7 @@ class DetectionResult(BaseModel):
         default_factory=datetime.now, description="When detection was performed"
     )
 
-    def __init__(self, **data):
+    def __init__(self, **data: Any) -> None:
         """Initialize and calculate total tables."""
         super().__init__(**data)
         # Update total tables count
