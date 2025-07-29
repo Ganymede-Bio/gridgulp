@@ -25,7 +25,7 @@ jobs:
 
     - name: Run Tests with Output Capture
       run: |
-        pytest tests/ \
+        PYTHONPATH=scripts/testing:$PYTHONPATH pytest tests/ \
           --capture-outputs \
           --output-dir=tests/outputs/captures \
           -v
