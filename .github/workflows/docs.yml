@@ -39,7 +39,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install uv
-          uv pip install -e ".[docs]"
+          uv pip install --system -e ".[docs]"
 
       - name: Build documentation
         run: mkdocs build --strict
