@@ -118,7 +118,7 @@ class CSVReader(SyncBaseReader):
             try:
                 dialect = sniffer.sniff(sample, delimiters=",;	|")
                 self.logger.debug(f"Sniffer detected delimiter: '{dialect.delimiter}'")
-                return dialect
+                return dialect  # type: ignore[return-value]
             except csv.Error:
                 # Sniffer failed, try manual detection
                 pass
@@ -144,7 +144,7 @@ class CSVReader(SyncBaseReader):
 
                 return TSVDialect()
             else:
-                return csv.excel  # Default CSV dialect
+                return csv.excel()  # Default CSV dialect instance
 
     def _detect_delimiter_manual(self, sample: str) -> str:
         """Manually detect delimiter by counting occurrences.
@@ -180,7 +180,7 @@ class CSVReader(SyncBaseReader):
                 delimiter_counts[delimiter] = consistent_lines * consistent_count
 
         if delimiter_counts:
-            best_delimiter = max(delimiter_counts, key=delimiter_counts.get)
+            best_delimiter = max(delimiter_counts, key=lambda x: delimiter_counts[x])
             self.logger.debug(
                 f"Manual detection chose: '{best_delimiter}' (score: {delimiter_counts[best_delimiter]})"
             )
@@ -200,7 +200,7 @@ class CSVReader(SyncBaseReader):
 
         try:
             with open(self.file_path, encoding=self._encoding, newline="") as f:
-                reader = csv.reader(f, dialect=self._dialect)
+                reader = csv.reader(f, dialect=self._dialect) if self._dialect else csv.reader(f)
 
                 for row_idx, row in enumerate(reader):
                     for col_idx, cell_value in enumerate(row):
@@ -240,7 +240,9 @@ class CSVReader(SyncBaseReader):
                 sheet_data = SheetData(name=sheet_name)
 
                 with open(self.file_path, encoding=encoding, newline="") as f:
-                    reader = csv.reader(f, dialect=self._dialect)
+                    reader = (
+                        csv.reader(f, dialect=self._dialect) if self._dialect else csv.reader(f)
+                    )
 
                     for row_idx, row in enumerate(reader):
                         for col_idx, cell_value in enumerate(row):

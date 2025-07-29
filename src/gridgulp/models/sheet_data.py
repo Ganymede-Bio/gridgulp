@@ -127,7 +127,10 @@ class SheetData(BaseModel):
         cell = self.cells.get(address)
         if cell is None:
             # Try tuple key as fallback (for tests)
-            cell = self.cells.get((row, column))
+            # Try tuple key as fallback (for tests) - cast to Any to avoid type error
+            from typing import Any, cast
+
+            cell = cast(dict[Any, CellData], self.cells).get((row, column))
         return cell
 
     def __setitem__(self, address: str, cell_data: CellData) -> None:

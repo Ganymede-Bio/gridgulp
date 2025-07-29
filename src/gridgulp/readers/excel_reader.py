@@ -43,8 +43,8 @@ try:
 except ImportError:
     HAS_XLRD = False
 
-    class XLRDError(Exception):  # Define a dummy class to prevent NameError
-        pass
+    # Define a placeholder exception to prevent NameError
+    XLRDError = type("XLRDError", (Exception,), {})
 
 
 class ExcelReader(SyncBaseReader):
@@ -58,7 +58,7 @@ class ExcelReader(SyncBaseReader):
             file_info: File information
         """
         super().__init__(file_path, file_info)
-        self._workbook = None
+        self._workbook: Any = None  # Type varies by backend
         self._use_openpyxl = file_info.type in {
             FileType.XLSX,
             FileType.XLSM,
@@ -80,15 +80,15 @@ class ExcelReader(SyncBaseReader):
         """Get supported Excel formats."""
         return ["xlsx", "xls", "xlsm", "xlsb"]
 
-    def __enter__(self):
+    def __enter__(self) -> "ExcelReader":
         """Context manager entry."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Context manager exit - cleanup resources."""
         self.close()
 
-    def close(self):
+    def close(self) -> None:
         """Close workbook and free resources."""
         if self._workbook is not None:
             try:
@@ -203,7 +203,7 @@ class ExcelReader(SyncBaseReader):
             # Always close the workbook after reading
             self.close()
 
-    def _read_openpyxl_sheet(self, worksheet) -> SheetData:
+    def _read_openpyxl_sheet(self, worksheet: Any) -> SheetData:
         """Read a single sheet using openpyxl.
 
         Args:
@@ -224,7 +224,7 @@ class ExcelReader(SyncBaseReader):
 
         return sheet_data
 
-    def _convert_openpyxl_cell(self, cell) -> CellData | None:
+    def _convert_openpyxl_cell(self, cell: Any) -> CellData | None:
         """Convert openpyxl cell to CellData.
 
         Args:
@@ -337,7 +337,7 @@ class ExcelReader(SyncBaseReader):
             # Always close the workbook after reading
             self.close()
 
-    def _read_xlrd_sheet(self, worksheet) -> SheetData:
+    def _read_xlrd_sheet(self, worksheet: Any) -> SheetData:
         """Read a single sheet using xlrd.
 
         Args:
@@ -362,7 +362,9 @@ class ExcelReader(SyncBaseReader):
 
         return sheet_data
 
-    def _convert_xlrd_cell(self, cell, row_idx: int, col_idx: int, worksheet) -> CellData | None:
+    def _convert_xlrd_cell(
+        self, cell: Any, row_idx: int, col_idx: int, worksheet: Any
+    ) -> CellData | None:
         """Convert xlrd cell to CellData.
 
         Args:
@@ -459,7 +461,7 @@ class ExcelReader(SyncBaseReader):
         else:
             return "string"
 
-    def _get_color_hex(self, color) -> str | None:
+    def _get_color_hex(self, color: Any) -> str | None:
         """Extract hex color from openpyxl color object."""
         try:
             if color and hasattr(color, "rgb") and color.rgb:
@@ -468,7 +470,7 @@ class ExcelReader(SyncBaseReader):
             pass
         return None
 
-    def _get_fill_color_hex(self, fill) -> str | None:
+    def _get_fill_color_hex(self, fill: Any) -> str | None:
         """Extract background color from openpyxl fill object."""
         try:
             if fill and hasattr(fill, "start_color") and fill.start_color.rgb:

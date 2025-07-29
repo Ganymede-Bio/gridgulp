@@ -58,7 +58,7 @@ class ExcelMetadata:
 class ExcelMetadataExtractor:
     """Extracts Excel-specific metadata for table detection hints."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the metadata extractor."""
         self.logger = logger
 

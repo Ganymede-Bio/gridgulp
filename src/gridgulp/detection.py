@@ -39,6 +39,7 @@ class TableDetectionAgent:
         self.confidence_threshold = confidence_threshold
         self.file_type = file_type
         self.simple_detector = SimpleCaseDetector()
+        self.structured_text_detector: StructuredTextDetector | None = None
 
         # Configure island detector based on file type
         if file_type in (FileType.TXT, FileType.TSV):
@@ -50,7 +51,6 @@ class TableDetectionAgent:
         else:
             # Use default settings for Excel and other files
             self.island_detector = IslandDetector(max_gap=ISLAND_DETECTION.EXCEL_FILE_MAX_GAP)
-            self.structured_text_detector = None
 
     async def detect_tables(self, sheet_data: SheetData) -> DetectionResult:
         """Detect tables using fast-path algorithms."""

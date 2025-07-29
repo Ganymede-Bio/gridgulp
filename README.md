@@ -32,26 +32,27 @@ for sheet in result.sheets:
 
 ### Jupyter Notebook Usage
 
-In Jupyter notebooks, you can use GridGulp with a simple wrapper:
+In Jupyter notebooks, you can use synchronous methods for simplicity:
 
 ```python
-import asyncio
 from gridgulp import GridGulp
 
-# Create an async wrapper for Jupyter
-async def detect_tables(file_path):
-    porter = GridGulp()
-    return await porter.detect_tables(file_path)
+# Create GridGulp instance
+gg = GridGulp()
 
-# Run the async function
-result = await detect_tables("sales_report.xlsx")
+# Use the sync method - works in Jupyter without any async complexity
+result = gg.detect_tables_sync("sales_report.xlsx")
 
 # Display results
+print(f"📄 File: {result.file_info.path.name}")
+print(f"📊 Total tables found: {result.total_tables}\n")
+
 for sheet in result.sheets:
-    print(f"\n📊 Sheet: {sheet.name}")
+    print(f"Sheet: {sheet.name}")
     for table in sheet.tables:
-        print(f"   Table: {table.range.excel_range} ({table.shape[0]} rows × {table.shape[1]} cols)")
-        print(f"   Confidence: {table.confidence:.1%}")
+        print(f"  - Table at {table.range.excel_range}")
+        print(f"    Size: {table.shape[0]} rows × {table.shape[1]} columns")
+        print(f"    Confidence: {table.confidence:.1%}")
 ```
 
 ### Extract DataFrames
@@ -78,21 +79,6 @@ for sheet_result in result.sheets:
             print(f"   Headers: {', '.join(df.columns[:5])}{'...' if len(df.columns) > 5 else ''}")
             print(f"\nFirst few rows:")
             print(df.head())
-```
-
-**Example Output:**
-```
-📊 Extracted table from A1:E100
-   Shape: (99, 5) | Quality: 95.2%
-   Headers: Date, Product, Quantity, Price, Total
-
-First few rows:
-         Date    Product  Quantity   Price    Total
-0  2024-01-01  Widget A        10   19.99   199.90
-1  2024-01-02  Widget B         5   29.99   149.95
-2  2024-01-03  Widget A        15   19.99   299.85
-3  2024-01-04  Widget C         8   39.99   319.92
-4  2024-01-05  Widget B        12   29.99   359.88
 ```
 
 ## Key Features

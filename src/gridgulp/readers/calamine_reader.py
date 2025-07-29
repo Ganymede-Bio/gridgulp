@@ -45,12 +45,11 @@ class CalamineReader(SyncBaseReader):
             FileType.XLS,
             FileType.XLSM,
             FileType.XLSB,
-            FileType.ODS,
         }
 
     def get_supported_formats(self) -> list[str]:
         """Get supported formats."""
-        return ["xlsx", "xls", "xlsm", "xlsb", "ods"]
+        return ["xlsx", "xls", "xlsm", "xlsb"]
 
     def read_sync(self) -> FileData:
         """Read file synchronously.
@@ -137,7 +136,12 @@ class CalamineReader(SyncBaseReader):
                         isinstance(cell, int | float) for cell in second_row if cell is not None
                     ):
                         # Use first row as headers
-                        df = pl.DataFrame(data[1:], schema=first_row, orient="row")
+                        # Convert headers to strings
+                        headers = [
+                            str(h) if h is not None else f"Column_{i}"
+                            for i, h in enumerate(first_row)
+                        ]
+                        df = pl.DataFrame(data[1:], schema=headers, orient="row")
                     else:
                         # No headers detected
                         df = pl.DataFrame(data, orient="row")
@@ -163,6 +167,9 @@ class CalamineReader(SyncBaseReader):
         Returns:
             SheetData or None if sheet is empty
         """
+        if self._workbook is None:
+            return self._create_empty_sheet(sheet_name)
+
         try:
             # Get sheet data
             sheet = self._workbook.get_sheet_by_name(sheet_name)
@@ -217,6 +224,9 @@ class CalamineReader(SyncBaseReader):
         data_type = self._get_data_type(value)
 
         # Convert value if needed
+        cell_value: Any
+        formatted_value: str | None
+
         if isinstance(value, datetime):
             # Keep as datetime
             cell_value = value

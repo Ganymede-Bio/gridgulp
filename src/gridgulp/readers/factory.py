@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class ReaderFactory:
     """Factory for creating appropriate file readers."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize factory with default readers."""
         self._readers: dict[FileType, type[BaseReader]] = {}
         self._register_default_readers()

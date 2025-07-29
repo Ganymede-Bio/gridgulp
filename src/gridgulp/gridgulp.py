@@ -3,9 +3,11 @@
 import logging
 import time
 from pathlib import Path
+from typing import Any
 
 from gridgulp.models import DetectionResult, FileInfo, FileType
 from gridgulp.readers import ReaderError, create_reader
+from gridgulp.readers.base_reader import SyncBaseReader
 from gridgulp.utils.file_magic import detect_file_info
 
 from .config import Config
@@ -27,7 +29,7 @@ class GridGulp:
         self,
         config: Config | None = None,
         confidence_threshold: float | None = None,
-        **kwargs,
+        **kwargs: Any,
     ):
         """Initialize GridGulp with simplified architecture.
 
@@ -95,7 +97,10 @@ class GridGulp:
             with OperationContext("file_reading"):
                 try:
                     reader = create_reader(file_path, file_info)
-                    file_data = reader.read_sync()
+                    if isinstance(reader, SyncBaseReader):
+                        file_data = reader.read_sync()
+                    else:
+                        raise ReaderError("Expected sync reader but got async reader")
                     sheet_count = len(list(file_data.sheets))
                     logger.info(f"Successfully read {sheet_count} sheets")
                 except ReaderError as e:
@@ -114,7 +119,7 @@ class GridGulp:
 
                 with SheetContext(sheet_data.name):
                     sheet_start_time = time.time()
-                    sheet_errors = []
+                    sheet_errors: list[str] = []
 
                     try:
                         # Run simplified detection
@@ -181,20 +186,52 @@ class GridGulp:
 
             return result
 
-    # Convenience method for sync usage
-    def extract_from_file(self, file_path: str | Path) -> DetectionResult:
-        """Synchronous wrapper for detect_tables."""
+    def detect_tables_sync(self, file_path: str | Path) -> DetectionResult:
+        """Synchronous version of detect_tables for use in Jupyter notebooks and sync code.
+
+        Args:
+            file_path: Path to the spreadsheet file
+
+        Returns:
+            DetectionResult containing all detected tables
+
+        Raises:
+            FileNotFoundError: If file doesn't exist
+            UnsupportedFormatError: If file format is not supported
+            FileSizeError: If file is too large
+
+        Example:
+            >>> gg = GridGulp()
+            >>> result = gg.detect_tables_sync("sales_report.xlsx")
+            >>> print(f"Found {result.total_tables} tables")
+        """
         import asyncio
 
-        if asyncio.get_event_loop().is_running():
-            # If we're already in an async context, we need to create a new loop
+        try:
+            # Check if there's a running event loop (e.g., in Jupyter)
+            asyncio.get_running_loop()
+            # If we're here, we're in an async context (like Jupyter)
+            # Run in a separate thread to avoid event loop conflicts
             import concurrent.futures
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(asyncio.run, self.detect_tables(file_path))
                 return future.result()
-        else:
+        except RuntimeError:
+            # No running event loop, we can use asyncio.run directly
             return asyncio.run(self.detect_tables(file_path))
+
+    # Backwards compatibility alias
+    def extract_from_file(self, file_path: str | Path) -> DetectionResult:
+        """Deprecated: Use detect_tables_sync instead."""
+        import warnings
+
+        warnings.warn(
+            "extract_from_file is deprecated, use detect_tables_sync instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.detect_tables_sync(file_path)
 
     def _validate_file(self, file_path: Path) -> None:
         """Validate that file exists and is within size limits."""
@@ -257,6 +294,38 @@ class GridGulp:
 
         # Filter out None results from errors
         return [result for result in results if result is not None]
+
+    def batch_detect_sync(self, file_paths: list[str | Path]) -> list[DetectionResult]:
+        """Synchronous version of batch_detect for use in Jupyter notebooks and sync code.
+
+        Args:
+            file_paths: List of file paths
+
+        Returns:
+            List of DetectionResult objects (None entries for failed files)
+
+        Example:
+            >>> gg = GridGulp()
+            >>> files = ["report1.xlsx", "report2.csv", "data.txt"]
+            >>> results = gg.batch_detect_sync(files)
+            >>> for result in results:
+            ...     if result:
+            ...         print(f"{result.file_info.path.name}: {result.total_tables} tables")
+        """
+        import asyncio
+
+        try:
+            # Check if there's a running event loop (e.g., in Jupyter)
+            asyncio.get_running_loop()
+            # Run in a separate thread
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, self.batch_detect(file_paths))
+                return future.result()
+        except RuntimeError:
+            # No running event loop
+            return asyncio.run(self.batch_detect(file_paths))
 
     def get_supported_formats(self) -> list[str]:
         """Get list of supported file formats."""

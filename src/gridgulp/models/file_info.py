@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class UnsupportedFormatError(Exception):
     """Raised when file format is detected but not supported for spreadsheet processing."""
 
-    def __init__(self, detected_format: str, file_path: Path, reason: str = None):
+    def __init__(self, detected_format: str, file_path: Path, reason: str | None = None):
         self.detected_format = detected_format
         self.file_path = file_path
         self.reason = (

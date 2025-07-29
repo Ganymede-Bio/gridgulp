@@ -20,15 +20,15 @@ class TextReader(BaseReader):
 
     def __init__(self, file_path: Path, file_info: FileInfo):
         super().__init__(file_path, file_info)
-        self._detected_format = None
-        self._detected_encoding = None
+        self._detected_format: str | None = None
+        self._detected_encoding: str | None = None
         self._detector = FileFormatDetector()  # For sophisticated encoding detection
 
     def can_read(self) -> bool:
         """Check if the text file can be read as tabular data."""
         try:
             # Try to detect encoding and format
-            self._detect_encoding()
+            self._detect_encoding_internal()
             self._detect_tabular_format()
             return self._detected_format is not None
         except Exception as e:
@@ -94,8 +94,8 @@ class TextReader(BaseReader):
             file_format=self.file_info.type.value,
         )
 
-    def _detect_encoding(self) -> None:
-        """Detect file encoding using sophisticated detection."""
+    def _detect_encoding_internal(self) -> None:
+        """Internal method to detect file encoding using sophisticated detection."""
         if self._detected_encoding:
             return
 
@@ -154,7 +154,7 @@ class TextReader(BaseReader):
                 delimiter_scores[delimiter] = score
 
             # Find best delimiter
-            best_delimiter = max(delimiter_scores, key=delimiter_scores.get)
+            best_delimiter = max(delimiter_scores, key=lambda x: delimiter_scores[x])
             best_score = delimiter_scores[best_delimiter]
 
             logger.debug(f"Delimiter analysis: best='{best_delimiter}', score={best_score}")

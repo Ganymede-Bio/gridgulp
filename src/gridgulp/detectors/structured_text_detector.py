@@ -6,7 +6,7 @@ multiple tables with different formats.
 """
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ..models.table import TableInfo, TableRange
 from .island_detector import IslandDetector
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class StructuredTextDetector:
     """Detects tables in structured text files using specialized heuristics."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the structured text detector."""
         self.logger = logger
         # Use structural analysis with reasonable parameters for text files
@@ -116,7 +116,7 @@ class StructuredTextDetector:
         self.logger.info(f"Detected {len(tables)} tables in structured text file")
         return tables
 
-    def _check_plate_format(self, sheet_data: "SheetData", island) -> TableInfo | None:
+    def _check_plate_format(self, sheet_data: "SheetData", island: Any) -> TableInfo | None:
         """Check if an island represents a plate map format.
 
         Args:
@@ -193,7 +193,7 @@ class StructuredTextDetector:
         return None
 
     def _verify_plate_row_headers(
-        self, sheet_data: "SheetData", island, expected_rows: int
+        self, sheet_data: "SheetData", island: Any, expected_rows: int
     ) -> bool:
         """Verify if the first column contains plate row headers (A, B, C, etc.).
 
@@ -319,10 +319,8 @@ class StructuredTextDetector:
 
             cols_with_data = []
             for col in range(min(200, max_col)):  # Check up to 200 columns
-                if (
-                    sheet_data.get_cell(row, col)
-                    and sheet_data.get_cell(row, col).value is not None
-                ):
+                cell = sheet_data.get_cell(row, col)
+                if cell and cell.value is not None:
                     cols_with_data.append(col)
 
             # If this row has 50+ columns, it might be a wide table
@@ -336,10 +334,8 @@ class StructuredTextDetector:
                 for next_row in range(row + 1, min(row + 5, max_row)):
                     next_cols = []
                     for col in range(min_col, max_col + 1):
-                        if (
-                            sheet_data.get_cell(next_row, col)
-                            and sheet_data.get_cell(next_row, col).value is not None
-                        ):
+                        cell = sheet_data.get_cell(next_row, col)
+                        if cell and cell.value is not None:
                             next_cols.append(col)
 
                     # If next row has significantly fewer columns, stop

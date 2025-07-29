@@ -124,7 +124,7 @@ class DataFrameExtractor:
 
         values_matrix = []
         for row in range_data:
-            row_values = []
+            row_values: list[Any] = []
             for cell in row:
                 if cell is None or cell.is_empty:
                     row_values.append(None)
@@ -784,7 +784,7 @@ class DataFrameExtractor:
 
             if header_parts:
                 # Join with space, avoiding duplicates
-                unique_parts = []
+                unique_parts: list[str] = []
                 for part in header_parts:
                     if not unique_parts or part != unique_parts[-1]:
                         unique_parts.append(part)

@@ -87,8 +87,8 @@ class FormatSignature:
 
     def similarity(self, other: "FormatSignature") -> float:
         """Calculate similarity score between two signatures."""
-        matches = 0
-        total = 0
+        matches = 0.0
+        total = 0.0
 
         # Boolean attributes
         for attr in [
@@ -119,7 +119,7 @@ class FormatSignature:
 class SemanticFormatAnalyzer:
     """Analyzes formatting to understand table semantics."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.blank_row_threshold = FORMAT_ANALYSIS.BLANK_ROW_THRESHOLD
         self.subtotal_keywords = list(KEYWORDS.SUBTOTAL_KEYWORDS)
         self.grand_total_keywords = list(KEYWORDS.GRAND_TOTAL_KEYWORDS)
@@ -235,7 +235,9 @@ class SemanticFormatAnalyzer:
                 is_last_data_row = (
                     row_offset >= table_range.row_count - 2
                 )  # Allow for one trailing blank
-                has_strong_total_formatting = self._has_total_formatting(row_cells)
+                has_strong_total_formatting = self._has_total_formatting(
+                    [c for c in row_cells if c]
+                )
 
                 # If it's in the middle of the table, it's likely a subtotal
                 is_grand_total = is_last_data_row and has_strong_total_formatting
@@ -247,13 +249,13 @@ class SemanticFormatAnalyzer:
                 )
 
         # Check for section headers
-        if self._is_section_header(row_cells, row_text):
+        if self._is_section_header([c for c in row_cells if c], row_text):
             return SemanticRow(
                 row_index=row_offset, row_type=RowType.SECTION_HEADER, confidence=0.8
             )
 
         # Check for separators (formatting-only rows)
-        if self._is_separator_row(row_cells):
+        if self._is_separator_row([c for c in row_cells if c]):
             return SemanticRow(row_index=row_offset, row_type=RowType.SEPARATOR, confidence=0.85)
 
         # Default to data row
@@ -261,7 +263,7 @@ class SemanticFormatAnalyzer:
 
     def _has_total_formatting(self, row_cells: list[CellData]) -> bool:
         """Check if row has formatting typical of totals."""
-        bold_count = sum(1 for cell in row_cells if cell and cell.is_bold)
+        bold_count = sum(bool(cell and cell.is_bold) for cell in row_cells)
         has_top_border = any(
             cell
             for cell in row_cells
@@ -294,7 +296,7 @@ class SemanticFormatAnalyzer:
     def _is_separator_row(self, row_cells: list[CellData]) -> bool:
         """Check if row is a separator (formatting only)."""
         # Separator rows have formatting but little/no content
-        non_empty = sum(1 for cell in row_cells if cell and cell.value)
+        non_empty = sum(bool(cell and cell.value) for cell in row_cells)
         has_formatting = any(
             cell
             for cell in row_cells
@@ -310,8 +312,8 @@ class SemanticFormatAnalyzer:
 
     def _detect_sections(self, semantic_rows: list[SemanticRow]) -> list[tuple[int, int]]:
         """Detect logical sections in the table."""
-        sections = []
-        current_section_start = None
+        sections: list[tuple[int, int]] = []
+        current_section_start: int | None = None
 
         for i, row in enumerate(semantic_rows):
             if row.row_type == RowType.SECTION_HEADER:
@@ -397,7 +399,7 @@ class SemanticFormatAnalyzer:
         semantic_rows: list[SemanticRow],
     ) -> list[FormatPattern]:
         """Detect consistent formatting in columns."""
-        patterns = []
+        patterns: list[FormatPattern] = []
         data_rows = [r for r in semantic_rows if r.row_type == RowType.DATA]
 
         if not data_rows:
