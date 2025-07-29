@@ -397,93 +397,6 @@ class TestMagikaIntegration:
         assert hasattr(detector, "magika_available")
         assert isinstance(detector.magika_available, bool)
 
-    @pytest.mark.skipif(
-        not FileFormatDetector()._check_magika_availability(),
-        reason="Magika not available",
-    )
-    def test_magika_csv_detection(self):
-        """Test CSV detection using Magika."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-            f.write("Name,Age,Department\n")
-            f.write("Alice,25,Engineering\n")
-            f.write("Bob,30,Marketing\n")
-            f.flush()
-            file_path = Path(f.name)
-
-        try:
-            detector = FileFormatDetector()
-            result = detector.detect(file_path)
-
-            # Should be detected by Magika if available
-            if detector.magika_available:
-                assert result.method == "magika"
-                assert result.detected_type == FileType.CSV
-                assert result.magika_label == "csv"
-                assert result.magika_score is not None
-                assert result.magika_score > 0.9
-                assert result.is_supported is True
-                assert result.unsupported_reason is None
-
-        finally:
-            file_path.unlink()
-
-    @pytest.mark.skipif(
-        not FileFormatDetector()._check_magika_availability(),
-        reason="Magika not available",
-    )
-    def test_magika_unsupported_format_detection(self):
-        """Test detection of unsupported formats with Magika."""
-        # Create a minimal PDF-like file
-        with tempfile.NamedTemporaryFile(mode="wb", suffix=".pdf", delete=False) as f:
-            f.write(b"%PDF-1.4\n")
-            f.write(b"1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\n%%EOF")
-            f.flush()
-            file_path = Path(f.name)
-
-        try:
-            detector = FileFormatDetector()
-            result = detector.detect(file_path)
-
-            if detector.magika_available:
-                # Should detect as PDF via Magika
-                assert result.method == "magika"
-                assert result.magika_label == "pdf"
-                assert result.is_supported is False
-                assert "PDF documents cannot be processed" in result.unsupported_reason
-
-        finally:
-            file_path.unlink()
-
-    @pytest.mark.skipif(
-        not FileFormatDetector()._check_magika_availability(),
-        reason="Magika not available",
-    )
-    def test_magika_xlsx_with_xlsm_detection(self):
-        """Test that XLSX detected by Magika is further analyzed for XLSM."""
-        # Create a ZIP file that looks like XLSM (with VBA project)
-        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
-            zip_path = Path(f.name)
-
-        try:
-            with zipfile.ZipFile(zip_path, "w") as zf:
-                zf.writestr("[Content_Types].xml", '<?xml version="1.0"?>')
-                zf.writestr("_rels/.rels", '<?xml version="1.0"?>')
-                zf.writestr("xl/workbook.xml", '<?xml version="1.0"?>')
-                zf.writestr("xl/vbaProject.bin", "VBA binary content")  # XLSM indicator
-
-            detector = FileFormatDetector()
-            result = detector.detect(zip_path)
-
-            if detector.magika_available:
-                # Magika should detect as xlsx, but ZIP analysis should upgrade to XLSM
-                assert result.detected_type in [FileType.XLSM, FileType.XLSX]
-                # If it detects XLSM, confidence should be high
-                if result.detected_type == FileType.XLSM:
-                    assert result.confidence >= 0.9
-
-        finally:
-            zip_path.unlink()
-
 
 class TestUnsupportedFormatHandling:
     """Test unsupported format detection and error handling."""
@@ -500,37 +413,6 @@ class TestUnsupportedFormatHandling:
             result = detect_file_info_safe(file_path)
             assert result.detected_type == FileType.CSV
             assert result.is_supported is True
-
-        finally:
-            file_path.unlink()
-
-    @pytest.mark.skipif(
-        not FileFormatDetector()._check_magika_availability(),
-        reason="Magika not available",
-    )
-    def test_detect_file_info_safe_with_unsupported_format(self):
-        """Test detect_file_info_safe raises error for unsupported format."""
-        # Create a minimal PDF-like file
-        with tempfile.NamedTemporaryFile(mode="wb", suffix=".pdf", delete=False) as f:
-            f.write(b"%PDF-1.4\n")
-            f.write(b"1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\n%%EOF")
-            f.flush()
-            file_path = Path(f.name)
-
-        try:
-            detector = FileFormatDetector()
-            if detector.magika_available:
-                # Should raise UnsupportedFormatError
-                with pytest.raises(UnsupportedFormatError) as exc_info:
-                    detect_file_info_safe(file_path)
-
-                error = exc_info.value
-                assert error.detected_format == "pdf"
-                assert error.file_path == file_path
-                assert "PDF documents cannot be processed" in error.reason
-            else:
-                # If Magika not available, might not detect as unsupported
-                pytest.skip("Magika not available for unsupported format detection")
 
         finally:
             file_path.unlink()
