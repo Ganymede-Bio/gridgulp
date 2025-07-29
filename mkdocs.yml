@@ -4,6 +4,9 @@ site_url: https://ganymede-bio.github.io/gridgulp/
 repo_url: https://github.com/Ganymede-Bio/gridgulp
 repo_name: Ganymede-Bio/gridgulp
 
+# Use docs_src as the documentation directory
+docs_dir: docs_src
+
 theme:
   name: material
   palette:
@@ -53,7 +56,7 @@ plugins:
             filters: ["!^_"]
   - gen-files:
       scripts:
-        - docs/gen_ref_pages.py
+        - scripts/gen_ref_pages.py
   - literate-nav:
       nav_file: SUMMARY.md
 
