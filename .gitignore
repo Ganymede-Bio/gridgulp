@@ -211,3 +211,4 @@ exports/
 test_venv
 
 examples/proprietary/
+parsing_answer_guide.xlsx

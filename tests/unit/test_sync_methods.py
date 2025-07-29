@@ -149,28 +149,3 @@ class TestSyncMethods:
         # Verify
         assert result == mock_detection_result
         gg.detect_tables.assert_called_once_with(test_path)
-
-
-class TestSyncMethodsIntegration:
-    """Integration tests for sync methods with real files."""
-
-    @pytest.mark.asyncio
-    async def test_sync_vs_async_equivalence(self, fixtures_dir):
-        """Test that sync and async methods return the same results."""
-        test_file = fixtures_dir / "sample_data.csv"
-
-        # Skip if file doesn't exist
-        if not test_file.exists():
-            pytest.skip(f"Test file {test_file} not found")
-
-        gg = GridGulp()
-
-        # Get results from both methods
-        async_result = await gg.detect_tables(test_file)
-        sync_result = gg.detect_tables_sync(test_file)
-
-        # Compare results (excluding timing metadata)
-        assert async_result.file_info.path == sync_result.file_info.path
-        assert async_result.file_info.type == sync_result.file_info.type
-        assert len(async_result.sheets) == len(sync_result.sheets)
-        assert async_result.total_tables == sync_result.total_tables

@@ -22,7 +22,7 @@ GridGulp finds tables in your spreadsheets - even when there are multiple tables
 
     ---
 
-    97% success rate on real-world spreadsheets using proven algorithmic detection methods.
+    Solid success rate on real-world spreadsheets using proven heuristics.
 
 -   :material-file-multiple:{ .lg .middle } **Multiple Formats**
 

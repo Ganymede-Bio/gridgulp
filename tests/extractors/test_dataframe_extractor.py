@@ -6,7 +6,7 @@ from unittest.mock import Mock, MagicMock
 
 from gridgulp.extractors import DataFrameExtractor
 from gridgulp.models.sheet_data import CellData, SheetData
-from gridgulp.models.table import CellRange
+from gridgulp.models.table import TableRange
 
 
 @pytest.fixture
@@ -138,7 +138,7 @@ def multi_header_sheet_data():
 
 def test_extract_simple_dataframe(extractor, simple_sheet_data):
     """Test extracting a simple DataFrame."""
-    cell_range = CellRange(start_row=0, start_col=0, end_row=2, end_col=2)
+    cell_range = TableRange(start_row=0, start_col=0, end_row=2, end_col=2)
 
     df, header_info, quality = extractor.extract_dataframe(simple_sheet_data, cell_range)
 
@@ -151,7 +151,7 @@ def test_extract_simple_dataframe(extractor, simple_sheet_data):
 
 def test_detect_headers(extractor, simple_sheet_data):
     """Test header detection."""
-    cell_range = CellRange(start_row=0, start_col=0, end_row=2, end_col=2)
+    cell_range = TableRange(start_row=0, start_col=0, end_row=2, end_col=2)
 
     _, header_info, _ = extractor.extract_dataframe(simple_sheet_data, cell_range)
 
@@ -165,7 +165,7 @@ def test_detect_plate_format(extractor, plate_sheet_data):
     """Test detection of plate map format."""
     # Use a more lenient extractor for plate format
     plate_extractor = DataFrameExtractor(min_data_rows=1, min_data_density=0.1)
-    cell_range = CellRange(start_row=0, start_col=0, end_row=8, end_col=12)
+    cell_range = TableRange(start_row=0, start_col=0, end_row=8, end_col=12)
 
     df, header_info, quality = plate_extractor.extract_dataframe(plate_sheet_data, cell_range)
 
@@ -180,7 +180,7 @@ def test_detect_plate_format(extractor, plate_sheet_data):
 def test_handle_empty_range(extractor, simple_sheet_data):
     """Test handling of empty range."""
     # Range outside the data
-    cell_range = CellRange(start_row=10, start_col=10, end_row=12, end_col=12)
+    cell_range = TableRange(start_row=10, start_col=10, end_row=12, end_col=12)
 
     df, header_info, quality = extractor.extract_dataframe(simple_sheet_data, cell_range)
 
@@ -191,7 +191,7 @@ def test_handle_empty_range(extractor, simple_sheet_data):
 
 def test_multi_row_headers(extractor, multi_header_sheet_data):
     """Test detection of multi-row headers."""
-    cell_range = CellRange(start_row=0, start_col=0, end_row=4, end_col=2)
+    cell_range = TableRange(start_row=0, start_col=0, end_row=4, end_col=2)
 
     df, header_info, quality = extractor.extract_dataframe(multi_header_sheet_data, cell_range)
 
@@ -204,7 +204,7 @@ def test_multi_row_headers(extractor, multi_header_sheet_data):
 
 def test_quality_scoring(extractor, simple_sheet_data):
     """Test quality scoring of extracted DataFrame."""
-    cell_range = CellRange(start_row=0, start_col=0, end_row=2, end_col=2)
+    cell_range = TableRange(start_row=0, start_col=0, end_row=2, end_col=2)
 
     _, _, quality = extractor.extract_dataframe(simple_sheet_data, cell_range)
 
@@ -249,7 +249,7 @@ def test_type_consistency(extractor):
     sheet.get_cell = Mock(return_value=None)
     sheet.merged_cells = []
 
-    cell_range = CellRange(start_row=0, start_col=0, end_row=3, end_col=1)
+    cell_range = TableRange(start_row=0, start_col=0, end_row=3, end_col=1)
     df, header_info, quality = extractor.extract_dataframe(sheet, cell_range)
 
     assert df is not None
@@ -291,7 +291,7 @@ def test_transposed_table_detection(extractor):
     sheet.get_cell = Mock(return_value=None)
     sheet.merged_cells = []
 
-    cell_range = CellRange(start_row=0, start_col=0, end_row=2, end_col=3)
+    cell_range = TableRange(start_row=0, start_col=0, end_row=2, end_col=3)
     df, header_info, quality = extractor.extract_dataframe(sheet, cell_range)
 
     assert df is not None
@@ -338,7 +338,7 @@ def test_sparse_data_handling(extractor):
     sheet.get_cell = Mock(return_value=None)
     sheet.merged_cells = []
 
-    cell_range = CellRange(start_row=0, start_col=0, end_row=2, end_col=2)
+    cell_range = TableRange(start_row=0, start_col=0, end_row=2, end_col=2)
     df, _, quality = extractor.extract_dataframe(sheet, cell_range)
 
     assert df is not None
@@ -350,7 +350,7 @@ def test_custom_parameters(simple_sheet_data):
     """Test extractor with custom parameters."""
     extractor = DataFrameExtractor(min_data_rows=1, min_data_density=0.2)
 
-    cell_range = CellRange(start_row=0, start_col=0, end_row=2, end_col=2)
+    cell_range = TableRange(start_row=0, start_col=0, end_row=2, end_col=2)
     df, header_info, quality = extractor.extract_dataframe(simple_sheet_data, cell_range)
 
     # The extraction might fail if data doesn't meet criteria

@@ -10,12 +10,12 @@ from typing import Any
 from ..models.file_info import FileInfo
 from ..models.sheet_data import SheetData
 from ..utils.file_magic import FileFormatDetector
-from .base_reader import BaseReader, ReaderError
+from .base_reader import ReaderError, SyncBaseReader
 
 logger = logging.getLogger(__name__)
 
 
-class TextReader(BaseReader):
+class TextReader(SyncBaseReader):
     """Reader for text files with CSV/TSV auto-detection."""
 
     def __init__(self, file_path: Path, file_info: FileInfo):
@@ -75,10 +75,6 @@ class TextReader(BaseReader):
 
         except Exception as e:
             raise ReaderError(f"Failed to read text file {self.file_path}: {e}") from e
-
-    async def read(self) -> Any:
-        """Asynchronously read the text file."""
-        return self.read_sync()
 
     def read_sync(self) -> Any:
         """Synchronously read the text file."""

@@ -16,57 +16,60 @@ pip install gridgulp
 
 ## Quick Start
 
+### Table Ranges vs DataFrames
+
+GridGulp provides two ways to work with detected tables:
+
+1. **Table Ranges** - Lightweight metadata about where tables are located (e.g., "A1:E100")
+   - Fast and memory-efficient
+   - Perfect for mapping table locations or visualizing spreadsheet structure
+   - No actual data is loaded into memory
+
+2. **DataFrames** - The actual data extracted from those ranges as pandas DataFrames
+   - Contains the full data with proper types
+   - Ready for analysis, transformation, or export
+   - Requires more memory but provides full data access
+
+Choose based on your needs:
+- Use **ranges only** when you need to know where tables are or want to process them later
+- Use **DataFrames** when you need to analyze or transform the actual data
+
+### Getting Table Ranges Only
+
 ```python
 from gridgulp import GridGulp
 
-# Detect tables in a file
+# Detect tables in a file (lightweight - just finds locations)
 porter = GridGulp()
 result = await porter.detect_tables("sales_report.xlsx")
 
-# Process results
+# Process results - no data loaded yet, just locations
 for sheet in result.sheets:
     print(f"{sheet.name}: {len(sheet.tables)} tables found")
-    for table in sheet.tables:
-        print(f"  - {table.range.excel_range}")
-```
-
-### Jupyter Notebook Usage
-
-In Jupyter notebooks, you can use synchronous methods for simplicity:
-
-```python
-from gridgulp import GridGulp
-
-# Create GridGulp instance
-gg = GridGulp()
-
-# Use the sync method - works in Jupyter without any async complexity
-result = gg.detect_tables_sync("sales_report.xlsx")
-
-# Display results
-print(f"📄 File: {result.file_info.path.name}")
-print(f"📊 Total tables found: {result.total_tables}\n")
-
-for sheet in result.sheets:
-    print(f"Sheet: {sheet.name}")
     for table in sheet.tables:
         print(f"  - Table at {table.range.excel_range}")
         print(f"    Size: {table.shape[0]} rows × {table.shape[1]} columns")
         print(f"    Confidence: {table.confidence:.1%}")
 ```
 
-### Extract DataFrames
+### Getting DataFrames
 
-Extract detected tables as pandas DataFrames with automatic type inference and quality scoring:
+To extract the actual data as pandas DataFrames:
 
 ```python
+from gridgulp import GridGulp
 from gridgulp.extractors import DataFrameExtractor
 from gridgulp.readers import get_reader
 
-# Example: Extract tables from a sales report
+# Step 1: Detect table locations
+porter = GridGulp()
+result = await porter.detect_tables("sales_report.xlsx")
+
+# Step 2: Read the file data
 reader = get_reader("sales_report.xlsx")
 file_data = reader.read_sync()
 
+# Step 3: Extract DataFrames from detected ranges
 extractor = DataFrameExtractor()
 for sheet_result in result.sheets:
     sheet_data = next(s for s in file_data.sheets if s.name == sheet_result.name)
@@ -77,8 +80,102 @@ for sheet_result in result.sheets:
             print(f"\n📊 Extracted table from {table.range.excel_range}")
             print(f"   Shape: {df.shape} | Quality: {quality:.1%}")
             print(f"   Headers: {', '.join(df.columns[:5])}{'...' if len(df.columns) > 5 else ''}")
-            print(f"\nFirst few rows:")
+            # Now you have a pandas DataFrame to work with
             print(df.head())
+```
+
+### Processing Multiple Files
+
+GridGulp makes it easy to process entire directories of spreadsheets:
+
+```python
+from gridgulp import GridGulp
+
+# Create GridGulp instance
+gg = GridGulp()
+
+# Process all spreadsheets in a directory (recursively by default)
+results = await gg.detect_tables_in_directory("~/data")
+
+# Summary statistics
+total_tables = sum(r.total_tables for r in results.values())
+print(f"Found {total_tables} tables across {len(results)} files")
+
+# Process each file's results
+for file_path, result in results.items():
+    if result.total_tables > 0:
+        print(f"\n{file_path.name}:")
+        for sheet in result.sheets:
+            for table in sheet.tables:
+                print(f"  - {sheet.name}: {table.range.excel_range}")
+```
+
+#### Directory Processing Options
+
+```python
+# Process only Excel files
+results = await gg.detect_tables_in_directory(
+    "~/reports",
+    patterns=["*.xlsx", "*.xls"]
+)
+
+# Non-recursive (single directory only)
+results = await gg.detect_tables_in_directory(
+    "~/data",
+    recursive=False
+)
+
+# With progress tracking for large directories
+def show_progress(current, total):
+    print(f"Processing file {current} of {total}...")
+
+results = await gg.detect_tables_in_directory(
+    "~/large_dataset",
+    progress_callback=show_progress
+)
+
+# Sync version for Jupyter notebooks
+results = gg.detect_tables_in_directory_sync("~/data")
+```
+
+#### Extracting DataFrames from Multiple Files
+
+```python
+from gridgulp.extractors import DataFrameExtractor
+from gridgulp.readers import get_reader
+
+# Process directory and extract all tables as DataFrames
+gg = GridGulp()
+extractor = DataFrameExtractor()
+
+results = gg.detect_tables_in_directory_sync("~/sales_data")
+
+all_dataframes = []
+for file_path, detection_result in results.items():
+    if detection_result.total_tables > 0:
+        # Read the file
+        reader = get_reader(file_path)
+        file_data = reader.read_sync()
+
+        # Extract each table
+        for sheet_result in detection_result.sheets:
+            sheet_data = next(s for s in file_data.sheets if s.name == sheet_result.name)
+
+            for table in sheet_result.tables:
+                df, metadata, quality = extractor.extract_dataframe(sheet_data, table.range)
+                if df is not None:
+                    # Add source info to the dataframe
+                    df['_source_file'] = file_path.name
+                    df['_source_sheet'] = sheet_result.name
+                    all_dataframes.append(df)
+
+print(f"Extracted {len(all_dataframes)} tables from {len(results)} files")
+
+# Combine all tables if they have the same structure
+import pandas as pd
+if all_dataframes:
+    combined_df = pd.concat(all_dataframes, ignore_index=True)
+    print(f"Combined dataset: {combined_df.shape}")
 ```
 
 ## Key Features
@@ -95,6 +192,7 @@ for sheet_result in result.sheets:
 - [Full Usage Guide](docs/USAGE_GUIDE.md) - Detailed examples and configuration
 - [API Reference](docs/API_REFERENCE.md) - Complete API documentation
 - [Architecture](docs/ARCHITECTURE.md) - How GridGulp works internally
+- [Testing Guide](docs/TESTING_WITH_SCRIPT.md) - Test spreadsheets in bulk with the unified test script
 
 ## License
 

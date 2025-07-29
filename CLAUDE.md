@@ -215,7 +215,7 @@ porter = GridGulp(config)
 
 - **Zero Dependencies**: No external services or AI APIs required
 - **Fast**: Processes most files in under 1 second
-- **Accurate**: 97% success rate on real-world spreadsheets
+- **Accurate**: Solid success rate on real-world spreadsheets
 - **Lightweight**: Small memory footprint
 - **Portable**: Pure Python implementation
 

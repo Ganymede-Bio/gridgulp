@@ -2,6 +2,10 @@
 
 Thank you for your interest in contributing to GridGulp! This document provides guidelines and instructions for contributing to the project.
 
+## Getting Started
+
+GridGulp uses the **fork and pull request** model for contributions. This means you don't need direct write access to the repository - you'll work on your own fork and submit pull requests for review.
+
 ## Development Setup
 
 ### Prerequisites
@@ -12,25 +16,36 @@ Thank you for your interest in contributing to GridGulp! This document provides 
 
 ### Setting Up Your Development Environment
 
-1. **Fork and clone the repository**
+1. **Fork the repository**
+   - Go to https://github.com/Ganymede-Bio/gridgulp
+   - Click the "Fork" button in the top-right corner
+   - This creates your own copy at `https://github.com/yourusername/gridgulp`
+
+2. **Clone your fork**
    ```bash
    git clone https://github.com/yourusername/gridgulp.git
    cd gridgulp
    ```
 
-2. **Create a virtual environment with uv**
+3. **Add the upstream remote**
+   ```bash
+   git remote add upstream https://github.com/Ganymede-Bio/gridgulp.git
+   git remote -v  # Verify you have both origin and upstream
+   ```
+
+4. **Create a virtual environment with uv**
    ```bash
    uv venv
    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
    ```
 
-3. **Install the package in development mode**
+5. **Install the package in development mode**
    ```bash
    make install-dev
    # Or directly: uv pip install -e ".[dev]"
    ```
 
-4. **Set up pre-commit hooks**
+6. **Set up pre-commit hooks**
    ```bash
    pre-commit install
    ```
@@ -108,6 +123,17 @@ def test_simple_case_detection():
 
 ## Making Changes
 
+### Keeping Your Fork Updated
+
+Before starting new work, always sync your fork with the upstream repository:
+
+```bash
+git checkout main
+git fetch upstream
+git merge upstream/main
+git push origin main
+```
+
 ### Workflow
 
 1. **Create a feature branch**
@@ -139,10 +165,17 @@ def test_simple_case_detection():
    - `refactor:` for refactoring
    - `chore:` for maintenance
 
-5. **Push and create a pull request**
+5. **Push to your fork**
    ```bash
    git push origin feature/your-feature-name
    ```
+
+6. **Create a pull request**
+   - Go to your fork on GitHub
+   - Click "Contribute" → "Open pull request"
+   - Ensure the base repository is `Ganymede-Bio/gridgulp` and base branch is `main`
+   - Fill out the PR template with a clear description of your changes
+   - Submit the pull request for review
 
 ### Pull Request Guidelines
 
@@ -150,7 +183,9 @@ def test_simple_case_detection():
 - Ensure all CI checks pass
 - Include tests for new functionality
 - Update CHANGELOG.md if applicable
-- Request review from maintainers
+- Be patient - maintainers will review your PR as soon as possible
+- Respond to review feedback promptly
+- Your PR must be approved before it can be merged
 
 ## Project Structure
 
