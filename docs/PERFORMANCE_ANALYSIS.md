@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-After comprehensive testing and optimization, GridGulp has achieved **726K cells/sec** processing speed (7.26× the 100K target) with **100% detection success** on test files. However, analysis reveals that **97% of successful detections** use simple fast-path algorithms, raising questions about the necessity of complex agent orchestration.
+After comprehensive testing and optimization, GridGulp has achieved **726K cells/sec** processing speed (7.26× the 100K target) with **100% detection success** on test files. However, analysis reveals that **most successful detections** use simple fast-path algorithms, raising questions about the necessity of complex agent orchestration.
 
 ## Performance Results
 
@@ -30,7 +30,7 @@ From processing 17 sheets across 9 test files:
 
 ## Key Performance Finding
 
-**97% of successful detections used fast-path algorithms that bypass complex agent orchestration.**
+**most successful detections used fast-path algorithms that bypass complex agent orchestration.**
 
 This suggests that the primary value comes from:
 1. **Simple Case Fast Detection** - Ultra-optimized single table detection
@@ -74,7 +74,7 @@ DEFAULT_CONFIDENCE_THRESHOLD: 0.6     # Lowered from 0.8
 
 ## Agent Architecture Usage Reality
 
-### Components Actually Used (97% of cases)
+### Components Actually Used (most cases)
 - ✅ **SimpleCaseDetector** - Core single table detection
 - ✅ **IslandDetector** - Core multi-table detection
 - ✅ **ComplexTableAgent** - Routes to fast-path methods
@@ -113,7 +113,7 @@ Reality Check:
 ## Architecture Implications
 
 ### What This Means
-1. **Fast-path algorithms are sufficient** for 97% of real-world spreadsheets
+1. **Fast-path algorithms are sufficient** for most real-world spreadsheets
 2. **Vision processing is unreliable** and adds complexity without value
 3. **Agent orchestration overhead** is unnecessary for most cases
 4. **Simple confidence-based routing** outperforms complex decision trees
@@ -149,7 +149,7 @@ Reality Check:
 
 GridGulp's performance success comes from **highly optimized traditional algorithms**, not complex agent orchestration. The 726K cells/sec achievement and 100% detection success rate demonstrate that:
 
-1. **Simple is better** - Fast-path algorithms handle 97% of cases
+1. **Simple is better** - Fast-path algorithms handle most cases
 2. **Agent complexity is largely extraneous** - Direct algorithm calls work better
 3. **Vision processing adds risk** - High failure rate, no clear benefit
 4. **Performance optimization beats architectural complexity** - Optimized code > complex coordination

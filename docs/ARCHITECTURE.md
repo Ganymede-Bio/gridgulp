@@ -6,7 +6,7 @@ GridGulp is a streamlined table detection framework that uses proven algorithms 
 
 ## Core Design Principles
 
-1. **Fast Path First**: 97% of use cases handled by simple algorithms
+1. **Fast Path First**: most use cases handled by simple algorithms
 2. **No External Dependencies**: Pure algorithmic detection without AI/ML services
 3. **Format Agnostic**: Unified interface for Excel, CSV, and text files
 4. **Memory Efficient**: Streaming processing for large files

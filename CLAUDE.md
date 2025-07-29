@@ -1,7 +1,7 @@
 # GridGulp Project Instructions
 
 ## Overview
-GridGulp is a lightweight, efficient spreadsheet table detection framework with zero external dependencies. It automatically detects and extracts tables from spreadsheets (Excel, CSV, and text files) using proven algorithmic detection methods that handle 97% of real-world use cases.
+GridGulp is a lightweight, efficient spreadsheet table detection framework with zero external dependencies. It automatically detects and extracts tables from spreadsheets (Excel, CSV, and text files) using proven algorithmic detection methods that handle most real-world use cases.
 
 ## Core Architecture
 

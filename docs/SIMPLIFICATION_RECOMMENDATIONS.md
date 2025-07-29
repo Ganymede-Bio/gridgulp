@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-Based on performance analysis showing **97% of successful detections use fast-path algorithms**, this document provides concrete recommendations for simplifying GridGulp's architecture to focus on production-ready performance while reducing maintenance overhead.
+Based on performance analysis showing **most successful detections use fast-path algorithms**, this document provides concrete recommendations for simplifying GridGulp's architecture to focus on production-ready performance while reducing maintenance overhead.
 
 ## Current State Analysis
 
@@ -74,7 +74,7 @@ def detect_tables(sheet_data: SheetData,
     """Detect tables using optimized algorithms.
 
     This replaces the complex agent orchestration with direct
-    algorithm calls that handle 97% of real-world cases.
+    algorithm calls that handle most real-world cases.
     """
     # Fast path 1: Single table detection (23% of cases)
     simple_result = SimpleCaseDetector().detect_simple_table(sheet_data)

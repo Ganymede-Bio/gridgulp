@@ -1,7 +1,7 @@
 """Simplified table detection module implementing Option 3 (Hybrid Approach).
 
 This module provides a lightweight interface that uses only the proven detection
-algorithms (SimpleCaseDetector and IslandDetector) that handle 97% of real-world cases.
+algorithms (SimpleCaseDetector and IslandDetector) that handle most real-world cases.
 """
 
 import time
@@ -98,7 +98,10 @@ class TableDetectionAgent:
         # Multi-table detection (74% success rate)
         if not tables:
             # Use structured text detector for TSV/TXT files
-            if self.structured_text_detector and self.file_type in (FileType.TXT, FileType.TSV):
+            if self.structured_text_detector and self.file_type in (
+                FileType.TXT,
+                FileType.TSV,
+            ):
                 tables = self.structured_text_detector.detect_tables(sheet_data)
                 method_used = "structured_text_detection"
             else:
@@ -166,7 +169,10 @@ class TableDetectionAgent:
                 end_row, end_col = self._parse_cell(end_cell)
 
                 return TableRange(
-                    start_row=start_row, start_col=start_col, end_row=end_row, end_col=end_col
+                    start_row=start_row,
+                    start_col=start_col,
+                    end_row=end_row,
+                    end_col=end_col,
                 )
         except Exception as e:
             logger.warning(f"Failed to parse range {range_str}: {e}")
@@ -198,12 +204,14 @@ class TableDetectionAgent:
 
 # Convenience function for direct API usage
 def detect_tables(
-    sheet_data: SheetData, confidence_threshold: float = 0.6, file_type: FileType | None = None
+    sheet_data: SheetData,
+    confidence_threshold: float = 0.6,
+    file_type: FileType | None = None,
 ) -> list[TableInfo]:
     """Direct table detection function.
 
     This replaces the complex agent orchestration with direct
-    algorithm calls that handle 97% of real-world cases.
+    algorithm calls that handle most real-world cases.
 
     Args:
         sheet_data: The sheet data to analyze

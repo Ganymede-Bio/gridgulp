@@ -19,9 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **BREAKING**: Simplified architecture - removed all agent dependencies
-- Reduced codebase by ~77% while maintaining functionality
+- Reduced codebase substantially while maintaining functionality
 - Replaced complex agent orchestration with direct detection approach
-- SimpleCaseDetector and IslandDetector now handle 97% of use cases
+- SimpleCaseDetector and IslandDetector now handle most use cases
 - Improved file type detection to handle UTF-16 files correctly
 - capture_detection_outputs.py now processes ALL files in examples directory
 
