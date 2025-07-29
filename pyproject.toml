@@ -41,7 +41,6 @@ dependencies = [
     "rich>=13.0.0", # For nice CLI output
     "click>=8.1.0", # For CLI
     "python-calamine>=0.2.0", # Fast Excel/ODS reader (Rust-based)
-    "polars>=0.20.0", # High-performance DataFrame library
 ]
 
 [project.optional-dependencies]

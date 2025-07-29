@@ -21,9 +21,6 @@ lint: ## Run linting with ruff
 format: ## Format code with black
 	black src/ tests/
 
-type-check: ## Run type checking with mypy
-	mypy src/
-
 clean: ## Clean build artifacts
 	rm -rf build/
 	rm -rf dist/
@@ -32,7 +29,6 @@ clean: ## Clean build artifacts
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
 	rm -rf .pytest_cache/
-	rm -rf .mypy_cache/
 	rm -rf .ruff_cache/
 	rm -rf htmlcov/
 	rm -rf .coverage
@@ -59,9 +55,3 @@ dev: install-dev ## Set up development environment
 	pre-commit install
 
 check: lint type-check test ## Run all checks (lint, type-check, test)
-
-docs: ## Build documentation (placeholder)
-	@echo "Documentation building not yet implemented"
-
-run-example: ## Run example usage (placeholder)
-	@echo "Example scripts not yet implemented"
