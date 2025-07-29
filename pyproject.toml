@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gridgulp"
-version = "0.3.2"
+version = "0.3.3"
 description = "Simplified intelligent spreadsheet ingestion framework with automatic table detection"
 readme = "README.md"
 requires-python = ">=3.10"
