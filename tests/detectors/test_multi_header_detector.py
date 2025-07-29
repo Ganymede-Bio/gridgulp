@@ -3,14 +3,14 @@
 import pytest
 from unittest.mock import MagicMock
 
-from gridporter.models.table import TableRange
-from gridporter.models.sheet_data import SheetData, CellData
-from gridporter.detectors.multi_header_detector import (
+from gridgulp.models.table import TableRange
+from gridgulp.models.sheet_data import SheetData, CellData
+from gridgulp.detectors.multi_header_detector import (
     MultiHeaderDetector,
     MultiRowHeader,
     HeaderCell,
 )
-from gridporter.detectors.merged_cell_analyzer import MergedCell
+from gridgulp.detectors.merged_cell_analyzer import MergedCell
 
 
 class TestMultiHeaderDetector:
@@ -28,13 +28,19 @@ class TestMultiHeaderDetector:
 
         # Row 0: Department headers (merged cells)
         sheet.set_cell(
-            0, 0, CellData(value="Department", is_bold=True, is_merged=True, merge_range="A1:A2")
+            0,
+            0,
+            CellData(value="Department", is_bold=True, is_merged=True, merge_range="A1:A2"),
         )
         sheet.set_cell(
-            0, 1, CellData(value="Sales", is_bold=True, is_merged=True, merge_range="B1:C1")
+            0,
+            1,
+            CellData(value="Sales", is_bold=True, is_merged=True, merge_range="B1:C1"),
         )
         sheet.set_cell(
-            0, 3, CellData(value="Support", is_bold=True, is_merged=True, merge_range="D1:E1")
+            0,
+            3,
+            CellData(value="Support", is_bold=True, is_merged=True, merge_range="D1:E1"),
         )
 
         # Row 1: Sub-headers
@@ -121,10 +127,20 @@ class TestMultiHeaderDetector:
         # Create merged cells for testing
         merged_cells = [
             MergedCell(
-                start_row=0, start_col=1, end_row=0, end_col=2, value="Sales", is_header=True
+                start_row=0,
+                start_col=1,
+                end_row=0,
+                end_col=2,
+                value="Sales",
+                is_header=True,
             ),
             MergedCell(
-                start_row=0, start_col=3, end_row=0, end_col=4, value="Support", is_header=True
+                start_row=0,
+                start_col=3,
+                end_row=0,
+                end_col=4,
+                value="Support",
+                is_header=True,
             ),
         ]
 

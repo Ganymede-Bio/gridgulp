@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Version bumping script for GridPorter.
+Version bumping script for GridGulp.
 
 Usage:
     python scripts/bump_version.py patch  # 0.1.0 -> 0.1.1
@@ -112,7 +112,7 @@ def git_operations(old_version: str, new_version: str, commit: bool = True) -> N
     files_to_stage = [
         "pyproject.toml",
         "CHANGELOG.md",
-        "src/gridporter/__init__.py",
+        "src/gridgulp/__init__.py",
     ]
 
     for file in files_to_stage:
@@ -158,24 +158,24 @@ def main():
             files_updated.append("pyproject.toml")
 
         # Update __init__.py if it exists
-        init_path = Path(__file__).parent.parent / "src" / "gridporter" / "__init__.py"
+        init_path = Path(__file__).parent.parent / "src" / "gridgulp" / "__init__.py"
         if init_path.exists():
             # Create __init__.py with version if it doesn't have one
             content = init_path.read_text()
             if "__version__" not in content:
                 content = (
-                    f'"""GridPorter - Intelligent spreadsheet ingestion framework."""\n\n__version__ = "{new_version}"\n'
+                    f'"""GridGulp - Intelligent spreadsheet ingestion framework."""\n\n__version__ = "{new_version}"\n'
                     + content
                 )
                 init_path.write_text(content)
-                files_updated.append("src/gridporter/__init__.py")
+                files_updated.append("src/gridgulp/__init__.py")
             else:
                 if update_file(
                     init_path,
                     f'__version__ = "{old_version}"',
                     f'__version__ = "{new_version}"',
                 ):
-                    files_updated.append("src/gridporter/__init__.py")
+                    files_updated.append("src/gridgulp/__init__.py")
 
         # Update CHANGELOG.md
         update_changelog(new_version)

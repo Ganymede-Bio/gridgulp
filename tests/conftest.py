@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from gridporter.config import Config
-from gridporter.models.sheet_data import CellData, SheetData
+from gridgulp.config import Config
+from gridgulp.models.sheet_data import CellData, SheetData
 
 
 @pytest.fixture
@@ -164,7 +164,11 @@ def multi_table_sheet_data() -> SheetData:
     for col, header in enumerate(headers2):
         addr = f"{chr(65 + start_col + col)}{start_row + 1}"
         sheet.cells[addr] = CellData(
-            value=header, data_type="text", is_bold=True, row=start_row, column=start_col + col
+            value=header,
+            data_type="text",
+            is_bold=True,
+            row=start_row,
+            column=start_col + col,
         )
 
     # Employee data

@@ -1,15 +1,15 @@
-"""Basic usage example for GridPorter."""
+"""Basic usage example for GridGulp."""
 
 import asyncio
 from pathlib import Path
 
-from gridporter import GridPorter
+from gridgulp import GridGulp
 
 
 async def detect_tables_example():
     """Example of basic table detection."""
-    # Initialize GridPorter with default settings
-    porter = GridPorter()
+    # Initialize GridGulp with default settings
+    porter = GridGulp()
 
     # Example file path
     file_path = Path("examples/spreadsheets/simple/product_inventory.csv")
@@ -52,7 +52,7 @@ async def detect_tables_example():
 async def custom_config_example():
     """Example of custom configuration."""
     # Configure with custom settings
-    porter = GridPorter(
+    porter = GridGulp(
         confidence_threshold=0.8,  # Higher threshold
         max_tables_per_sheet=5,
         min_table_size=(3, 3),
@@ -66,7 +66,7 @@ async def custom_config_example():
 
 async def batch_processing_example():
     """Example of processing multiple files."""
-    porter = GridPorter()
+    porter = GridGulp()
 
     # Process all files in the examples directory
     examples_dir = Path("examples")
@@ -93,7 +93,7 @@ async def batch_processing_example():
 
 def main():
     """Run examples."""
-    print("GridPorter Examples")
+    print("GridGulp Examples")
     print("=" * 50)
 
     # Run the basic example

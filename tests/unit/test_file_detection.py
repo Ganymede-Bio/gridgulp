@@ -5,8 +5,8 @@ import zipfile
 from pathlib import Path
 
 import pytest
-from gridporter.models.file_info import FileType, UnsupportedFormatError
-from gridporter.utils.file_magic import (
+from gridgulp.models.file_info import FileType, UnsupportedFormatError
+from gridgulp.utils.file_magic import (
     DetectionResult,
     FileFormatDetector,
     detect_file_info,

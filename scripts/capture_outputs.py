@@ -14,8 +14,8 @@ from typing import Any
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from gridporter import GridPorter  # noqa: E402
-from gridporter.config import Config  # noqa: E402
+from gridgulp import GridGulp  # noqa: E402
+from gridgulp.config import Config  # noqa: E402
 
 
 class DetectionOutputCapture:
@@ -56,7 +56,11 @@ class DetectionOutputCapture:
             )
 
         self.outputs.append(
-            {"file": file_path, "timestamp": datetime.now().isoformat(), "results": results}
+            {
+                "file": file_path,
+                "timestamp": datetime.now().isoformat(),
+                "results": results,
+            }
         )
 
     def save_outputs(self, format="json"):
@@ -79,7 +83,7 @@ class DetectionOutputCapture:
 
     def _format_as_markdown(self) -> str:
         """Format outputs as markdown table."""
-        lines = ["# GridPorter Detection Outputs\n"]
+        lines = ["# GridGulp Detection Outputs\n"]
         lines.append(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         lines.append("| Input Spreadsheet | Tab | Identified Range | Range Name | Proposed Title |")
         lines.append("|-------------------|-----|------------------|------------|----------------|")
@@ -155,7 +159,7 @@ class DetectionOutputCapture:
         print(f"Total tables detected: {total_tables}")
 
 
-async def process_file(file_path: Path, porter: GridPorter, capture: DetectionOutputCapture):
+async def process_file(file_path: Path, porter: GridGulp, capture: DetectionOutputCapture):
     """Process a single file and capture outputs."""
     print(f"\nProcessing: {file_path}")
 
@@ -171,8 +175,8 @@ async def process_file(file_path: Path, porter: GridPorter, capture: DetectionOu
     except Exception as e:
         print(f"  Error: {e}")
         # Create empty result for errors
-        from gridporter.models.detection_result import DetectionResult
-        from gridporter.models.file_info import FileInfo, FileType
+        from gridgulp.models.detection_result import DetectionResult
+        from gridgulp.models.file_info import FileInfo, FileType
 
         error_result = DetectionResult(
             file_info=FileInfo(path=Path(file_path), type=FileType.UNKNOWN, size=0),
@@ -203,13 +207,13 @@ def find_spreadsheet_files(directory: Path) -> list[Path]:
 
 async def main():
     """Run detection on all spreadsheet files and capture outputs."""
-    # Initialize GridPorter with default configuration
+    # Initialize GridGulp with default configuration
     config = Config(
         confidence_threshold=0.7,
         enable_simple_case_detection=True,
         enable_island_detection=True,
     )
-    porter = GridPorter(config)
+    porter = GridGulp(config)
 
     # Initialize capture
     capture = DetectionOutputCapture()

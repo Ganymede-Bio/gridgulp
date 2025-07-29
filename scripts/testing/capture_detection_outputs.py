@@ -10,8 +10,8 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from gridporter.detection import TableDetectionAgent
-from gridporter.readers.convenience import get_reader
+from gridgulp.detection import TableDetectionAgent
+from gridgulp.readers.convenience import get_reader
 
 
 class DetectionOutputCapture:
@@ -26,7 +26,11 @@ class DetectionOutputCapture:
     def capture_file_detection(self, file_path: str, results: list[dict[str, Any]]):
         """Capture detection results for a file."""
         self.outputs.append(
-            {"file": file_path, "timestamp": datetime.now().isoformat(), "results": results}
+            {
+                "file": file_path,
+                "timestamp": datetime.now().isoformat(),
+                "results": results,
+            }
         )
 
     def save_outputs(self, format="json"):
@@ -44,7 +48,7 @@ class DetectionOutputCapture:
 
     def _format_as_markdown(self) -> str:
         """Format outputs as markdown table."""
-        lines = ["# GridPorter Detection Outputs\n"]
+        lines = ["# GridGulp Detection Outputs\n"]
         lines.append(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         lines.append("| Input Spreadsheet | Tab | Identified Range | Range Name | Proposed Title |")
         lines.append("|-------------------|-----|------------------|------------|----------------|")

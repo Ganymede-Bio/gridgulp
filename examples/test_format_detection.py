@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Test script demonstrating enhanced file format detection.
-This script tests GridPorter's ability to detect actual file formats
+This script tests GridGulp's ability to detect actual file formats
 regardless of file extensions.
 """
 
@@ -9,16 +9,16 @@ import asyncio
 import sys
 from pathlib import Path
 
-from gridporter import GridPorter
+from gridgulp import GridGulp
 
 
 async def test_format_detection():
     """Test format detection with files that have wrong extensions."""
-    print("GridPorter Enhanced File Format Detection Test")
+    print("GridGulp Enhanced File Format Detection Test")
     print("=" * 50)
 
-    # Initialize GridPorter
-    porter = GridPorter()
+    # Initialize GridGulp
+    porter = GridGulp()
 
     # Test files with wrong extensions
     test_files = [
@@ -121,7 +121,7 @@ async def test_format_detection():
 
     if any(r["mismatch"] for r in results):
         print("\n💡 TIP: Files with format mismatches will still be processed correctly")
-        print("   because GridPorter uses the detected format, not the file extension.")
+        print("   because GridGulp uses the detected format, not the file extension.")
 
 
 async def test_single_file_detection():
@@ -136,7 +136,7 @@ async def test_single_file_detection():
     print("DETAILED SINGLE FILE ANALYSIS")
     print("=" * 50)
 
-    from gridporter.utils.file_magic import detect_file_info
+    from gridgulp.utils.file_magic import detect_file_info
 
     # Test with our enhanced detection
     result = detect_file_info(Path(test_file))
@@ -153,7 +153,7 @@ async def test_single_file_detection():
 
 
 if __name__ == "__main__":
-    print("Starting GridPorter format detection tests...\n")
+    print("Starting GridGulp format detection tests...\n")
 
     try:
         asyncio.run(test_format_detection())

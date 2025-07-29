@@ -13,7 +13,7 @@ test: ## Run tests
 	pytest
 
 test-cov: ## Run tests with coverage
-	pytest --cov=gridporter --cov-report=html --cov-report=term
+	pytest --cov=gridgulp --cov-report=html --cov-report=term
 
 lint: ## Run linting with ruff
 	ruff check src/ tests/

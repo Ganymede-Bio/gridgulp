@@ -1,7 +1,7 @@
-# GridPorter Project Instructions
+# GridGulp Project Instructions
 
 ## Overview
-GridPorter is a lightweight, efficient spreadsheet table detection framework with zero external dependencies. It automatically detects and extracts tables from spreadsheets (Excel, CSV, and text files) using proven algorithmic detection methods that handle 97% of real-world use cases.
+GridGulp is a lightweight, efficient spreadsheet table detection framework with zero external dependencies. It automatically detects and extracts tables from spreadsheets (Excel, CSV, and text files) using proven algorithmic detection methods that handle 97% of real-world use cases.
 
 ## Core Architecture
 
@@ -168,17 +168,17 @@ The framework is designed for easy extension:
 ### Basic Usage
 ```python
 import asyncio
-from gridporter import GridPorter
+from gridgulp import GridGulp
 
 async def detect_tables(file_path: str):
-    porter = GridPorter()
+    porter = GridGulp()
     result = await porter.detect_tables(file_path)
     return result
 ```
 
 ### Error Handling
 ```python
-from gridporter import GridPorter, ReaderError
+from gridgulp import GridGulp, ReaderError
 
 try:
     result = await porter.detect_tables(file_path)
@@ -192,7 +192,7 @@ except Exception as e:
 
 ### Custom Configuration
 ```python
-from gridporter import GridPorter, Config
+from gridgulp import GridGulp, Config
 
 config = Config(
     confidence_threshold=0.8,
@@ -200,7 +200,7 @@ config = Config(
     enable_simple_case_detection=True,
     enable_island_detection=True,
 )
-porter = GridPorter(config)
+porter = GridGulp(config)
 ```
 
 ## Debugging Tips

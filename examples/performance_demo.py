@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Demonstration of GridPorter performance improvements."""
+"""Demonstration of GridGulp performance improvements."""
 
 import asyncio
 import sys
@@ -9,9 +9,9 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from gridporter.config import GridPorterConfig  # noqa: E402
-from gridporter.models import FileInfo, FileType  # noqa: E402
-from gridporter.readers import CalamineReader, ExcelReader, ReaderAdapter  # noqa: E402
+from gridgulp.config import GridGulpConfig  # noqa: E402
+from gridgulp.models import FileInfo, FileType  # noqa: E402
+from gridgulp.readers import CalamineReader, ExcelReader, ReaderAdapter  # noqa: E402
 
 
 async def benchmark_readers(file_path: Path):
@@ -21,7 +21,9 @@ async def benchmark_readers(file_path: Path):
 
     # Create file info
     file_info = FileInfo(
-        path=file_path, type=FileType.XLSX, size_mb=file_path.stat().st_size / (1024 * 1024)
+        path=file_path,
+        type=FileType.XLSX,
+        size_mb=file_path.stat().st_size / (1024 * 1024),
     )
 
     # Test 1: Calamine reader (fast)
@@ -65,24 +67,24 @@ async def demonstrate_adapter():
     print("=" * 50)
 
     # Configuration 1: Use Calamine for speed
-    config1 = GridPorterConfig(excel_reader="calamine", use_polars=True)
+    config1 = GridGulpConfig(excel_reader="calamine", use_polars=True)
     ReaderAdapter(config1)
     print(f"Config 1: excel_reader={config1.excel_reader}, use_polars={config1.use_polars}")
 
     # Configuration 2: Use openpyxl for features
-    config2 = GridPorterConfig(excel_reader="openpyxl", use_polars=False)
+    config2 = GridGulpConfig(excel_reader="openpyxl", use_polars=False)
     ReaderAdapter(config2)
     print(f"Config 2: excel_reader={config2.excel_reader}, use_polars={config2.use_polars}")
 
     # Configuration 3: Auto-select
-    config3 = GridPorterConfig(excel_reader="auto", use_polars=True)
+    config3 = GridGulpConfig(excel_reader="auto", use_polars=True)
     ReaderAdapter(config3)
     print(f"Config 3: excel_reader={config3.excel_reader}, use_polars={config3.use_polars}")
 
 
 async def main():
     """Run all demonstrations."""
-    print("GridPorter Performance Improvements Demo")
+    print("GridGulp Performance Improvements Demo")
     print("=" * 50)
 
     # Find a sample Excel file

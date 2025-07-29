@@ -1,6 +1,6 @@
-# Contributing to GridPorter
+# Contributing to GridGulp
 
-Thank you for your interest in contributing to GridPorter! This document provides guidelines and instructions for contributing to the project.
+Thank you for your interest in contributing to GridGulp! This document provides guidelines and instructions for contributing to the project.
 
 ## Development Setup
 
@@ -14,8 +14,8 @@ Thank you for your interest in contributing to GridPorter! This document provide
 
 1. **Fork and clone the repository**
    ```bash
-   git clone https://github.com/yourusername/gridporter.git
-   cd gridporter
+   git clone https://github.com/yourusername/gridgulp.git
+   cd gridgulp
    ```
 
 2. **Create a virtual environment with uv**
@@ -96,7 +96,7 @@ pytest -v
 Example test:
 ```python
 import pytest
-from gridporter.detectors import SimpleCaseDetector
+from gridgulp.detectors import SimpleCaseDetector
 
 def test_simple_case_detection():
     detector = SimpleCaseDetector()
@@ -155,8 +155,8 @@ def test_simple_case_detection():
 ## Project Structure
 
 ```
-gridporter/
-├── src/gridporter/        # Main package
+gridgulp/
+├── src/gridgulp/        # Main package
 │   ├── core/             # Core functionality
 │   ├── detectors/        # Detection strategies
 │   ├── models/           # Pydantic models

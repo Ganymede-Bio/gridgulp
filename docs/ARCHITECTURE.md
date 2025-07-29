@@ -1,8 +1,8 @@
-# GridPorter Architecture
+# GridGulp Architecture
 
 ## Overview
 
-GridPorter is a streamlined table detection framework that uses proven algorithms to extract tables from spreadsheets and text files. The architecture prioritizes simplicity, performance, and accuracy.
+GridGulp is a streamlined table detection framework that uses proven algorithms to extract tables from spreadsheets and text files. The architecture prioritizes simplicity, performance, and accuracy.
 
 ## Core Design Principles
 
@@ -16,7 +16,7 @@ GridPorter is a streamlined table detection framework that uses proven algorithm
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    GridPorter API                        │
+│                    GridGulp API                        │
 ├─────────────────────────────────────────────────────────┤
 │                  File Type Detection                     │
 │                  (Magika + Magic)                        │
@@ -194,7 +194,7 @@ result = DetectionResult(
 ### Custom Output Formats
 1. Extend base models
 2. Add serialization methods
-3. Configure in GridPorter
+3. Configure in GridGulp
 
 ## Error Handling
 

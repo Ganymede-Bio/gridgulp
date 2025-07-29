@@ -1,8 +1,8 @@
-# GridPorter Testing Guide
+# GridGulp Testing Guide
 
 ## Overview
 
-This guide covers testing procedures for GridPorter, including unit tests, integration tests, and performance testing.
+This guide covers testing procedures for GridGulp, including unit tests, integration tests, and performance testing.
 
 ## Test Structure
 
@@ -27,7 +27,7 @@ tests/
 pytest
 
 # Run with coverage
-pytest --cov=gridporter
+pytest --cov=gridgulp
 
 # Run with verbose output
 pytest -v
@@ -93,7 +93,7 @@ Tests for multi-table detection:
 # tests/integration/test_complex_tables.py
 async def test_financial_report():
     """Test complete detection pipeline on financial data."""
-    porter = GridPorter()
+    porter = GridGulp()
     result = await porter.detect_tables("tests/manual/level1/complex_table.xlsx")
 
     assert result.total_tables >= 3
@@ -105,7 +105,7 @@ async def test_financial_report():
 # tests/integration/test_text_files.py
 async def test_scientific_data():
     """Test text file with tab-delimited scientific data."""
-    porter = GridPorter()
+    porter = GridGulp()
     result = await porter.detect_tables("examples/proprietary/NOV_PEGDA6000.txt")
 
     assert len(result.sheets) == 1
@@ -119,10 +119,10 @@ async def test_scientific_data():
 # scripts/testing/benchmark_detection.py
 import time
 import asyncio
-from gridporter import GridPorter
+from gridgulp import GridGulp
 
 async def benchmark_file(file_path):
-    porter = GridPorter()
+    porter = GridGulp()
     start = time.time()
     result = await porter.detect_tables(file_path)
     duration = time.time() - start
@@ -164,14 +164,14 @@ Edge cases and challenging layouts:
 ### Test Structure
 ```python
 import pytest
-from gridporter import GridPorter, Config
+from gridgulp import GridGulp, Config
 
 @pytest.mark.asyncio
 async def test_my_feature():
     """Test description."""
     # Arrange
     config = Config(confidence_threshold=0.8)
-    porter = GridPorter(config)
+    porter = GridGulp(config)
 
     # Act
     result = await porter.detect_tables("path/to/test/file.xlsx")
@@ -213,7 +213,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install -e ".[dev]"
-      - run: pytest --cov=gridporter
+      - run: pytest --cov=gridgulp
 ```
 
 ## Debugging Tests
@@ -244,7 +244,7 @@ pytest -k "test_scientific_data"
 ### Generate Coverage
 ```bash
 # Generate coverage report
-pytest --cov=gridporter --cov-report=html
+pytest --cov=gridgulp --cov-report=html
 
 # View report
 open htmlcov/index.html

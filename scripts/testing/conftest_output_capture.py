@@ -80,7 +80,7 @@ def pytest_runtest_makereport(item, call):
 
 # Pytest plugin to automatically capture pipeline outputs
 class OutputCapturePlugin:
-    """Plugin to automatically capture GridPorter pipeline outputs."""
+    """Plugin to automatically capture GridGulp pipeline outputs."""
 
     def __init__(self, config):
         self.config = config

@@ -12,10 +12,10 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from gridporter import GridPorter
-from gridporter.agents import VisionOrchestratorAgent
-from gridporter.config import Config
-from gridporter.readers import create_reader
+from gridgulp import GridGulp
+from gridgulp.agents import VisionOrchestratorAgent
+from gridgulp.config import Config
+from gridgulp.readers import create_reader
 
 
 class TestRunner:
@@ -245,7 +245,7 @@ class TestRunner:
                 start = time.time()
 
                 try:
-                    gp = GridPorter(config)
+                    gp = GridGulp(config)
                     result = await gp.extract_from_file(file_path)
                     elapsed = time.time() - start
                     times.append(elapsed)
@@ -301,7 +301,7 @@ class TestRunner:
         # Create a human-readable report
         report_file = self.output_dir / f"{self.timestamp}_report.txt"
         with open(report_file, "w") as f:
-            f.write("GridPorter Test Report\n")
+            f.write("GridGulp Test Report\n")
             f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write("=" * 60 + "\n\n")
 

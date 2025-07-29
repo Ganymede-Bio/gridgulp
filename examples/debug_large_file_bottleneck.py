@@ -7,8 +7,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from gridporter.detectors.simple_case_detector import SimpleCaseDetector
-from gridporter.readers.convenience import get_reader
+from gridgulp.detectors.simple_case_detector import SimpleCaseDetector
+from gridgulp.readers.convenience import get_reader
 
 
 def test_file_reading():

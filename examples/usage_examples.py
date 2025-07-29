@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-GridPorter Usage Examples
+GridGulp Usage Examples
 Demonstrates various configuration options and usage patterns.
 """
 
 import asyncio
 from pathlib import Path
 
-from gridporter import Config, GridPorter
+from gridgulp import Config, GridGulp
 
 
 async def example_basic_detection():
@@ -15,7 +15,7 @@ async def example_basic_detection():
     print("=== Basic Detection Example ===")
 
     # Initialize with default settings
-    porter = GridPorter()
+    porter = GridGulp()
 
     result = await porter.detect_tables("examples/spreadsheets/simple/product_inventory.csv")
 
@@ -43,7 +43,7 @@ async def example_custom_config():
         detect_merged_cells=True,
     )
 
-    porter = GridPorter(config=config)
+    porter = GridGulp(config=config)
 
     result = await porter.detect_tables("examples/spreadsheets/complex/multi_table_report.csv")
 
@@ -63,7 +63,7 @@ async def example_batch_processing():
     """Example 3: Batch processing multiple files."""
     print("=== Batch Processing Example ===")
 
-    porter = GridPorter()
+    porter = GridGulp()
 
     # Process multiple files
     files = [
@@ -102,7 +102,7 @@ async def example_text_file_detection():
     """Example 4: Text file detection with encoding handling."""
     print("=== Text File Detection Example ===")
 
-    porter = GridPorter()
+    porter = GridGulp()
 
     # Try to process a text file
     text_file = "examples/proprietary/NOV PEGDA6000 QC BB0310-241 242 247 248.txt"
@@ -126,7 +126,7 @@ async def example_error_handling():
     """Example 5: Error handling."""
     print("=== Error Handling Example ===")
 
-    porter = GridPorter()
+    porter = GridGulp()
 
     # Try to process a non-existent file
     try:
@@ -140,7 +140,7 @@ async def example_error_handling():
         min_table_size=(10, 10),  # Large minimum size
     )
 
-    porter_strict = GridPorter(config=strict_config)
+    porter_strict = GridGulp(config=strict_config)
 
     if Path("examples/spreadsheets/simple/product_inventory.csv").exists():
         result = await porter_strict.detect_tables(
@@ -152,7 +152,7 @@ async def example_error_handling():
 
 async def main():
     """Run all examples."""
-    print("GridPorter Usage Examples")
+    print("GridGulp Usage Examples")
     print("=" * 50)
     print()
 

@@ -1,9 +1,52 @@
 # Changelog
 
-All notable changes to GridPorter will be documented in this file.
+All notable changes to GridGulp will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.3.0] - 2025-07-29
+
+### Added
+- **DataFrame Extraction**: Extract detected tables as pandas DataFrames
+  - `DataFrameExtractor`: Intelligent header detection with multi-row support
+  - Quality scoring for extracted tables (0-1 scale)
+  - Automatic header detection including merged cells
+  - Type consistency analysis across columns (checks up to 100 rows)
+  - Plate map format detection (6, 24, 96, 384, 1536 wells)
+  - Export to CSV, JSON, and summary formats
+
+- **Enhanced TSV/Text File Detection**: Specialized detection for instrument output
+  - `StructuredTextDetector`: Handles TSV files and instrument output
+  - Column consistency analysis for better table separation
+  - Wide table detection for plate data (50+ columns)
+  - Structural analysis using row patterns and empty row detection
+  - Better handling of multiple table formats in single file
+
+- **Improved Island Detection**: Smarter heuristics for table separation
+  - Column consistency threshold (80% similarity for grouping)
+  - Configurable gap settings per file type (gap=0 for TSV, gap=1 for Excel)
+  - Structural analysis mode for text files
+  - Empty row detection for natural table boundaries
+  - Aspect ratio and size-based confidence scoring
+
+- **Documentation and Packaging**:
+  - Streamlined README.md for clarity
+  - NOTICE file with all dependency licenses
+  - GitHub Action for PyPI releases with OIDC
+  - Updated all documentation to reflect new features
+
+### Changed
+- Island detector now uses structural analysis for text files by default
+- Constants centralized with file type-specific defaults
+- Detection pipeline selects strategies based on file type
+- DataFrame extraction integrated into main workflow
+
+### Fixed
+- TSV file detection now properly identifies multiple tables
+- Wide plate data detection for instrument output files
+- Header detection handles merged cells correctly
+- Empty cells in headers properly handled
 
 ## [0.2.2] - 2025-07-28
 
@@ -30,7 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `OpenAICostsAPI`: Integration with OpenAI's costs endpoint (admin key required)
 
 - **Code Organization Improvements**: Major refactoring for maintainability
-  - **Centralized Constants**: All constants moved to `src/gridporter/core/constants.py`
+  - **Centralized Constants**: All constants moved to `src/gridgulp/core/constants.py`
   - **Core Module**: New organizational structure with:
     - `constants.py` - Categorized constants (Island Detection, Format Analysis, etc.)
     - `exceptions.py` - Custom exception classes for better error handling
@@ -56,7 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `openai_admin_key`: Optional admin key for cost API access
   - Configurable detection thresholds for fine-tuning
 
-- **GridPorter Core**: Enhanced with hybrid detection and cost tracking
+- **GridGulp Core**: Enhanced with hybrid detection and cost tracking
   - Integrated traditional methods into main detection pipeline
   - Added cost tracking to all detection results
   - Enhanced metadata with methods used and performance metrics
@@ -143,7 +186,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `feature_retention_days`: Data retention period (default: 30)
   - All options configurable via environment variables
 
-- **GridPorter Core**: Enhanced with semantic understanding
+- **GridGulp Core**: Enhanced with semantic understanding
   - Integrated ComplexTableAgent into main detection pipeline
   - Added metadata fields for tracking LLM usage
   - Improved confidence scoring with multi-factor analysis
@@ -243,7 +286,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Project Foundation**: Complete project structure and build system
 - **Pydantic 2 Models**: Type-safe data models for FileInfo, TableInfo, and DetectionResult
 - **Configuration System**: Comprehensive config with environment variable support
-- **Main API Structure**: GridPorter class with cost-efficient architecture design
+- **Main API Structure**: GridGulp class with cost-efficient architecture design
 - **File Type Detection**: Basic file magic detection utilities (placeholder implementation)
 - **Development Tooling**:
   - Pre-commit hooks with Black, Ruff, mypy

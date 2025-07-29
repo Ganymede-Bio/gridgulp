@@ -3,14 +3,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "gridporter"
+name = "gridgulp"
 version = "0.3.0"
 description = "Simplified intelligent spreadsheet ingestion framework with automatic table detection"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "GridPorter Contributors"},
+    {name = "GridGulp Contributors"},
 ]
 keywords = ["excel", "csv", "table-detection", "data-extraction", "spreadsheet"]
 classifiers = [
@@ -27,19 +27,18 @@ classifiers = [
 
 dependencies = [
     "pydantic>=2.0,<3.0",
-    "openpyxl>=3.1.0",
-    "xlrd>=2.0.0",
-    "olefile>=0.46", # For password-protected Excel detection
+    "openpyxl",
+    "xlrd",
+    "olefile", # For password-protected Excel detection
     "pandas>=2.0.0",
-    "numpy>=2.3.0",
+    "numpy",
     "scipy>=1.11.0",
-    "python-magic>=0.4.27",
+    "python-magic",
     "filetype>=1.2.0", # Fallback for file type detection
-    "magika>=0.6.1", # AI-powered file type detection
-    "chardet>=5.0.0",
-    "aiofiles>=23.0.0",
-    "rich>=13.0.0", # For nice CLI output
-    "click>=8.1.0", # For CLI
+    "magika", # AI-powered file type detection
+    "chardet",
+    "aiofiles",
+    "rich", # For nice CLI output
     "python-calamine>=0.2.0", # Fast Excel/ODS reader (Rust-based)
 ]
 
@@ -49,7 +48,6 @@ dev = [
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.1.0",
     "pytest-xdist>=3.8.0",
-    "black>=23.0.0",
     "ruff>=0.12.0",
     "mypy>=1.17.0",
     "pre-commit>=3.3.0",
@@ -58,12 +56,12 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Ganymede-Bio/gridporter"
-Repository = "https://github.com/Ganymede-Bio/gridporter"
-Issues = "https://github.com/Ganymede-Bio/gridporter/issues"
+Homepage = "https://github.com/Ganymede-Bio/gridgulp"
+Repository = "https://github.com/Ganymede-Bio/gridgulp"
+Issues = "https://github.com/Ganymede-Bio/gridgulp/issues"
 
 [project.scripts]
-gridporter = "gridporter.cli:main"
+gridgulp = "gridgulp.cli:main"
 
 [tool.hatch.build]
 sources = ["src"]
@@ -96,6 +94,18 @@ lint.ignore = [
     "F401",  # Unused imports (may be used for fixtures)
     "F811",  # Redefinition of unused names (common with fixtures)
     "I",     # Import sorting (less strict in tests)
+    "E402",  # Module level import not at top of file (due to sys.path manipulation)
+]
+"examples/**/*.py" = [
+    "E402",  # Module level import not at top of file (due to sys.path manipulation)
+    "F841",  # Local variable assigned but never used (common in examples)
+    "B007",  # Loop control variable not used within loop body
+    "E722",  # Do not use bare except (examples may have simple error handling)
+]
+"scripts/**/*.py" = [
+    "E402",  # Module level import not at top of file (due to sys.path manipulation)
+    "F841",  # Local variable assigned but never used
+    "ARG002", # Unused method argument
 ]
 
 [tool.mypy]
@@ -134,7 +144,7 @@ minversion = "7.0"
 addopts = [
     "-ra",
     "--strict-markers",
-    "--cov=gridporter",
+    "--cov=gridgulp",
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",
@@ -145,7 +155,7 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
-source = ["src/gridporter"]
+source = ["src/gridgulp"]
 omit = [
     "*/tests/*",
     "*/__init__.py",

@@ -2,9 +2,9 @@
 
 import pytest
 
-from gridporter.models.table import TableRange
-from gridporter.models.sheet_data import SheetData, CellData
-from gridporter.detectors.format_analyzer import (
+from gridgulp.models.table import TableRange
+from gridgulp.models.sheet_data import SheetData, CellData
+from gridgulp.detectors.format_analyzer import (
     SemanticFormatAnalyzer,
     RowType,
     SemanticRow,

@@ -1,0 +1,111 @@
+GridGulp
+Copyright (c) 2025 Ganymede Bio
+
+This product includes software developed by Ganymede Bio.
+
+This software contains code derived from or depends on the following third-party libraries:
+
+## MIT Licensed Dependencies
+
+pydantic (https://github.com/pydantic/pydantic)
+Copyright (c) 2017 to present Pydantic Services Inc. and individual contributors.
+Licensed under the MIT License.
+
+openpyxl (https://openpyxl.readthedocs.io/)
+Copyright (c) 2010 openpyxl
+Licensed under the MIT License.
+
+python-magic (https://github.com/ahupp/python-magic)
+Copyright (c) 2001-2021 Adam Hupp
+Licensed under the MIT License.
+
+filetype (https://github.com/h2non/filetype.py)
+Copyright (c) Tomas Aparicio
+Licensed under the MIT License.
+
+rich (https://github.com/Textualize/rich)
+Copyright (c) 2020 Will McGugan
+Licensed under the MIT License.
+
+python-calamine (https://github.com/dimastbk/python-calamine)
+Licensed under the MIT License.
+
+## BSD Licensed Dependencies
+
+xlrd (https://github.com/python-excel/xlrd)
+Copyright (c) 2005-2009, Stephen John Machin, Lingfo Pty Ltd
+All rights reserved.
+Licensed under the BSD License.
+
+pandas (https://github.com/pandas-dev/pandas)
+Copyright (c) 2008-2011, AQR Capital Management, LLC, Lambda Foundry, Inc. and PyData Development Team
+Copyright (c) 2011-2025, Open source contributors.
+Licensed under the BSD 3-Clause License.
+
+numpy (https://numpy.org/)
+Copyright (c) 2005-2025, NumPy Developers.
+All rights reserved.
+Licensed under the BSD 3-Clause License.
+
+scipy (https://scipy.org/)
+Copyright (c) 2001-2002 Enthought, Inc. 2003-2025, SciPy Developers.
+All rights reserved.
+Licensed under the BSD 3-Clause License.
+
+click (https://github.com/pallets/click)
+Copyright 2014 Pallets
+Licensed under the BSD 3-Clause License.
+
+## Apache 2.0 Licensed Dependencies
+
+magika (https://github.com/google/magika)
+Copyright (c) Google LLC
+Licensed under the Apache License, Version 2.0.
+
+aiofiles (https://github.com/Tinche/aiofiles)
+Copyright (c) 2015-present, Tin Tvrtković
+Licensed under the Apache License, Version 2.0.
+
+## LGPL Licensed Dependencies
+
+chardet (https://github.com/chardet/chardet)
+Copyright (C) 1998-2020 by the respective authors.
+Licensed under the GNU Lesser General Public License v2.1.
+
+---
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+For MIT Licensed software:
+- The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+For BSD Licensed software:
+- Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+- Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+- Neither the name of the copyright holder nor the names of its contributors
+  may be used to endorse or promote products derived from this software
+  without specific prior written permission.
+
+For Apache 2.0 Licensed software:
+- Licensed under the Apache License, Version 2.0; you may not use this file
+  except in compliance with the License. You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+
+For LGPL Licensed software:
+- This library is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or (at your
+  option) any later version.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

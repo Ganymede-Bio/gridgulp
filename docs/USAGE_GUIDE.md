@@ -1,11 +1,11 @@
-# GridPorter Usage Guide
+# GridGulp Usage Guide
 
 ## Installation
 
 ```bash
 # Install from source
-git clone https://github.com/yourusername/gridporter.git
-cd gridporter
+git clone https://github.com/Ganymede-Bio/gridgulp.git
+cd gridgulp
 pip install -e .
 
 # Install with development dependencies
@@ -16,11 +16,11 @@ pip install -e ".[dev]"
 
 ```python
 import asyncio
-from gridporter import GridPorter
+from gridgulp import GridGulp
 
 async def main():
-    # Initialize GridPorter
-    porter = GridPorter()
+    # Initialize GridGulp
+    porter = GridGulp()
 
     # Detect tables in a file
     result = await porter.detect_tables("data/report.xlsx")
@@ -58,11 +58,11 @@ asyncio.run(main())
 ### Simple Detection
 
 ```python
-from gridporter import GridPorter
+from gridgulp import GridGulp
 
 # Synchronous wrapper for simple scripts
 def detect_tables_sync(file_path):
-    porter = GridPorter()
+    porter = GridGulp()
     result = asyncio.run(porter.detect_tables(file_path))
     return result
 
@@ -75,7 +75,7 @@ print(f"Tables found: {result.total_tables}")
 
 ```python
 async def process_file(file_path):
-    porter = GridPorter()
+    porter = GridGulp()
     result = await porter.detect_tables(file_path)
 
     # Iterate through sheets and tables
@@ -98,7 +98,7 @@ async def process_file(file_path):
 ### Basic Configuration
 
 ```python
-from gridporter import GridPorter, Config
+from gridgulp import GridGulp, Config
 
 # Create custom configuration
 config = Config(
@@ -109,7 +109,7 @@ config = Config(
     timeout_seconds=30,            # Processing timeout
 )
 
-porter = GridPorter(config=config)
+porter = GridGulp(config=config)
 ```
 
 ### Detection Settings
@@ -151,7 +151,7 @@ config = Config(
 
 ```python
 async def process_directory(directory_path):
-    porter = GridPorter()
+    porter = GridGulp()
     results = []
 
     # Find all spreadsheet files
@@ -180,7 +180,7 @@ async def process_directory(directory_path):
 ```python
 async def process_scientific_data(file_path):
     """Process scientific instrument output files."""
-    porter = GridPorter()
+    porter = GridGulp()
     result = await porter.detect_tables(file_path)
 
     # Text files are processed as single sheet
@@ -196,10 +196,10 @@ async def process_scientific_data(file_path):
 ### Error Handling
 
 ```python
-from gridporter import GridPorter, ReaderError
+from gridgulp import GridGulp, ReaderError
 
 async def safe_process(file_path):
-    porter = GridPorter()
+    porter = GridGulp()
 
     try:
         result = await porter.detect_tables(file_path)
@@ -222,11 +222,11 @@ async def safe_process(file_path):
 ```python
 async def extract_data_with_context(file_path):
     """Extract tables with surrounding context."""
-    porter = GridPorter()
+    porter = GridGulp()
     result = await porter.detect_tables(file_path)
 
     # Get the reader for direct access
-    from gridporter.readers import ReaderFactory
+    from gridgulp.readers import ReaderFactory
     reader = ReaderFactory.create_reader(
         file_path,
         result.file_info
@@ -264,7 +264,7 @@ async def process_financial_report(file_path):
         min_table_size=(5, 3),         # Larger minimum size
     )
 
-    porter = GridPorter(config)
+    porter = GridGulp(config)
     result = await porter.detect_tables(file_path)
 
     # Financial reports often have multiple sections
@@ -283,7 +283,7 @@ async def process_lab_data(file_path):
         timeout_seconds=60,      # May take longer
     )
 
-    porter = GridPorter(config)
+    porter = GridGulp(config)
     result = await porter.detect_tables(file_path)
 
     table = result.sheets[0].tables[0]
@@ -295,7 +295,7 @@ async def process_lab_data(file_path):
 
 ```python
 async def validate_extraction(file_path, expected_tables):
-    porter = GridPorter()
+    porter = GridGulp()
     result = await porter.detect_tables(file_path)
 
     # Validate table count
@@ -334,7 +334,7 @@ config = Config(
 ```python
 # Process in parallel
 async def process_many_files(file_paths):
-    porter = GridPorter()
+    porter = GridGulp()
 
     # Limit concurrency to avoid resource exhaustion
     semaphore = asyncio.Semaphore(10)
@@ -371,7 +371,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 # Now detection will show detailed progress
-porter = GridPorter()
+porter = GridGulp()
 result = await porter.detect_tables("problem_file.xlsx")
 ```
 
@@ -379,7 +379,7 @@ result = await porter.detect_tables("problem_file.xlsx")
 
 ```python
 # Save detection visualization
-from gridporter.utils.visualization import visualize_detection
+from gridgulp.utils.visualization import visualize_detection
 
 result = await porter.detect_tables("complex_sheet.xlsx")
 visualize_detection(result, output_path="detection_debug.png")

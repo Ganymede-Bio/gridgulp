@@ -1,0 +1,173 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 0.3.0)'
+        required: true
+        type: string
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+      with:
+        version: "latest"
+
+    - name: Create virtual environment and install dependencies
+      run: |
+        uv venv
+        source .venv/bin/activate
+        uv pip install -e ".[dev]"
+
+    - name: Run tests
+      run: |
+        uv run pytest tests/ -v --cov=gridgulp
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+      with:
+        version: "latest"
+
+    - name: Get version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        else
+          echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Verify version matches pyproject.toml
+      run: |
+        PYPROJECT_VERSION=$(grep '^version = ' pyproject.toml | cut -d'"' -f2)
+        if [ "$PYPROJECT_VERSION" != "${{ steps.version.outputs.version }}" ]; then
+          echo "Version mismatch: pyproject.toml has $PYPROJECT_VERSION but releasing ${{ steps.version.outputs.version }}"
+          exit 1
+        fi
+
+    - name: Build package
+      run: |
+        uv build
+
+    - name: Check dist contents
+      run: |
+        ls -la dist/
+        # Verify wheel and sdist were created
+        [ -f dist/gridgulp-${{ steps.version.outputs.version }}-py3-none-any.whl ] || exit 1
+        [ -f dist/gridgulp-${{ steps.version.outputs.version }}.tar.gz ] || exit 1
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist
+        path: dist/
+
+  publish-pypi:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write  # Required for OIDC
+      contents: read
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: dist
+        path: dist/
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        verbose: true
+        print-hash: true
+
+  create-github-release:
+    needs: [build, publish-pypi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: dist
+        path: dist/
+
+    - name: Extract changelog for version
+      id: changelog
+      run: |
+        # Extract the changelog section for this version
+        VERSION="${{ needs.build.outputs.version }}"
+        CHANGELOG=$(sed -n "/## \[$VERSION\]/,/## \[/p" docs/CHANGELOG.md | sed '$d')
+
+        # Save to file for release body
+        echo "$CHANGELOG" > release_notes.md
+
+        # Check if we found changelog
+        if [ -z "$CHANGELOG" ]; then
+          echo "No changelog found for version $VERSION"
+          echo "See [CHANGELOG.md](docs/CHANGELOG.md) for details." > release_notes.md
+        fi
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: v${{ needs.build.outputs.version }}
+        body_path: release_notes.md
+        files: |
+          dist/gridgulp-${{ needs.build.outputs.version }}-py3-none-any.whl
+          dist/gridgulp-${{ needs.build.outputs.version }}.tar.gz
+        draft: false
+        prerelease: false
+
+  verify-installation:
+    needs: [build, publish-pypi]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Wait for PyPI availability
+      run: sleep 60  # Give PyPI time to update
+
+    - name: Install from PyPI
+      run: |
+        pip install gridgulp==${{ needs.build.outputs.version }}
+
+    - name: Verify installation
+      run: |
+        python -c "import gridgulp; print(f'GridGulp {gridgulp.__version__} installed successfully')"
+        # Run basic smoke test
+        python -c "from gridgulp import GridGulp; print('Import successful')"

@@ -1,4 +1,4 @@
-"""Test output capture system for GridPorter."""
+"""Test output capture system for GridGulp."""
 
 import difflib
 import html
@@ -62,7 +62,11 @@ class TestOutputCapture:
         """Capture pipeline input."""
         self.capture(
             "input",
-            {"file_path": file_path, "options": options, "timestamp": datetime.now().isoformat()},
+            {
+                "file_path": file_path,
+                "options": options,
+                "timestamp": datetime.now().isoformat(),
+            },
         )
 
     def capture_detection(self, tables_detected: Any) -> None:
@@ -91,7 +95,11 @@ class TestOutputCapture:
         """Capture performance metrics."""
         self.capture(
             "metrics",
-            {"test_name": self.test_name, "timestamp": self.timestamp, "metrics": metrics},
+            {
+                "test_name": self.test_name,
+                "timestamp": self.timestamp,
+                "metrics": metrics,
+            },
         )
 
     def compare_with_golden(self, stage: str = "output") -> dict[str, Any]:
@@ -107,10 +115,16 @@ class TestOutputCapture:
         golden_path = self.golden_dir / f"{self.test_name}_{stage}.json"
 
         if not golden_path.exists():
-            return {"status": "no_golden", "message": f"No golden output found at {golden_path}"}
+            return {
+                "status": "no_golden",
+                "message": f"No golden output found at {golden_path}",
+            }
 
         if stage not in self.captured_stages:
-            return {"status": "no_capture", "message": f"No captured data for stage '{stage}'"}
+            return {
+                "status": "no_capture",
+                "message": f"No captured data for stage '{stage}'",
+            }
 
         # Load golden output
         with open(golden_path) as f:
@@ -247,7 +261,12 @@ class TestOutputCapture:
             # Primitive comparison
             if expected != actual:
                 differences.append(
-                    {"path": path, "type": "value_mismatch", "expected": expected, "actual": actual}
+                    {
+                        "path": path,
+                        "type": "value_mismatch",
+                        "expected": expected,
+                        "actual": actual,
+                    }
                 )
 
         return differences

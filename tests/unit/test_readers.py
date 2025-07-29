@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 import pytest
 
-from gridporter.models import FileInfo, FileType, SheetData
-from gridporter.readers import (
+from gridgulp.models import FileInfo, FileType, SheetData
+from gridgulp.readers import (
     BaseReader,
     CSVReader,
     ExcelReader,
@@ -35,7 +35,7 @@ class MockReader(BaseReader):
         return ["mock"]
 
     def _create_mock_file_data(self):
-        from gridporter.models import FileData
+        from gridgulp.models import FileData
 
         sheet = self._create_empty_sheet("MockSheet")
         return FileData(sheets=[sheet], metadata={}, file_format="mock")

@@ -1,15 +1,15 @@
-# GridPorter API Reference
+# GridGulp API Reference
 
 ## Core Classes
 
-### GridPorter
+### GridGulp
 
 The main entry point for table detection.
 
 ```python
-class GridPorter:
+class GridGulp:
     def __init__(self, config: Config | None = None):
-        """Initialize GridPorter with optional configuration.
+        """Initialize GridGulp with optional configuration.
 
         Args:
             config: Configuration object. If None, uses defaults.
@@ -33,7 +33,7 @@ class GridPorter:
 
 ### Config
 
-Configuration options for GridPorter.
+Configuration options for GridGulp.
 
 ```python
 class Config(BaseModel):
@@ -97,6 +97,62 @@ class DetectionResult(BaseModel):
 
     def to_summary(self) -> dict:
         """Create summary statistics."""
+```
+
+### DataFrameExtractor
+
+Extracts pandas DataFrames from detected table regions with intelligent header detection.
+
+```python
+class DataFrameExtractor:
+    def __init__(self,
+                 max_header_rows: int = 5,
+                 min_data_rows: int = 1,
+                 type_consistency_threshold: float = 0.8):
+        """Initialize the DataFrame extractor.
+
+        Args:
+            max_header_rows: Maximum rows to check for headers
+            min_data_rows: Minimum data rows required
+            type_consistency_threshold: Required type consistency
+        """
+
+    def extract_dataframe(
+        self,
+        sheet_data: SheetData,
+        cell_range: CellRange
+    ) -> tuple[pd.DataFrame | None, HeaderDetectionResult | None, float]:
+        """Extract DataFrame from a cell range.
+
+        Args:
+            sheet_data: Sheet data containing cells
+            cell_range: Range to extract
+
+        Returns:
+            Tuple of (DataFrame, header info, quality score)
+        """
+```
+
+### StructuredTextDetector
+
+Specialized detector for TSV files and instrument output with multiple table formats.
+
+```python
+class StructuredTextDetector:
+    def detect_tables(self, sheet_data: SheetData) -> list[TableInfo]:
+        """Detect tables in structured text files.
+
+        Uses column consistency analysis and handles:
+        - Plate map formats (96-well, 384-well, etc.)
+        - Instrument output with metadata sections
+        - Multiple table formats in single file
+
+        Args:
+            sheet_data: Sheet data to analyze
+
+        Returns:
+            List of detected tables
+        """
 ```
 
 ### SheetResult
@@ -223,18 +279,87 @@ Multi-table detection using connected components.
 
 ```python
 class IslandDetector:
-    def detect_islands(self, sheet_data: SheetData) -> list[Island]:
+    def __init__(self,
+                 max_gap: int = 1,
+                 min_island_size: int = 4,
+                 use_structural_analysis: bool = False):
+        """Initialize island detector.
+
+        Args:
+            max_gap: Max gap between connected cells
+            min_island_size: Minimum cells for valid island
+            use_structural_analysis: Enable column consistency analysis
+        """
+
+    def detect_islands(self, sheet_data: SheetData) -> list[DataIsland]:
         """Detect disconnected data regions.
 
         Args:
             sheet_data: Sheet data to analyze
 
         Returns:
-            List of Island objects
+            List of DataIsland objects
         """
+```
 
-    def calculate_density(self, island: Island) -> float:
-        """Calculate cell density for an island."""
+## Extraction Models
+
+### ExtractedTable
+
+Information about an extracted table.
+
+```python
+class ExtractedTable(BaseModel):
+    range: CellRange                   # Table range
+    detection_confidence: float        # Detection confidence
+    extraction_status: str            # "success", "failed", "pending"
+    quality_score: float = 0.0        # Extraction quality (0-1)
+
+    # Header information
+    has_headers: bool = False
+    header_rows: int = 0
+    headers: list[str] = []
+    orientation: str = "vertical"      # "vertical" or "horizontal"
+
+    # Data metrics
+    data_rows: int = 0
+    data_columns: int = 0
+    data_density: float = 0.0
+
+    # Extracted data
+    dataframe_dict: dict[str, list] | None = None
+```
+
+### FileExtractionResult
+
+Complete extraction results for a file.
+
+```python
+class FileExtractionResult(BaseModel):
+    file_path: str
+    file_type: str
+    timestamp: str
+
+    # Summary statistics
+    total_sheets: int = 0
+    total_tables_detected: int = 0
+    total_tables_extracted: int = 0
+    total_tables_failed: int = 0
+
+    # Timing
+    detection_time: float = 0.0
+    extraction_time: float = 0.0
+
+    # Results per sheet
+    sheets: list[SheetExtractionResult] = []
+
+    @property
+    def overall_success_rate(self) -> float:
+        """Percentage of successfully extracted tables."""
+
+    @property
+    def high_quality_tables(self) -> list[ExtractedTable]:
+        """Tables with quality score > 0.7."""
 ```
 
 ### ExcelMetadataExtractor
