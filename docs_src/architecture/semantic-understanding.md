@@ -407,4 +407,4 @@ Key benefits:
 - **Flexible Interpretation**: Adapts to different spreadsheet styles
 - **Continuous Improvement**: Learns from usage patterns
 
-For more examples and use cases, see the [examples directory](../examples/).
+For more examples and use cases, see the [examples directory](https://github.com/Ganymede-Bio/gridgulp/tree/main/examples/).

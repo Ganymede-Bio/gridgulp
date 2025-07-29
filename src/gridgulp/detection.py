@@ -225,14 +225,22 @@ def detect_tables(
     import asyncio
 
     # Run detection
-    if asyncio.get_event_loop().is_running():
-        # If we're already in an async context, we need to create a new loop
-        import concurrent.futures
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # If we're already in an async context, we need to create a new loop
+            import concurrent.futures
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(asyncio.run, agent.detect_tables(sheet_data))
-            result = future.result()
-    else:
+            def _run_async() -> DetectionResult:
+                return asyncio.run(agent.detect_tables(sheet_data))
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(_run_async)
+                result = future.result()
+        else:
+            result = asyncio.run(agent.detect_tables(sheet_data))
+    except RuntimeError:
+        # No event loop
         result = asyncio.run(agent.detect_tables(sheet_data))
 
     return result.tables

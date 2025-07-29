@@ -163,15 +163,18 @@ class CSVReader(SyncBaseReader):
         lines = sample.split("\n")[:10]  # Check first 10 lines
 
         for delimiter in delimiters:
-            consistent_count = None
+            consistent_count = 0
             consistent_lines = 0
+            first_count = True
 
             for line in lines:
                 if line.strip():  # Skip empty lines
                     count = line.count(delimiter)
                     if count > 0:
-                        if consistent_count is None:
+                        if first_count:
                             consistent_count = count
+                            consistent_lines = 1
+                            first_count = False
                         elif consistent_count == count:
                             consistent_lines += 1
 

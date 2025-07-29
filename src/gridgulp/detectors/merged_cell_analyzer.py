@@ -115,7 +115,7 @@ class MergedCellAnalyzer:
 
         Args:
             merged_cells: List of merged cells
-            table_range: Table range
+            _table_range: Table range
 
         Returns:
             Dict mapping row index to list of (start_col, end_col) spans

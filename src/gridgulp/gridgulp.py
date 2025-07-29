@@ -214,8 +214,11 @@ class GridGulp:
             # Run in a separate thread to avoid event loop conflicts
             import concurrent.futures
 
+            def _run_async() -> DetectionResult:
+                return asyncio.run(self.detect_tables(file_path))
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, self.detect_tables(file_path))
+                future = executor.submit(_run_async)
                 return future.result()
         except RuntimeError:
             # No running event loop, we can use asyncio.run directly
@@ -320,8 +323,11 @@ class GridGulp:
             # Run in a separate thread
             import concurrent.futures
 
+            def _run_async() -> list[DetectionResult]:
+                return asyncio.run(self.batch_detect(file_paths))
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, self.batch_detect(file_paths))
+                future = executor.submit(_run_async)
                 return future.result()
         except RuntimeError:
             # No running event loop

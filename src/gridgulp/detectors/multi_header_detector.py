@@ -77,7 +77,7 @@ class MultiHeaderDetector:
         Args:
             sheet_data: The sheet data containing cell information
             table_range: The range of the table
-            data: Optional DataFrame representation of the data
+            _data: Optional DataFrame representation of the data
 
         Returns:
             MultiRowHeader if detected, None otherwise
@@ -405,10 +405,8 @@ class MultiHeaderDetector:
         hierarchy_depths = [len(h) for h in column_mappings.values() if h]
         if hierarchy_depths:
             avg_depth = sum(hierarchy_depths) / len(hierarchy_depths)
-            depth_variance = np.var(hierarchy_depths) if len(hierarchy_depths) > 1 else 0
-            consistency_score = (
-                1.0 - min(float(depth_variance / avg_depth), 1.0) if avg_depth > 0 else 0
-            )
+            depth_variance = float(np.var(hierarchy_depths)) if len(hierarchy_depths) > 1 else 0.0
+            consistency_score = 1.0 - min(depth_variance / avg_depth, 1.0) if avg_depth > 0 else 0
             scores.append(float(consistency_score))
 
         # Score 3: Non-empty header values
