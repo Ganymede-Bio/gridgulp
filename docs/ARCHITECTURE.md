@@ -16,25 +16,25 @@ GridGulp is a streamlined table detection framework that uses proven algorithms 
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    GridGulp API                        │
+│                    GridGulp API                         │
 ├─────────────────────────────────────────────────────────┤
-│                  File Type Detection                     │
-│                  (Magika + Magic)                        │
+│                  File Type Detection                    │
+│                  (Magika + Magic)                       │
 ├─────────────────────────────────────────────────────────┤
-│                    File Readers                          │
-│  ┌─────────────┬──────────────┬────────────────────┐   │
-│  │ ExcelReader │  CSVReader   │    TextReader      │   │
-│  │ (openpyxl)  │  (csv.reader)│ (encoding detect)  │   │
-│  └─────────────┴──────────────┴────────────────────┘   │
+│                    File Readers                         │
+│  ┌─────────────┬──────────────┬────────────────────┐    │
+│  │ ExcelReader │  CSVReader   │    TextReader      │    │
+│  │ (openpyxl)  │  (csv.reader)│ (encoding detect)  │    │
+│  └─────────────┴──────────────┴────────────────────┘    │
 ├─────────────────────────────────────────────────────────┤
-│                 Detection Pipeline                       │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │ 1. SimpleCaseDetector (single table near A1)    │   │
-│  │ 2. IslandDetector (multi-table detection)       │   │
-│  │ 3. ExcelMetadataExtractor (ListObjects)         │   │
-│  └─────────────────────────────────────────────────┘   │
+│                 Detection Pipeline                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ 1. SimpleCaseDetector (single table near A1)    │    │
+│  │ 2. IslandDetector (multi-table detection)       │    │
+│  │ 3. ExcelMetadataExtractor (ListObjects)         │    │
+│  └─────────────────────────────────────────────────┘    │
 ├─────────────────────────────────────────────────────────┤
-│                   Output Models                          │
+│                   Output Models                         │
 │  DetectionResult → SheetResult → TableInfo              │
 └─────────────────────────────────────────────────────────┘
 ```
