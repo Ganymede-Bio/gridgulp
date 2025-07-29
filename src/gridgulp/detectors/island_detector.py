@@ -7,9 +7,9 @@ This module implements connected component analysis to identify separate
 import logging
 from collections import deque
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
-from ..core.constants import ISLAND_DETECTION
+from ..core.constants import FORMATTING_DETECTION, ISLAND_DETECTION
 from ..models.table import TableInfo, TableRange
 from ..utils.excel_utils import get_column_letter
 
@@ -31,6 +31,11 @@ class DataIsland:
     density: float = 0.0
     has_headers: bool = False
     confidence: float = 0.0
+    total_sheet_cells: int = 0  # Total cells in the sheet for relative size calculation
+    border_cell_ratio: float = 0.0  # Ratio of populated cells in border area
+    is_subset_of: Optional[
+        "DataIsland"
+    ] = None  # Reference to containing island if this is a subset
 
     def add_cell(self, row: int, col: int) -> None:
         """Add a cell to the island and update bounds."""
@@ -69,6 +74,9 @@ class DataIsland:
             for cell in first_row_cells
         )
 
+        # Analyze border cells
+        self.border_cell_ratio = self._analyze_border_cells(sheet_data)
+
         # Calculate confidence based on various factors
         self.confidence = self._calculate_confidence()
 
@@ -76,11 +84,26 @@ class DataIsland:
         """Calculate confidence score for this island being a table."""
         confidence = ISLAND_DETECTION.BASE_CONFIDENCE
 
-        # Size factors
+        # Calculate relative size if sheet cells are known
         cell_count = len(self.cells)
-        if cell_count >= ISLAND_DETECTION.MIN_CELLS_GOOD:
+        relative_size = cell_count / self.total_sheet_cells if self.total_sheet_cells > 0 else 0
+
+        # Use relative size for confidence calculation
+        if relative_size >= ISLAND_DETECTION.RELATIVE_SIZE_LARGE:
+            # Large table relative to sheet
+            confidence += ISLAND_DETECTION.CONFIDENCE_BOOST_LARGE * 1.5
+        elif relative_size >= ISLAND_DETECTION.RELATIVE_SIZE_MEDIUM:
+            # Medium table relative to sheet
             confidence += ISLAND_DETECTION.CONFIDENCE_BOOST_LARGE
-        elif cell_count >= ISLAND_DETECTION.MIN_CELLS_MEDIUM:
+        elif relative_size >= ISLAND_DETECTION.RELATIVE_SIZE_SMALL:
+            # Small but acceptable table
+            confidence += ISLAND_DETECTION.CONFIDENCE_BOOST_MEDIUM
+        elif relative_size < ISLAND_DETECTION.RELATIVE_SIZE_TINY:
+            # Tiny table - likely noise
+            confidence -= ISLAND_DETECTION.CONFIDENCE_PENALTY_SMALL * 2
+
+        # Also consider absolute size as a secondary factor
+        if cell_count >= ISLAND_DETECTION.MIN_CELLS_GOOD:
             confidence += ISLAND_DETECTION.CONFIDENCE_BOOST_MEDIUM
         elif cell_count < ISLAND_DETECTION.MIN_CELLS_SMALL:
             confidence -= ISLAND_DETECTION.CONFIDENCE_PENALTY_SMALL
@@ -115,7 +138,93 @@ class DataIsland:
         if self.has_headers:
             confidence += ISLAND_DETECTION.CONFIDENCE_BOOST_MEDIUM
 
+        # Border cell penalty
+        if self.border_cell_ratio > ISLAND_DETECTION.BORDER_CELL_THRESHOLD:
+            confidence -= ISLAND_DETECTION.CONFIDENCE_PENALTY_BORDER
+            # Extra penalty for very high border population
+            if self.border_cell_ratio > 0.5:
+                confidence -= ISLAND_DETECTION.CONFIDENCE_PENALTY_BORDER
+
+        # Subset penalty
+        if self.is_subset_of is not None:
+            confidence -= ISLAND_DETECTION.CONFIDENCE_PENALTY_SUBSET
+
         return min(max(confidence, 0.0), 1.0)
+
+    def _analyze_border_cells(
+        self, sheet_data: "SheetData", border_width: int | None = None
+    ) -> float:
+        """Analyze cells around the table border to detect if table boundaries might be incorrect.
+
+        Args:
+            sheet_data: The sheet data to analyze
+            border_width: Width of border to check (default from constants)
+
+        Returns:
+            Ratio of populated border cells (0.0 to 1.0)
+        """
+        if border_width is None:
+            border_width = ISLAND_DETECTION.BORDER_WIDTH
+
+        if (
+            self.min_row is None
+            or self.max_row is None
+            or self.min_col is None
+            or self.max_col is None
+        ):
+            return 0.0
+
+        border_cells = set()
+        populated_border = 0
+
+        # Define border bounds (excluding the table itself)
+        border_min_row = max(0, self.min_row - border_width)
+        border_max_row = min(sheet_data.max_row, self.max_row + border_width)
+        border_min_col = max(0, self.min_col - border_width)
+        border_max_col = min(sheet_data.max_column, self.max_col + border_width)
+
+        # Check top border
+        for row in range(border_min_row, self.min_row):
+            for col in range(border_min_col, border_max_col + 1):
+                pos = (row, col)
+                if pos not in border_cells:
+                    border_cells.add(pos)
+                    cell = sheet_data.get_cell(row, col)
+                    if cell and not cell.is_empty:
+                        populated_border += 1
+
+        # Check bottom border
+        for row in range(self.max_row + 1, border_max_row + 1):
+            for col in range(border_min_col, border_max_col + 1):
+                pos = (row, col)
+                if pos not in border_cells:
+                    border_cells.add(pos)
+                    cell = sheet_data.get_cell(row, col)
+                    if cell and not cell.is_empty:
+                        populated_border += 1
+
+        # Check left border (excluding corners already checked)
+        for row in range(self.min_row, self.max_row + 1):
+            for col in range(border_min_col, self.min_col):
+                pos = (row, col)
+                if pos not in border_cells:
+                    border_cells.add(pos)
+                    cell = sheet_data.get_cell(row, col)
+                    if cell and not cell.is_empty:
+                        populated_border += 1
+
+        # Check right border (excluding corners already checked)
+        for row in range(self.min_row, self.max_row + 1):
+            for col in range(self.max_col + 1, border_max_col + 1):
+                pos = (row, col)
+                if pos not in border_cells:
+                    border_cells.add(pos)
+                    cell = sheet_data.get_cell(row, col)
+                    if cell and not cell.is_empty:
+                        populated_border += 1
+
+        # Calculate ratio
+        return populated_border / len(border_cells) if border_cells else 0.0
 
     def to_range(self) -> str:
         """Convert island bounds to Excel range notation."""
@@ -142,6 +251,8 @@ class IslandDetector:
         column_consistency_threshold: float | None = None,
         min_empty_rows_to_split: int | None = None,
         use_structural_analysis: bool = False,
+        adaptive_thresholds: bool = True,
+        use_formatting_boundaries: bool = True,
     ):
         """Initialize the island detector.
 
@@ -152,6 +263,8 @@ class IslandDetector:
             column_consistency_threshold: How similar column usage must be to group rows (None uses default)
             min_empty_rows_to_split: Number of empty rows needed to split islands (None uses default)
             use_structural_analysis: Enable structural analysis for text files
+            adaptive_thresholds: Enable adaptive sizing based on sheet size
+            use_formatting_boundaries: Enable formatting-based boundary detection
         """
         # Use constants if not provided
         if max_gap is None:
@@ -173,6 +286,8 @@ class IslandDetector:
         self.column_consistency_threshold = column_consistency_threshold
         self.min_empty_rows_to_split = min_empty_rows_to_split
         self.use_structural_analysis = use_structural_analysis
+        self.adaptive_thresholds = adaptive_thresholds
+        self.use_formatting_boundaries = use_formatting_boundaries
 
     def detect_islands(self, sheet_data: "SheetData") -> list[DataIsland]:
         """Detect all data islands in the sheet.
@@ -192,15 +307,35 @@ class IslandDetector:
         if not sheet_data.has_data():
             return []
 
+        # Calculate adaptive thresholds based on sheet size
+        if self.adaptive_thresholds:
+            total_sheet_cells = len(sheet_data.cells)
+            # Adjust min_island_size based on sheet size
+            if total_sheet_cells > 10000:
+                # Large sheets: require at least 0.1% of cells
+                adaptive_min_size = max(20, int(total_sheet_cells * 0.001))
+            elif total_sheet_cells > 1000:
+                # Medium sheets: require at least 0.5% of cells
+                adaptive_min_size = max(10, int(total_sheet_cells * 0.005))
+            else:
+                # Small sheets: use default minimum
+                adaptive_min_size = self.min_island_size
+
+            # Use the larger of configured minimum or adaptive minimum
+            effective_min_size = max(self.min_island_size, adaptive_min_size)
+        else:
+            effective_min_size = self.min_island_size
+            total_sheet_cells = len(sheet_data.cells)
+
         # Use structural analysis for better separation if enabled
         if self.use_structural_analysis:
             return self._detect_islands_structural(sheet_data)
 
-        # Get all cells with data
+        # Get all cells with data (ignore empty strings)
         data_cells = {
             (cell.row, cell.column)
             for address, cell in sheet_data.cells.items()
-            if cell.value is not None
+            if not cell.is_empty
         }
 
         # Track visited cells
@@ -211,12 +346,70 @@ class IslandDetector:
         for cell_pos in data_cells:
             if cell_pos not in visited:
                 island = self._flood_fill(cell_pos, data_cells, visited)
-                if len(island.cells) >= self.min_island_size:
+                if len(island.cells) >= effective_min_size:
+                    # Pass total sheet cells for relative size calculation
+                    island.total_sheet_cells = total_sheet_cells
                     island.calculate_metrics(sheet_data)
                     islands.append(island)
 
         # Sort islands by size (largest first) and position
         islands.sort(key=lambda i: (-len(i.cells), i.min_row, i.min_col))
+
+        # Apply formatting-based splitting if enabled
+        formatting_splits_applied = False
+        if self.use_formatting_boundaries and islands:
+            original_count = len(islands)
+            islands = self._apply_formatting_splits(islands, sheet_data)
+            formatting_splits_applied = len(islands) > original_count
+            self.logger.info(
+                f"After formatting splits: {len(islands)} data islands (was {original_count}, splits applied: {formatting_splits_applied})"
+            )
+
+        # Apply merging to reduce fragmentation
+        if len(islands) > 1:
+            # Check if islands are well-separated by empty rows
+            well_separated = self._are_islands_well_separated(islands, sheet_data)
+
+            # Adaptive merge distance based on sheet density, formatting splits, and separation
+            sheet_density = len(sheet_data.cells) / (
+                (sheet_data.max_row + 1) * (sheet_data.max_column + 1)
+            )
+
+            if well_separated:
+                # Islands are separated by empty rows - be very conservative with merging
+                merge_distance = 0  # No merging for well-separated tables
+            elif formatting_splits_applied:
+                # If formatting splits were applied, be more conservative with merging
+                # to preserve the formatting-based table boundaries
+                merge_distance = 1
+            elif sheet_density < 0.3:
+                # Sparse sheet: larger merge distance
+                merge_distance = 5
+            elif sheet_density < 0.6:
+                # Medium density: moderate merge distance
+                merge_distance = 3
+            else:
+                # Dense sheet: smaller merge distance
+                merge_distance = 2
+
+            if merge_distance > 0:
+                islands = self.merge_nearby_islands(islands, merge_distance=merge_distance)
+                # Recalculate metrics for merged islands
+                for island in islands:
+                    # Pass total sheet cells for relative size calculation
+                    island.total_sheet_cells = total_sheet_cells
+                    island.calculate_metrics(sheet_data)
+                self.logger.info(
+                    f"After merging with distance {merge_distance}: {len(islands)} data islands"
+                )
+            else:
+                self.logger.info(
+                    f"Skipping merge - islands are well-separated: {len(islands)} data islands"
+                )
+
+        # Check for subset relationships
+        if len(islands) > 1:
+            self._check_subset_relationships(islands)
 
         self.logger.info(f"Detected {len(islands)} data islands")
         return islands
@@ -332,10 +525,78 @@ class IslandDetector:
                         merged_island.max_col = max(merged_island.max_col, island2.max_col)
                     used.add(j)
 
+            # Recalculate metrics for merged island
+            if hasattr(self, "logger"):
+                # If called from instance method, we have access to sheet_data
+                # This is a limitation - we need sheet_data to recalculate metrics
+                pass
             merged.append(merged_island)
             used.add(i)
 
         return merged
+
+    def _are_islands_well_separated(
+        self, islands: list[DataIsland], sheet_data: "SheetData"
+    ) -> bool:
+        """Check if islands are well-separated by empty rows/columns.
+
+        Args:
+            islands: List of islands to check
+            sheet_data: Sheet data
+
+        Returns:
+            True if islands are separated by at least one completely empty row/column
+        """
+        if len(islands) <= 1:
+            return False
+
+        # Sort islands by position for easier comparison
+        sorted_islands = sorted(islands, key=lambda i: (i.min_row or 0, i.min_col or 0))
+
+        for i in range(len(sorted_islands) - 1):
+            island1 = sorted_islands[i]
+            island2 = sorted_islands[i + 1]
+
+            if (
+                island1.max_row is None
+                or island2.min_row is None
+                or island1.max_col is None
+                or island2.min_col is None
+            ):
+                continue
+
+            # Check if there's at least one completely empty row between islands
+            if island2.min_row > island1.max_row + 1:
+                # Check if the gap rows are completely empty
+                gap_start = island1.max_row + 1
+                gap_end = island2.min_row - 1
+
+                gap_has_data = False
+                for row in range(gap_start, gap_end + 1):
+                    for col in range(
+                        max(0, min(island1.min_col or 0, island2.min_col or 0)),
+                        min(
+                            sheet_data.max_column + 1,
+                            max(island1.max_col or 0, island2.max_col or 0) + 1,
+                        ),
+                    ):
+                        cell = sheet_data.get_cell(row, col)
+                        if cell and not cell.is_empty:
+                            gap_has_data = True
+                            break
+                    if gap_has_data:
+                        break
+
+                if not gap_has_data:
+                    continue  # This pair is well-separated, check next pair
+                else:
+                    return False  # Found a pair that's not well-separated
+
+            else:
+                return False  # Islands are adjacent or overlapping
+
+        # All consecutive pairs are well-separated
+        return True
 
     def _should_merge(self, island1: DataIsland, island2: DataIsland, max_distance: int) -> bool:
         """Check if two islands should be merged based on proximity.
@@ -454,12 +715,20 @@ class IslandDetector:
         # Group consecutive rows with similar patterns
         row_groups = self._group_rows_by_pattern(row_patterns)
 
+        # Calculate adaptive threshold for structural analysis
+        total_sheet_cells = len(sheet_data.cells)
+        if self.adaptive_thresholds and total_sheet_cells > 1000:
+            effective_min_size = max(self.min_island_size, int(total_sheet_cells * 0.005))
+        else:
+            effective_min_size = self.min_island_size
+
         # Convert row groups to islands
         islands = []
         for group in row_groups:
-            if len(group) >= self.min_island_size:
+            if len(group) >= effective_min_size:
                 island = self._create_island_from_row_group(sheet_data, group)
-                if island and len(island.cells) >= self.min_island_size:
+                if island and len(island.cells) >= effective_min_size:
+                    island.total_sheet_cells = total_sheet_cells
                     island.calculate_metrics(sheet_data)
                     islands.append(island)
 
@@ -482,7 +751,7 @@ class IslandDetector:
         # Get all cells organized by row
         rows_data: dict[int, list[int]] = {}
         for _address, cell in sheet_data.cells.items():
-            if cell.value is not None:
+            if not cell.is_empty:
                 row = cell.row
                 if row not in rows_data:
                     rows_data[row] = []
@@ -603,7 +872,389 @@ class IslandDetector:
         for row in rows:
             # Add all cells in this row
             for _address, cell in sheet_data.cells.items():
-                if cell.row == row and cell.value is not None:
+                if cell.row == row and not cell.is_empty:
                     island.add_cell(cell.row, cell.column)
 
         return island if island.cells else None
+
+    def _check_subset_relationships(self, islands: list[DataIsland]) -> None:
+        """Check if any island is a subset of another island.
+
+        Updates the is_subset_of property for islands that are completely
+        contained within other islands.
+
+        Args:
+            islands: List of islands to check (should be sorted by size, largest first)
+        """
+        # Compare each island with larger islands
+        for i in range(len(islands)):
+            smaller = islands[i]
+            if smaller.is_subset_of is not None:
+                continue  # Already marked as subset
+
+            # Only check against larger islands (which come before in the sorted list)
+            for j in range(i):
+                larger = islands[j]
+
+                # Check if smaller is contained in larger
+                if self._is_island_subset(smaller, larger):
+                    smaller.is_subset_of = larger
+                    self.logger.debug(
+                        f"Island at {smaller.to_range()} is subset of {larger.to_range()}"
+                    )
+                    break
+
+    def _is_island_subset(self, island1: DataIsland, island2: DataIsland) -> bool:
+        """Check if island1 is completely contained within island2.
+
+        Args:
+            island1: Potentially smaller island
+            island2: Potentially larger island
+
+        Returns:
+            True if island1 is a subset of island2
+        """
+        # Quick bounds check
+        if (
+            island1.min_row is None
+            or island1.max_row is None
+            or island1.min_col is None
+            or island1.max_col is None
+            or island2.min_row is None
+            or island2.max_row is None
+            or island2.min_col is None
+            or island2.max_col is None
+        ):
+            return False
+
+        # Check if island1 bounds are within island2 bounds
+        if not (
+            island2.min_row <= island1.min_row
+            and island1.max_row <= island2.max_row
+            and island2.min_col <= island1.min_col
+            and island1.max_col <= island2.max_col
+        ):
+            return False
+
+        # Check if all cells of island1 are in island2
+        # (This handles cases where islands have gaps)
+        return island1.cells.issubset(island2.cells)
+
+    def _analyze_row_formatting(self, sheet_data: "SheetData", row: int) -> dict[str, Any]:
+        """Analyze formatting characteristics of a row.
+
+        Args:
+            sheet_data: Sheet data to analyze
+            row: Row index to analyze
+
+        Returns:
+            Dictionary with row formatting characteristics
+        """
+        row_cells = []
+        for col in range(sheet_data.max_column + 1):
+            cell = sheet_data.get_cell(row, col)
+            if cell and not cell.is_empty:
+                row_cells.append(cell)
+
+        if not row_cells:
+            return {
+                "has_data": False,
+                "bold_ratio": 0.0,
+                "background_colors": set(),
+                "font_colors": set(),
+                "font_sizes": set(),
+                "is_likely_header": False,
+                "formatting_consistency": 0.0,
+            }
+
+        # Calculate formatting metrics
+        bold_count = sum(1 for cell in row_cells if cell.is_bold)
+        bold_ratio = bold_count / len(row_cells)
+
+        background_colors = {cell.background_color for cell in row_cells if cell.background_color}
+        font_colors = {cell.font_color for cell in row_cells if cell.font_color}
+        font_sizes = {cell.font_size for cell in row_cells if cell.font_size}
+
+        # Determine if this looks like a header row
+        is_likely_header = bold_ratio >= FORMATTING_DETECTION.HEADER_BOLD_THRESHOLD or (
+            len(background_colors) == 1 and len(row_cells) > 1
+        )  # Consistent background
+
+        # Calculate formatting consistency (how similar cells are in this row)
+        consistency_factors = []
+        if bold_count == 0 or bold_count == len(row_cells):
+            consistency_factors.append(1.0)  # All same bold state
+        else:
+            consistency_factors.append(
+                max(bold_count, len(row_cells) - bold_count) / len(row_cells)
+            )
+
+        if len(background_colors) <= 1:
+            consistency_factors.append(1.0)  # Same or no background
+        else:
+            consistency_factors.append(0.5)  # Mixed backgrounds
+
+        if len(font_colors) <= 1:
+            consistency_factors.append(1.0)  # Same or no font color
+        else:
+            consistency_factors.append(0.5)  # Mixed font colors
+
+        formatting_consistency = sum(consistency_factors) / len(consistency_factors)
+
+        return {
+            "has_data": True,
+            "bold_ratio": bold_ratio,
+            "background_colors": background_colors,
+            "font_colors": font_colors,
+            "font_sizes": font_sizes,
+            "is_likely_header": is_likely_header,
+            "formatting_consistency": formatting_consistency,
+            "cell_count": len(row_cells),
+        }
+
+    def _detect_formatting_boundaries(
+        self, sheet_data: "SheetData", row_start: int, row_end: int
+    ) -> list[int]:
+        """Detect potential table boundaries based on formatting changes.
+
+        This method identifies logical table boundaries by looking for transitions from
+        data rows to header rows, ensuring headers stay with their data sections.
+
+        Args:
+            sheet_data: Sheet data to analyze
+            row_start: Starting row index
+            row_end: Ending row index
+
+        Returns:
+            List of row indices where new tables begin (before header rows)
+        """
+        # First pass: analyze all rows and identify header/data patterns
+        row_analysis = {}
+        for row in range(row_start, row_end + 1):
+            row_analysis[row] = self._analyze_row_formatting(sheet_data, row)
+
+        # Second pass: identify logical table boundaries
+        boundaries: list[int] = []
+        prev_row = None
+        current_table_start = None
+
+        for row in range(row_start, row_end + 1):
+            current = row_analysis[row]
+
+            if not current["has_data"]:
+                continue
+
+            if prev_row is not None:
+                prev = row_analysis[prev_row]  # type: ignore[unreachable]
+
+                # Check if this looks like a new table start
+                is_new_table_start = False
+
+                # Case 1: Transition from data to header (new table starting)
+                if not prev["is_likely_header"] and current["is_likely_header"]:
+                    is_new_table_start = True
+
+                # Case 2: Significant background color change indicating new section
+                if (
+                    current["background_colors"] != prev["background_colors"]
+                    and len(current["background_colors"]) > 0
+                    and len(prev["background_colors"]) > 0
+                ):
+                    is_new_table_start = True
+
+                # Case 3: Major formatting shift (combined factors)
+                formatting_change_score = 0.0
+
+                # Bold ratio change
+                bold_diff = abs(current["bold_ratio"] - prev["bold_ratio"])
+                if bold_diff > 0.5:
+                    formatting_change_score += 0.3
+
+                # Consistency change
+                consistency_diff = abs(
+                    current["formatting_consistency"] - prev["formatting_consistency"]
+                )
+                if consistency_diff > 0.4:
+                    formatting_change_score += 0.2
+
+                # Font/background changes
+                if current["background_colors"] != prev["background_colors"]:
+                    formatting_change_score += 0.2
+
+                if current["font_colors"] != prev["font_colors"]:
+                    formatting_change_score += 0.1
+
+                # If major formatting shift AND looks like header, it's a new table
+                if (
+                    formatting_change_score >= FORMATTING_DETECTION.BACKGROUND_CHANGE_THRESHOLD
+                    and current["is_likely_header"]
+                    and not prev["is_likely_header"]
+                ):
+                    is_new_table_start = True
+
+                # Mark boundary at start of new table (include the header)
+                if is_new_table_start and current_table_start is not None:
+                    boundaries.append(row)  # Split before this header row
+                    logger.debug(
+                        f"Table boundary detected before header at row {row+1}: "
+                        f"prev_header={prev['is_likely_header']}, curr_header={current['is_likely_header']}"
+                    )
+
+            # Track table start
+            if current_table_start is None and current["has_data"]:
+                current_table_start = row
+
+            prev_row = row
+
+        return boundaries
+
+    def _calculate_formatting_similarity(
+        self, format1: dict[str, Any], format2: dict[str, Any]
+    ) -> float:
+        """Calculate similarity between two formatting profiles.
+
+        Args:
+            format1: First formatting profile
+            format2: Second formatting profile
+
+        Returns:
+            Similarity score between 0.0 and 1.0
+        """
+        if not format1["has_data"] or not format2["has_data"]:
+            return 0.0
+
+        similarity_factors = []
+
+        # Bold ratio similarity
+        bold_similarity = 1.0 - abs(format1["bold_ratio"] - format2["bold_ratio"])
+        similarity_factors.append(bold_similarity)
+
+        # Background color similarity
+        bg1, bg2 = format1["background_colors"], format2["background_colors"]
+        if bg1 == bg2:
+            similarity_factors.append(1.0)
+        elif not bg1 and not bg2:
+            similarity_factors.append(1.0)  # Both have no background
+        else:
+            # Some overlap or difference
+            if bg1 and bg2:
+                overlap = len(bg1.intersection(bg2))
+                union = len(bg1.union(bg2))
+                similarity_factors.append(overlap / union if union > 0 else 0.0)
+            else:
+                similarity_factors.append(0.5)  # One has background, other doesn't
+
+        # Header pattern similarity
+        if format1["is_likely_header"] == format2["is_likely_header"]:
+            similarity_factors.append(1.0)
+        else:
+            similarity_factors.append(0.3)  # Different header patterns
+
+        # Consistency similarity
+        consistency_similarity = 1.0 - abs(
+            format1["formatting_consistency"] - format2["formatting_consistency"]
+        )
+        similarity_factors.append(consistency_similarity)
+
+        return float(sum(similarity_factors) / len(similarity_factors))
+
+    def _apply_formatting_splits(
+        self, islands: list[DataIsland], sheet_data: "SheetData"
+    ) -> list[DataIsland]:
+        """Apply formatting-based splits to large islands that span multiple visual tables.
+
+        Args:
+            islands: List of detected islands
+            sheet_data: Sheet data with formatting information
+
+        Returns:
+            List of islands after formatting-based splitting
+        """
+        split_islands = []
+
+        for island in islands:
+            island_size = (
+                island.max_row - island.min_row
+                if (island.min_row is not None and island.max_row is not None)
+                else 0
+            )
+            self.logger.debug(f"Checking island {island.to_range()}: size={island_size}")
+
+            if (
+                island.min_row is not None and island.max_row is not None and island_size > 3
+            ):  # Only split larger islands
+                # Detect formatting boundaries within this island
+                boundaries = self._detect_formatting_boundaries(
+                    sheet_data, island.min_row, island.max_row
+                )
+                self.logger.debug(f"Island {island.to_range()} boundaries: {boundaries}")
+
+                if boundaries:
+                    # Split the island at formatting boundaries
+                    split_parts = self._split_island_at_boundaries(island, boundaries, sheet_data)
+                    split_islands.extend(split_parts)
+                    self.logger.debug(
+                        f"Split island {island.to_range()} into {len(split_parts)} parts "
+                        f"at boundaries: {boundaries}"
+                    )
+                else:
+                    self.logger.debug(f"No boundaries found for island {island.to_range()}")
+                    split_islands.append(island)
+            else:
+                self.logger.debug(
+                    f"Island {island.to_range()} too small for splitting (size={island_size})"
+                )
+                split_islands.append(island)
+
+        return split_islands
+
+    def _split_island_at_boundaries(
+        self, island: DataIsland, boundaries: list[int], sheet_data: "SheetData"
+    ) -> list[DataIsland]:
+        """Split an island at the specified row boundaries.
+
+        Args:
+            island: Island to split
+            boundaries: List of row indices to split at
+            sheet_data: Sheet data
+
+        Returns:
+            List of new islands after splitting
+        """
+        if not boundaries or island.min_row is None or island.max_row is None:
+            return [island]
+
+        # Create row ranges between boundaries
+        row_ranges = []
+        start_row = island.min_row
+
+        for boundary in sorted(boundaries):
+            if start_row < boundary:
+                row_ranges.append((start_row, boundary - 1))
+            start_row = boundary
+
+        # Add final range
+        if start_row <= island.max_row:
+            row_ranges.append((start_row, island.max_row))
+
+        # Create new islands for each row range
+        new_islands = []
+        total_sheet_cells = island.total_sheet_cells
+
+        for start_row, end_row in row_ranges:
+            new_island = DataIsland()
+            new_island.total_sheet_cells = total_sheet_cells
+
+            # Add cells from original island that fall in this row range
+            for cell_pos in island.cells:
+                row, col = cell_pos
+                if start_row <= row <= end_row:
+                    new_island.add_cell(row, col)
+
+            # Only keep islands with sufficient cells
+            if len(new_island.cells) >= self.min_island_size:
+                new_island.calculate_metrics(sheet_data)
+                new_islands.append(new_island)
+
+        # If no valid splits were created, return original island
+        return new_islands if new_islands else [island]

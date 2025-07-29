@@ -35,26 +35,55 @@ class DetectionResult(BaseModel):
 class TableDetectionAgent:
     """Simplified table detection with minimal overhead."""
 
-    def __init__(self, confidence_threshold: float = 0.6, file_type: FileType | None = None):
+    def __init__(
+        self,
+        confidence_threshold: float = 0.6,
+        file_type: FileType | None = None,
+        config: Any | None = None,
+    ):
         self.confidence_threshold = confidence_threshold
         self.file_type = file_type
         self.simple_detector = SimpleCaseDetector()
         self.structured_text_detector: StructuredTextDetector | None = None
 
+        # Extract config values
+        adaptive_thresholds = True
+        min_table_percentage = 0.005
+        prefer_large_tables = True
+        if config:
+            adaptive_thresholds = getattr(config, "adaptive_thresholds", True)
+            min_table_percentage = getattr(config, "min_table_percentage", 0.005)
+            prefer_large_tables = getattr(config, "prefer_large_tables", True)
+
+        self.adaptive_thresholds = adaptive_thresholds
+        self.min_table_percentage = min_table_percentage
+        self.prefer_large_tables = prefer_large_tables
+
         # Configure island detector based on file type
         if file_type in (FileType.TXT, FileType.TSV):
             # Use stricter settings for text files
             self.island_detector = IslandDetector(
-                max_gap=ISLAND_DETECTION.TEXT_FILE_MAX_GAP, use_structural_analysis=True
+                max_gap=ISLAND_DETECTION.TEXT_FILE_MAX_GAP,
+                use_structural_analysis=True,
+                adaptive_thresholds=adaptive_thresholds,
             )
             self.structured_text_detector = StructuredTextDetector()
         else:
             # Use default settings for Excel and other files
-            self.island_detector = IslandDetector(max_gap=ISLAND_DETECTION.EXCEL_FILE_MAX_GAP)
+            self.island_detector = IslandDetector(
+                max_gap=ISLAND_DETECTION.EXCEL_FILE_MAX_GAP, adaptive_thresholds=adaptive_thresholds
+            )
 
     async def detect_tables(self, sheet_data: SheetData) -> DetectionResult:
         """Detect tables using fast-path algorithms."""
         start_time = time.time()
+
+        # Calculate sheet statistics
+        total_sheet_cells = len(sheet_data.cells)
+        sheet_area = (
+            (sheet_data.max_row + 1) * (sheet_data.max_column + 1) if sheet_data.has_data() else 0
+        )
+        sheet_density = total_sheet_cells / sheet_area if sheet_area > 0 else 0
 
         # Try fast paths in order of effectiveness
         tables = []
@@ -141,13 +170,47 @@ class TableDetectionAgent:
                 tables = [table]
                 method_used = "simple_case"
 
+        # Filter tables by relative size if adaptive thresholds are enabled
+        if self.adaptive_thresholds and self.min_table_percentage > 0 and total_sheet_cells > 0:
+            min_cells = int(total_sheet_cells * self.min_table_percentage)
+            original_count = len(tables)
+            tables = [t for t in tables if self._get_table_cell_count(t, sheet_data) >= min_cells]
+            if original_count != len(tables):
+                logger.info(
+                    f"Filtered {original_count - len(tables)} small tables below {self.min_table_percentage:.1%} threshold"
+                )
+
+        # Sort tables by size if prefer_large_tables is enabled
+        if self.prefer_large_tables and len(tables) > 1:
+            tables.sort(key=lambda t: -self._get_table_cell_count(t, sheet_data))
+
         processing_time = time.time() - start_time
+
+        # Add table statistics to metadata
+        table_sizes = [self._get_table_cell_count(t, sheet_data) for t in tables]
+        large_tables = (
+            sum(1 for s in table_sizes if s >= total_sheet_cells * 0.05)
+            if total_sheet_cells > 0
+            else 0
+        )
+        medium_tables = (
+            sum(1 for s in table_sizes if total_sheet_cells * 0.01 <= s < total_sheet_cells * 0.05)
+            if total_sheet_cells > 0
+            else 0
+        )
+        small_tables = len(tables) - large_tables - medium_tables
 
         return DetectionResult(
             tables=tables,
             processing_metadata={
                 "method_used": method_used,
                 "processing_time": processing_time,
+                "sheet_cells": total_sheet_cells,
+                "sheet_density": sheet_density,
+                "table_count": len(tables),
+                "large_tables": large_tables,
+                "medium_tables": medium_tables,
+                "small_tables": small_tables,
                 "cell_count": cell_count,
                 "performance": len(tables) > 0,
             },
@@ -200,6 +263,16 @@ class TableDetectionAgent:
         row = int(row_str) - 1
 
         return row, col
+
+    def _get_table_cell_count(self, table: TableInfo, sheet_data: SheetData) -> int:
+        """Calculate the number of non-empty cells in a table."""
+        count = 0
+        for row in range(table.range.start_row, table.range.end_row + 1):
+            for col in range(table.range.start_col, table.range.end_col + 1):
+                cell = sheet_data.get_cell(row, col)
+                if cell and cell.value is not None:
+                    count += 1
+        return count
 
 
 # Convenience function for direct API usage

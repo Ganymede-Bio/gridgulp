@@ -12,7 +12,7 @@ from typing import Final
 class IslandDetectionConstants:
     """Constants for island detection algorithm."""
 
-    # Minimum cell counts for confidence levels
+    # Minimum cell counts for confidence levels (used as baseline, adjusted by sheet size)
     MIN_CELLS_GOOD: Final[int] = 20  # Islands with 20+ cells get good confidence boost
     MIN_CELLS_MEDIUM: Final[int] = 10  # Islands with 10-19 cells get medium confidence boost
     MIN_CELLS_SMALL: Final[int] = 4  # Islands with 4-9 cells get small/no confidence boost
@@ -41,6 +41,18 @@ class IslandDetectionConstants:
     DEFAULT_MAX_GAP: Final[int] = 1  # Default max gap between cells for connectivity
     TEXT_FILE_MAX_GAP: Final[int] = 0  # Max gap for text files (stricter separation)
     EXCEL_FILE_MAX_GAP: Final[int] = 1  # Max gap for Excel files
+
+    # Relative size thresholds (percentage of total sheet cells)
+    RELATIVE_SIZE_LARGE: Final[float] = 0.05  # 5%+ of sheet cells is a large table
+    RELATIVE_SIZE_MEDIUM: Final[float] = 0.01  # 1-5% of sheet cells is medium table
+    RELATIVE_SIZE_SMALL: Final[float] = 0.005  # 0.5-1% of sheet cells is small table
+    RELATIVE_SIZE_TINY: Final[float] = 0.001  # <0.1% is tiny (usually noise)
+
+    # Border analysis parameters
+    BORDER_WIDTH: Final[int] = 2  # Width of border to check around tables
+    BORDER_CELL_THRESHOLD: Final[float] = 0.3  # 30%+ border cells populated is concerning
+    CONFIDENCE_PENALTY_BORDER: Final[float] = 0.2  # Penalty for high border population
+    CONFIDENCE_PENALTY_SUBSET: Final[float] = 0.3  # Penalty for being subset of another table
 
 
 @dataclass(frozen=True)
@@ -172,6 +184,36 @@ class VisionOrchestratorConstants:
 
 
 @dataclass(frozen=True)
+class FormattingDetectionConstants:
+    """Constants for formatting-based table detection."""
+
+    # Header detection thresholds
+    HEADER_BOLD_THRESHOLD: Final[float] = 0.7  # 70% of header row cells must be bold
+    HEADER_BACKGROUND_WEIGHT: Final[float] = 0.8  # Weight for background color in header detection
+
+    # Formatting change thresholds
+    BACKGROUND_CHANGE_THRESHOLD: Final[float] = 0.3  # Significant background color change
+    FONT_SIZE_CHANGE_THRESHOLD: Final[float] = 2.0  # Font size difference indicating new section
+    FONT_COLOR_CHANGE_THRESHOLD: Final[float] = 0.5  # Font color difference threshold
+
+    # Formatting consistency requirements
+    MIN_FORMATTING_CONSISTENCY: Final[float] = 0.8  # Formatting consistency within table
+    FORMATTING_SIMILARITY_THRESHOLD: Final[float] = 0.7  # How similar formatting must be to group
+
+    # Visual boundary detection
+    EMPTY_ROW_FORMATTING_WEIGHT: Final[float] = 0.5  # Weight formatting in empty row analysis
+    MERGED_CELL_BOUNDARY_RESPECT: Final[bool] = True  # Respect merged cell boundaries
+
+    # Format-aware merging parameters
+    ALLOW_CROSS_FORMAT_MERGE: Final[
+        bool
+    ] = False  # Don't merge tables with different header formats
+    HEADER_FORMAT_MERGE_THRESHOLD: Final[
+        float
+    ] = 0.9  # Similarity needed to merge different header formats
+
+
+@dataclass(frozen=True)
 class Keywords:
     """Keywords for pattern detection."""
 
@@ -235,4 +277,5 @@ COST_OPTIMIZATION = CostOptimizationConstants()  # Constants for cost optimizati
 EXCEL_LIMITS = ExcelLimits()  # Excel format limitations
 COMPLEXITY_ASSESSMENT = ComplexityAssessmentConstants()  # Constants for complexity assessment
 VISION_ORCHESTRATOR = VisionOrchestratorConstants()  # Constants for vision orchestrator
+FORMATTING_DETECTION = FormattingDetectionConstants()  # Constants for formatting-based detection
 KEYWORDS = Keywords()  # Multi-language keywords for pattern detection

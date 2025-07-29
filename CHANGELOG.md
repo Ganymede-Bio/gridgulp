@@ -8,10 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.1] - 2025-07-29
 
 ### Changed
-- **Project Rename**: Renamed from GridPorter to GridGulp
-  - Updated all package references throughout codebase
-  - Renamed source directory from `src/gridporter/` to `src/gridgulp/`
-  - Updated project metadata and documentation
 - CI improvements:
   - Added Python version matrix testing (3.10, 3.11, 3.12, 3.13)
   - Updated ruff target version to py310 (minimum supported)

@@ -5,6 +5,86 @@ All notable changes to GridGulp will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Smart Table Boundary Detection**: Enhanced formatting-based table separation
+  - Headers now correctly included with their data sections
+  - Well-separated table detection preserves natural boundaries
+  - Adaptive merge distance based on formatting patterns and empty row separation
+  - Formatting boundary detection using cell styling (bold, background colors)
+
+### Improved
+- **XLSB File Support**: Enhanced Excel Binary format handling
+  - Proper formatting extraction via ExcelReader instead of CalamineReader
+  - Better table detection in XLSB files with multiple tables
+  - Format mismatch handling for files with incorrect extensions
+
+- **Island Detection Algorithm**: Smarter merging logic
+  - Detects well-separated tables and skips aggressive merging
+  - Preserves formatting-based table boundaries
+  - Improved confidence calculation with proper order of operations
+  - Better empty cell detection using `is_empty` property
+
+- **Table Detection Accuracy**: Reduced false merging of separate tables
+  - Tables separated by empty rows are no longer incorrectly merged
+  - Headers stay with their respective data sections
+  - Better handling of multi-table sheets with different formatting
+
+### Fixed
+- Fixed header exclusion issue where headers were separated from data
+- Fixed confidence calculation bug with order of operations
+- Fixed empty cell detection treating empty strings as data
+- Fixed XLSB format support with proper reader selection
+
+## [0.3.3] - 2025-07-29
+
+### Added
+- **Comprehensive Test Coverage**: Added extensive test coverage for key components
+  - Enhanced test coverage for island detection, file reading, and core functionality
+  - Better test reliability and API compliance
+
+### Changed
+- **Test Suite Cleanup**: Removed all skipped tests and updated implementations
+  - All tests now pass with proper API implementations
+  - Cleaner, more maintainable test suite
+
+### Fixed
+- Fixed GitHub release action configuration with proper tag handling
+- Updated all tests to match actual API implementations
+- Resolved test failures and inconsistencies
+
+## [0.3.2] - 2025-07-29
+
+### Added
+- **MkDocs Documentation Site**: Professional documentation with Material theme
+  - Comprehensive API documentation
+  - Usage examples and guides
+  - GitHub Pages integration
+
+- **MyPy Type Checking**: Full static type checking support
+  - Complete type annotations throughout codebase
+  - MyPy configuration for strict type checking
+  - Improved code quality and developer experience
+
+### Improved
+- **Enhanced README**: Better examples and documentation
+  - Jupyter notebook examples
+  - DataFrame output demonstrations
+  - Clearer usage instructions
+
+### Fixed
+- Resolved all mypy type annotation errors
+- Fixed documentation build and rendering issues
+- Improved MkDocs configuration and theme setup
+- Fixed various CI/CD pipeline issues
+
+## [0.3.1] - 2025-07-29
+
+### Changed
+- **Version Update**: Incremental version bump for PyPI release
+- Updated package metadata and version strings
+
 ## [0.3.0] - 2025-07-29
 
 ### Added

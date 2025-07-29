@@ -128,6 +128,7 @@ class GridGulp:
                             detection_agent = TableDetectionAgent(
                                 confidence_threshold=self.config.confidence_threshold,
                                 file_type=file_info.type,
+                                config=self.config,
                             )
                             detection_result = await detection_agent.detect_tables(sheet_data)
 

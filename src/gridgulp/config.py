@@ -56,6 +56,17 @@ class Config(BaseModel):
     island_density_threshold: float = Field(
         0.8, ge=0.0, le=1.0, description="High density threshold for island detection"
     )
+
+    # Adaptive threshold configuration
+    adaptive_thresholds: bool = Field(
+        True, description="Enable adaptive table size thresholds based on sheet size"
+    )
+    min_table_percentage: float = Field(
+        0.005, ge=0.0, le=1.0, description="Minimum percentage of sheet cells for a valid table"
+    )
+    prefer_large_tables: bool = Field(
+        True, description="Favor detection of larger tables over smaller fragments"
+    )
     format_blank_row_threshold: float = Field(
         0.9,
         ge=0.0,

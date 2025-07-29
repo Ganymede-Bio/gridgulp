@@ -49,7 +49,6 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -116,7 +115,7 @@ EXPECTED_RESULTS = {
 class SpreadsheetTester:
     """Unified spreadsheet testing framework."""
 
-    def __init__(self, config: Optional[Config] = None):
+    def __init__(self, config: Config | None = None):
         """Initialize tester with optional config."""
         self.config = config or Config(
             confidence_threshold=0.7,
@@ -231,7 +230,7 @@ class SpreadsheetTester:
         return result
 
     async def test_directory(
-        self, directory: Path, patterns: Optional[list[str]] = None, recursive: bool = True
+        self, directory: Path, patterns: list[str] | None = None, recursive: bool = True
     ) -> list[dict]:
         """Test all files in a directory matching the given patterns."""
         if patterns is None:
@@ -309,11 +308,8 @@ class SpreadsheetTester:
                         detection_info = f" | Method: {result['file_info']['detection_method']}"
 
                     validation_info = ""
-                    if result.get("expected"):
-                        if result.get("validation") == "fail":
-                            validation_info = (
-                                f" | MISMATCH: expected {result['expected']['tables']}"
-                            )
+                    if result.get("expected") and result.get("validation") == "fail":
+                        validation_info = f" | MISMATCH: expected {result['expected']['tables']}"
 
                     print(
                         f"Tables: {result['tables_found']:<2} | "

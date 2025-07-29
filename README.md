@@ -1,10 +1,20 @@
 # GridGulp
 
+[![PyPI version](https://badge.fury.io/py/gridgulp.svg)](https://pypi.org/project/gridgulp/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/gridgulp.svg)](https://pypi.org/project/gridgulp/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://ganymede-bio.github.io/gridgulp/)
+
 Automatically detect and extract tables from Excel, CSV, and text files.
 
 ## What is GridGulp?
 
-GridGulp finds tables in your spreadsheets - even when there are multiple tables on one sheet or when tables don't start at cell A1. It comes with reasonable defaults and is fully configurable.
+GridGulp finds tables in your spreadsheets - even when
+
+- there are multiple tables on one sheet
+- tables don't start at cell A1
+- file extensions do not reflect its file type
+- the file encoding is opaque
 
 **Supported formats:** `.xlsx`, `.xls`, `.xlsm`, `.xlsb`, `.csv`, `.tsv`, `.txt`
 
@@ -15,6 +25,23 @@ pip install gridgulp
 ```
 
 ## Quick Start
+
+### Trying GridGulp Out
+
+To quickly try GridGulp on some spreadsheets, clone the repo, place example spreadsheets in the examples/ directory, and run
+
+```bash
+python scripts/test_example_files.py
+```
+
+You will receive output that looks like, representing identified ranges:
+
+📁 tests/manual
+----------------------------------------------------------------------------------------------------
+✓ sample.xlsx                              | Tables: 1  | Time: 1.099s | Size: 122.6KB | Method: magika
+  📄 Sheet: Sheet
+     └─ A1:CV203        | 203×100 | Conf: 70%
+
 
 ### Table Ranges vs DataFrames
 
@@ -185,7 +212,7 @@ if all_dataframes:
 - **Smart Headers** - Detects single and multi-row headers automatically
 - **Multiple Tables** - Handles sheets with multiple separate tables
 - **Quality Scoring** - Confidence scores for each detected table
-- **Fast** - Processes most files in under a second
+- **Fast** - Processes 1M+ cells/second for simple tables, 100K+ cells/second for complex tables
 
 ## Documentation
 
