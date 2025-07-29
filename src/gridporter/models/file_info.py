@@ -27,6 +27,7 @@ class FileType(str, Enum):
     XLSB = "xlsb"
     CSV = "csv"
     TSV = "tsv"
+    TXT = "txt"
     UNKNOWN = "unknown"
 
 

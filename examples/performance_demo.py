@@ -12,7 +12,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from gridporter.config import GridPorterConfig  # noqa: E402
 from gridporter.models import FileInfo, FileType  # noqa: E402
 from gridporter.readers import CalamineReader, ExcelReader, ReaderAdapter  # noqa: E402
-from gridporter.telemetry import get_tracker  # noqa: E402
 
 
 async def benchmark_readers(file_path: Path):
@@ -58,36 +57,6 @@ async def benchmark_readers(file_path: Path):
     print("\n📊 Performance Summary:")
     print(f"   Calamine is {openpyxl_time/calamine_time:.1f}x faster than openpyxl")
     print(f"   Calamine→Polars is {openpyxl_time/polars_time:.1f}x faster than openpyxl")
-
-
-async def demonstrate_telemetry():
-    """Show how LLM tracking works with OpenTelemetry."""
-    print("\n\nDemonstrating LLM Telemetry")
-    print("=" * 50)
-
-    # Get the tracker
-    tracker = get_tracker()
-
-    # Simulate LLM calls
-    with tracker.track_call("gpt-4", "table_detection"):
-        print("Simulating table detection with GPT-4...")
-        time.sleep(0.1)  # Simulate processing
-
-        # Record token usage
-        tracker.record_tokens(prompt_tokens=150, completion_tokens=50)
-
-    with tracker.track_call("gpt-4", "name_suggestion"):
-        print("Simulating name suggestion...")
-        time.sleep(0.05)
-        tracker.record_tokens(prompt_tokens=80, completion_tokens=20)
-
-    # Show totals
-    totals = tracker.get_totals()
-    print("\n📊 LLM Usage Summary:")
-    print(f"   Total calls: {totals['calls']}")
-    print(f"   Total tokens: {totals['total_tokens']}")
-    print(f"   Prompt tokens: {totals['prompt_tokens']}")
-    print(f"   Completion tokens: {totals['completion_tokens']}")
 
 
 async def demonstrate_adapter():
@@ -136,7 +105,6 @@ async def main():
         print("   Create a file named 'sample.xlsx' to test")
 
     # Always run these demos
-    await demonstrate_telemetry()
     await demonstrate_adapter()
 
     print("\n✅ Demo complete!")

@@ -7,6 +7,7 @@ from ..models.file_info import FileInfo, FileType
 from .base_reader import BaseReader, UnsupportedFileError
 from .csv_reader import CSVReader
 from .excel_reader import ExcelReader
+from .text_reader import TextReader
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,9 @@ class ReaderFactory:
         # CSV readers
         self.register_reader(FileType.CSV, CSVReader)
         self.register_reader(FileType.TSV, CSVReader)
+
+        # Text readers
+        self.register_reader(FileType.TXT, TextReader)
 
     def register_reader(self, file_type: FileType, reader_class: type[BaseReader]) -> None:
         """Register a reader for a specific file type.

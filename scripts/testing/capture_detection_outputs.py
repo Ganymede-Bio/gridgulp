@@ -3,16 +3,14 @@
 
 import asyncio
 import json
-import os
+import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any
-import sys
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from gridporter.agents import VisionOrchestratorAgent
-from gridporter.config import Config
+from gridporter.detection import TableDetectionAgent
 from gridporter.readers.convenience import get_reader
 
 
@@ -93,7 +91,9 @@ class DetectionOutputCapture:
                         print(f"      Confidence: {table['confidence']:.3f}")
 
 
-async def process_file(file_path: Path, config: Config, capture: DetectionOutputCapture):
+async def process_file(
+    file_path: Path, agent: TableDetectionAgent, capture: DetectionOutputCapture
+):
     """Process a single file and capture outputs."""
     print(f"\nProcessing: {file_path}")
 
@@ -102,16 +102,13 @@ async def process_file(file_path: Path, config: Config, capture: DetectionOutput
         reader = get_reader(str(file_path))
         file_data = reader.read_sync()
 
-        # Initialize orchestrator
-        orchestrator = VisionOrchestratorAgent(config)
-
         # Process each sheet
         results = []
         for sheet_data in file_data.sheets:
             print(f"  Sheet: {sheet_data.name}")
 
             # Run detection
-            result = await orchestrator.orchestrate_detection(sheet_data)
+            result = await agent.detect_tables(sheet_data)
 
             # Extract table information
             tables = []
@@ -131,8 +128,8 @@ async def process_file(file_path: Path, config: Config, capture: DetectionOutput
                 {
                     "sheet_name": sheet_data.name,
                     "tables": tables,
-                    "complexity_score": result.complexity_assessment.complexity_score,
-                    "detection_strategy": result.orchestrator_decision.detection_strategy,
+                    "processing_time": result.processing_metadata.get("processing_time", 0),
+                    "method_used": result.processing_metadata.get("method_used", "unknown"),
                 }
             )
 
@@ -149,55 +146,40 @@ async def process_file(file_path: Path, config: Config, capture: DetectionOutput
 
 
 async def main():
-    """Run detection on test files and capture outputs."""
-    # Configuration
-    config = Config(
-        use_vision=False,  # Start without vision for testing
-        confidence_threshold=0.6,
-        log_level="WARNING",  # Reduce noise
-    )
+    """Run detection on ALL files in examples directory and capture outputs."""
+    # Initialize simplified agent
+    agent = TableDetectionAgent(confidence_threshold=0.6)
 
     # Initialize capture
     capture = DetectionOutputCapture()
 
-    # Test files to process
-    test_files = [
-        # Level 0 - Basic files
-        "tests/manual/level0/test_comma.csv",
-        "tests/manual/level0/test_basic.xlsx",
-        "tests/manual/level0/test_multi_sheet.xlsx",
-        "tests/manual/level0/test_formatting.xlsx",
-        # Level 1 - Medium complexity
-        "tests/manual/level1/simple_table.csv",
-        "tests/manual/level1/simple_table.xlsx",
-        "tests/manual/level1/complex_table.xlsx",
-        # Level 2 - Complex files
-        "tests/manual/level2/creative_tables.xlsx",
-        "tests/manual/level2/weird_tables.xlsx",
-    ]
+    # Get ALL files from examples directory
+    examples_dir = Path("examples")
 
-    # Create sample files if they don't exist
-    sample_dir = Path("tests/manual/level0")
-    sample_dir.mkdir(parents=True, exist_ok=True)
+    # Find all files in examples directory
+    all_files = []
 
-    # Create a simple CSV if it doesn't exist
-    simple_csv = sample_dir / "test_comma.csv"
-    if not simple_csv.exists():
-        with open(simple_csv, "w") as f:
-            f.write("Product,Category,Price,Stock\n")
-            f.write("Widget A,Electronics,29.99,150\n")
-            f.write("Widget B,Electronics,39.99,75\n")
-            f.write("Gadget X,Home,19.99,200\n")
-            f.write("Gadget Y,Home,24.99,100\n")
-        print(f"Created sample file: {simple_csv}")
+    print("\\n" + "=" * 80)
+    print("SCANNING EXAMPLES DIRECTORY FOR ALL FILES")
+    print("=" * 80)
 
-    # Process files
-    for file_path in test_files:
-        path = Path(file_path)
-        if path.exists():
-            await process_file(path, config, capture)
-        else:
-            print(f"\nSkipping (not found): {file_path}")
+    for file_path in examples_dir.rglob("*"):
+        if file_path.is_file() and not file_path.name.startswith("."):
+            # Skip output directories and certain file types
+            if any(part in file_path.parts for part in ["outputs", "captures"]):
+                continue
+            if file_path.suffix.lower() in [".md", ".py", ".json"]:
+                continue
+
+            all_files.append(file_path)
+            print(f"Found: {file_path}")
+
+    print(f"\\nTotal files to process: {len(all_files)}")
+    print("=" * 80)
+
+    # Process all found files
+    for file_path in sorted(all_files):  # Sort for consistent ordering
+        await process_file(file_path, agent, capture)
 
     # Print summary
     capture.print_summary()

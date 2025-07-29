@@ -12,6 +12,18 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class EncodingResult:
+    """Result of sophisticated encoding detection."""
+
+    encoding: str
+    confidence: float
+    method: str  # 'bom', 'chardet', 'pattern', 'fallback'
+    bom_detected: bool = False
+    validated: bool = False
+    chardet_raw: dict | None = None  # Raw chardet result for debugging
+
+
+@dataclass
 class DetectionResult:
     """Result of file format detection."""
 
@@ -41,7 +53,9 @@ class FileFormatDetector:
         "xls": FileType.XLS,
         # Note: XLSM and XLSB detection requires ZIP content analysis, not available via Magika
         # Text formats that might be delimited
-        "txt": None,  # Needs content analysis
+        "txt": FileType.TXT,  # Will use content analysis for tabular detection
+        # Sometimes Magika misidentifies UTF-16 text files
+        "autohotkey": FileType.TXT,  # Often UTF-16 text files get misidentified as this
         # Unsupported but commonly encountered formats
         "pdf": FileType.UNKNOWN,
         "docx": FileType.UNKNOWN,
@@ -100,7 +114,6 @@ class FileFormatDetector:
         "css": "Stylesheet files cannot be processed as spreadsheets",
         "html": "HTML files cannot be processed as spreadsheets",
         "xml": "XML files cannot be processed as spreadsheets",
-        "json": "JSON files cannot be processed as spreadsheets",
         "yaml": "YAML files cannot be processed as spreadsheets",
         "markdown": "Markdown files cannot be processed as spreadsheets",
         "sql": "SQL files cannot be processed as spreadsheets",
@@ -138,7 +151,7 @@ class FileFormatDetector:
         ".xlsb": FileType.XLSB,
         ".csv": FileType.CSV,
         ".tsv": FileType.TSV,
-        ".txt": FileType.TSV,  # Assume tab-separated for .txt
+        ".txt": FileType.TXT,  # Text files need content analysis
     }
 
     # Excel-specific ZIP content indicators
@@ -409,54 +422,94 @@ class FileFormatDetector:
     def _analyze_text_content(
         self, file_path: Path, header_bytes: bytes
     ) -> tuple[FileType | None, float]:
-        """Analyze text content to determine if it's CSV or TSV."""
+        """Analyze text content to determine if it's CSV, TSV, or TXT with sophisticated encoding detection."""
         try:
-            # Try to decode the header
-            encoding = self._detect_encoding(header_bytes)
+            # Use sophisticated encoding detection
+            encoding_result = self._detect_encoding_sophisticated(header_bytes, file_path)
+            logger.debug(
+                f"Text analysis using encoding: {encoding_result.encoding} (method: {encoding_result.method}, confidence: {encoding_result.confidence})"
+            )
 
-            with open(file_path, encoding=encoding, errors="ignore") as f:
-                # Read first few lines for analysis
+            with open(file_path, encoding=encoding_result.encoding, errors="replace") as f:
+                # Read first few lines for analysis (handle very long lines)
                 lines = []
                 for i, line in enumerate(f):
                     lines.append(line.strip())
-                    if i >= 10:  # Analyze first 10 lines
+                    if i >= 15:  # Analyze more lines for better detection
                         break
 
             if not lines:
                 return None, 0.0
 
-            # Analyze delimiter patterns
+            # Enhanced delimiter analysis for scientific/instrument data
             delimiter_scores = {}
-            delimiters = [",", "\t", ";", "|"]
+            delimiters = ["\t", ",", ";", "|", " "]  # Tab first (common in scientific data)
 
             for delimiter in delimiters:
-                consistent_counts = []
+                column_counts = []
+                valid_lines = 0
+
                 for line in lines:
-                    if line:  # Skip empty lines
-                        count = line.count(delimiter)
+                    if line and len(line.strip()) > 0:  # Skip empty lines
+                        if delimiter == " ":
+                            # For space delimiter, split on multiple spaces to handle formatting
+                            parts = [p for p in line.split() if p]
+                            count = len(parts) - 1 if len(parts) > 1 else 0
+                        else:
+                            count = line.count(delimiter)
+
                         if count > 0:
-                            consistent_counts.append(count)
+                            column_counts.append(count)
+                            valid_lines += 1
 
-                if consistent_counts:
-                    # Check for consistency
-                    if len(set(consistent_counts)) == 1:  # All counts are the same
-                        delimiter_scores[delimiter] = consistent_counts[0] * len(consistent_counts)
-                    elif len(set(consistent_counts)) <= 2:  # Mostly consistent
-                        delimiter_scores[delimiter] = sum(consistent_counts) * 0.8
+                if column_counts and valid_lines >= 2:
+                    # Enhanced scoring that considers consistency and data quality
+                    unique_counts = list(set(column_counts))
 
+                    if len(unique_counts) == 1:  # Perfect consistency
+                        base_score = unique_counts[0] * valid_lines
+                        delimiter_scores[delimiter] = base_score
+                    elif len(unique_counts) <= 3:  # Good consistency (allow some variation)
+                        avg_count = sum(column_counts) / len(column_counts)
+                        consistency_penalty = len(unique_counts) * 0.1
+                        delimiter_scores[delimiter] = (avg_count * valid_lines) * (
+                            1 - consistency_penalty
+                        )
+
+            # Determine best delimiter and file type
             if delimiter_scores:
                 best_delimiter = max(delimiter_scores, key=delimiter_scores.get)
                 score = delimiter_scores[best_delimiter]
 
-                # Minimum threshold for considering it a delimited file
-                if score >= 3:
-                    if best_delimiter == ",":
-                        return FileType.CSV, min(0.9, score / 20)
-                    elif best_delimiter == "\t":
-                        return FileType.TSV, min(0.9, score / 20)
-                    else:
-                        # Other delimiters could be CSV variants
-                        return FileType.CSV, min(0.8, score / 20)
+                logger.debug(f"Best delimiter '{best_delimiter}' with score {score}")
+
+                # Lower threshold for scientific data (often has mixed formatting)
+                if score >= 2:
+                    if best_delimiter == "\t":
+                        confidence = min(0.95, score / 15)
+                        return FileType.TSV, confidence
+                    elif best_delimiter == ",":
+                        confidence = min(0.9, score / 20)
+                        return FileType.CSV, confidence
+                    elif best_delimiter in [";", "|"]:
+                        confidence = min(0.85, score / 20)
+                        return FileType.CSV, confidence  # Treat as CSV variant
+                    elif best_delimiter == " ":
+                        # Space-delimited is often TSV-like
+                        confidence = min(0.8, score / 25)
+                        return FileType.TSV, confidence
+
+            # If no clear delimited pattern but looks like readable text, return as TXT
+            # This allows TextReader to handle it with its own delimiter detection
+            total_text_lines = len([line for line in lines if line.strip()])
+            if total_text_lines >= 2:
+                # Check if it contains reasonable text content
+                text_chars = sum(len(line) for line in lines if line.strip())
+                if text_chars > 50:  # Minimum content threshold
+                    logger.debug(
+                        f"Detected as text file with {total_text_lines} lines and {text_chars} characters"
+                    )
+                    return FileType.TXT, 0.7
 
         except Exception as e:
             logger.debug(f"Text content analysis failed: {e}")
@@ -598,31 +651,231 @@ class FileFormatDetector:
         # If more than 80% printable characters, likely text
         return text_ratio > 0.8
 
-    def _detect_encoding(self, header_bytes: bytes) -> str:
-        """Detect text encoding from header bytes."""
+    def _detect_encoding_sophisticated(
+        self, header_bytes: bytes, file_path: Path = None
+    ) -> EncodingResult:
+        """Sophisticated multi-layer encoding detection."""
+
+        # Phase 1: BOM (Byte Order Mark) Detection
+        bom_result = self._detect_bom(header_bytes)
+        if bom_result.confidence > 0.95:
+            logger.debug(f"BOM detected: {bom_result.encoding}")
+            return bom_result
+
+        # Phase 2: Chardet Analysis with Smart Confidence Thresholds
+        chardet_result = self._detect_with_chardet(header_bytes, file_path)
+        if chardet_result and chardet_result.confidence > 0.8:
+            logger.debug(
+                f"Chardet detection: {chardet_result.encoding} (confidence: {chardet_result.confidence})"
+            )
+
+            # Validate the encoding by attempting to decode
+            validated_result = self._validate_encoding(header_bytes, chardet_result, file_path)
+            if validated_result.validated:
+                return validated_result
+
+        # Phase 3: Pattern-based detection for common cases
+        pattern_result = self._detect_by_patterns(header_bytes)
+        if pattern_result.confidence > 0.7:
+            return pattern_result
+
+        # Phase 4: Fallback chain with validation
+        fallback_result = self._fallback_encoding_detection(header_bytes)
+        return fallback_result
+
+    def _detect_bom(self, header_bytes: bytes) -> EncodingResult:
+        """Detect encoding from Byte Order Mark."""
+        if len(header_bytes) < 2:
+            return EncodingResult("utf-8", 0.0, "bom")
+
+        # Check for BOMs in order of specificity
+        if header_bytes.startswith(b"\xff\xfe\x00\x00"):
+            return EncodingResult("utf-32-le", 1.0, "bom", bom_detected=True)
+        elif header_bytes.startswith(b"\x00\x00\xfe\xff"):
+            return EncodingResult("utf-32-be", 1.0, "bom", bom_detected=True)
+        elif header_bytes.startswith(b"\xff\xfe"):
+            return EncodingResult("utf-16-le", 1.0, "bom", bom_detected=True)
+        elif header_bytes.startswith(b"\xfe\xff"):
+            return EncodingResult("utf-16-be", 1.0, "bom", bom_detected=True)
+        elif header_bytes.startswith(b"\xef\xbb\xbf"):
+            return EncodingResult("utf-8", 1.0, "bom", bom_detected=True)
+
+        return EncodingResult("utf-8", 0.0, "bom")
+
+    def _detect_with_chardet(
+        self, header_bytes: bytes, file_path: Path = None
+    ) -> EncodingResult | None:
+        """Use chardet with multiple buffer sizes for better accuracy."""
         try:
             import chardet
-
-            result = chardet.detect(header_bytes)
-            encoding = result.get("encoding", "utf-8")
-            confidence = result.get("confidence", 0.0)
-
-            if confidence > 0.7:
-                return encoding
         except ImportError:
-            pass
+            return None
 
-        # Fallback encoding detection
-        encodings = ["utf-8", "latin-1", "cp1252", "iso-8859-1"]
+        # Try different buffer sizes for better detection
+        buffer_sizes = [len(header_bytes)]
+
+        # If we have a file path, try larger buffers
+        if file_path and file_path.exists():
+            try:
+                file_size = file_path.stat().st_size
+                if file_size > len(header_bytes):
+                    # Add larger buffer sizes up to 64KB
+                    buffer_sizes.extend(
+                        [min(4096, file_size), min(16384, file_size), min(65536, file_size)]
+                    )
+            except Exception:
+                pass
+
+        best_result = None
+        best_confidence = 0.0
+
+        for buffer_size in buffer_sizes:
+            try:
+                if buffer_size > len(header_bytes) and file_path:
+                    with open(file_path, "rb") as f:
+                        data = f.read(buffer_size)
+                else:
+                    data = header_bytes[:buffer_size]
+
+                result = chardet.detect(data)
+                encoding = result.get("encoding")
+                confidence = result.get("confidence", 0.0)
+
+                if encoding and confidence > best_confidence:
+                    # Apply encoding-specific confidence thresholds
+                    min_confidence = self._get_min_confidence_for_encoding(encoding)
+                    if confidence >= min_confidence:
+                        best_result = EncodingResult(
+                            encoding=encoding,
+                            confidence=confidence,
+                            method="chardet",
+                            chardet_raw=result,
+                        )
+                        best_confidence = confidence
+
+            except Exception as e:
+                logger.debug(f"Chardet failed with buffer size {buffer_size}: {e}")
+                continue
+
+        return best_result
+
+    def _get_min_confidence_for_encoding(self, encoding: str) -> float:
+        """Get minimum confidence threshold based on encoding type."""
+        encoding_lower = encoding.lower()
+
+        if "utf-16" in encoding_lower or "utf-32" in encoding_lower:
+            return 0.8  # UTF-16/32 detection is usually very reliable
+        elif "utf-8" in encoding_lower:
+            return 0.9  # UTF-8 is common, so be more strict
+        elif any(enc in encoding_lower for enc in ["latin", "cp125", "iso-8859"]):
+            return 0.85  # Medium confidence for these encodings
+        else:
+            return 0.9  # Be conservative for unknown encodings
+
+    def _validate_encoding(
+        self,
+        header_bytes: bytes,
+        encoding_result: EncodingResult,
+        file_path: Path = None,  # noqa: ARG002
+    ) -> EncodingResult:
+        """Validate encoding by attempting to decode and analyze content."""
+        try:
+            # Try to decode the header bytes
+            decoded_text = header_bytes.decode(encoding_result.encoding, errors="strict")
+
+            # Check for reasonable text characteristics
+            printable_ratio = sum(1 for c in decoded_text if c.isprintable() or c.isspace()) / len(
+                decoded_text
+            )
+
+            if printable_ratio > 0.8:  # At least 80% printable characters
+                encoding_result.validated = True
+                encoding_result.confidence = min(
+                    1.0, encoding_result.confidence + 0.1
+                )  # Boost confidence
+                logger.debug(
+                    f"Encoding {encoding_result.encoding} validated (printable ratio: {printable_ratio:.2f})"
+                )
+
+            return encoding_result
+
+        except UnicodeDecodeError as e:
+            logger.debug(f"Encoding {encoding_result.encoding} validation failed: {e}")
+            encoding_result.confidence *= 0.5  # Reduce confidence
+            return encoding_result
+
+    def _detect_by_patterns(self, header_bytes: bytes) -> EncodingResult:
+        """Detect encoding based on common byte patterns."""
+
+        # Look for common UTF-16 patterns (alternating null bytes)
+        if len(header_bytes) > 10:
+            null_pattern_score = 0
+            for i in range(1, min(100, len(header_bytes)), 2):
+                if header_bytes[i] == 0:  # Every other byte is null
+                    null_pattern_score += 1
+
+            if null_pattern_score > 10:  # Strong pattern suggests UTF-16 LE
+                return EncodingResult("utf-16-le", 0.8, "pattern")
+
+        # Look for high-bit characters that suggest specific encodings
+        high_bit_count = sum(1 for b in header_bytes if b > 127)
+        if high_bit_count > len(header_bytes) * 0.1:  # More than 10% high-bit chars
+            # Could be Latin-1 or similar
+            return EncodingResult("latin-1", 0.6, "pattern")
+
+        # All ASCII suggests UTF-8
+        if all(b < 128 for b in header_bytes):
+            return EncodingResult("utf-8", 0.7, "pattern")
+
+        return EncodingResult("utf-8", 0.0, "pattern")
+
+    def _fallback_encoding_detection(self, header_bytes: bytes) -> EncodingResult:
+        """Final fallback encoding detection with validation."""
+
+        # Comprehensive list of encodings to try
+        encodings = [
+            "utf-8",
+            "utf-16-le",
+            "utf-16-be",
+            "utf-16",
+            "latin-1",
+            "cp1252",
+            "iso-8859-1",
+            "ascii",
+            "cp437",
+            "cp850",
+            "utf-32-le",
+            "utf-32-be",
+        ]
 
         for encoding in encodings:
             try:
-                header_bytes.decode(encoding)
-                return encoding
-            except UnicodeDecodeError:
+                decoded = header_bytes.decode(encoding, errors="strict")
+
+                # Simple validation: check for reasonable text
+                if len(decoded) > 0:
+                    printable_ratio = sum(
+                        1 for c in decoded if c.isprintable() or c.isspace()
+                    ) / len(decoded)
+                    if printable_ratio > 0.7:
+                        confidence = 0.6 if encoding == "utf-8" else 0.5
+                        return EncodingResult(
+                            encoding=encoding,
+                            confidence=confidence,
+                            method="fallback",
+                            validated=True,
+                        )
+
+            except (UnicodeDecodeError, LookupError):
                 continue
 
-        return "utf-8"  # Final fallback
+        # Ultimate fallback
+        return EncodingResult("utf-8", 0.1, "fallback")
+
+    def _detect_encoding(self, header_bytes: bytes) -> str:
+        """Legacy method for backward compatibility."""
+        result = self._detect_encoding_sophisticated(header_bytes)
+        return result.encoding
 
     def _get_mime_type(self, file_path: Path) -> str | None:
         """Get MIME type using python-magic."""

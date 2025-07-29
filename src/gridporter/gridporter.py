@@ -1,4 +1,4 @@
-"""Main GridPorter class."""
+"""Main GridPorter class - simplified for Option 3 (Hybrid Approach)."""
 
 import logging
 import time
@@ -8,36 +8,31 @@ from gridporter.models import DetectionResult, FileInfo, FileType
 from gridporter.readers import ReaderError, create_reader
 from gridporter.utils.file_magic import detect_file_info
 
-from .agents.complex_table_agent import ComplexTableAgent
 from .config import Config
+from .detection import TableDetectionAgent
 from .utils.logging_context import (
     FileContext,
     OperationContext,
     SheetContext,
     get_contextual_logger,
 )
-from .vision.integrated_pipeline import IntegratedVisionPipeline
 
 logger = get_contextual_logger(__name__)
 
 
 class GridPorter:
-    """Main class for intelligent spreadsheet table detection."""
+    """Main class for intelligent spreadsheet table detection - simplified architecture."""
 
     def __init__(
         self,
         config: Config | None = None,
-        suggest_names: bool | None = None,
-        use_local_llm: bool | None = None,
         confidence_threshold: float | None = None,
         **kwargs,
     ):
-        """Initialize GridPorter.
+        """Initialize GridPorter with simplified architecture.
 
         Args:
-            config: Configuration object. If None, loads from environment.
-            suggest_names: Override for LLM name suggestions
-            use_local_llm: Override for local LLM usage
+            config: Configuration object. If None, uses minimal config.
             confidence_threshold: Override for confidence threshold
             **kwargs: Additional config overrides
         """
@@ -46,10 +41,6 @@ class GridPorter:
             config = Config.from_env()
 
         # Apply overrides
-        if suggest_names is not None:
-            config.suggest_names = suggest_names
-        if use_local_llm is not None:
-            config.use_local_llm = use_local_llm
         if confidence_threshold is not None:
             config.confidence_threshold = confidence_threshold
 
@@ -60,16 +51,13 @@ class GridPorter:
 
         self.config = config
         self._setup_logging()
-        self._setup_telemetry()
 
-        # Initialize components
-        self._complex_table_agent = ComplexTableAgent(config)
-        self._vision_pipeline = (
-            IntegratedVisionPipeline.from_config(config) if config.use_vision else None
+        # Initialize simplified detection agent
+        self._detection_agent = TableDetectionAgent(
+            confidence_threshold=config.confidence_threshold
         )
-        self._readers = {}
 
-        logger.info(f"GridPorter initialized with config: {config}")
+        logger.info("GridPorter initialized with simplified architecture")
 
     def _setup_logging(self) -> None:
         """Setup logging configuration."""
@@ -79,22 +67,8 @@ class GridPorter:
             filename=self.config.log_file,
         )
 
-    def _setup_telemetry(self) -> None:
-        """Setup telemetry and feature collection."""
-        # Initialize feature collection if enabled
-        if self.config.enable_feature_collection:
-            try:
-                from .telemetry import get_feature_collector
-
-                feature_collector = get_feature_collector()
-                feature_collector.initialize(enabled=True, db_path=self.config.feature_db_path)
-                logger.info("Feature collection initialized")
-            except Exception as e:
-                logger.error(f"Failed to initialize feature collection: {e}")
-                # Don't fail the entire initialization
-
     async def detect_tables(self, file_path: str | Path) -> DetectionResult:
-        """Detect tables in a spreadsheet file.
+        """Detect tables in a spreadsheet file using simplified architecture.
 
         Args:
             file_path: Path to the spreadsheet file
@@ -126,8 +100,9 @@ class GridPorter:
             with OperationContext("file_reading"):
                 try:
                     reader = create_reader(file_path, file_info)
-                    file_data = await reader.read()
-                    logger.info(f"Successfully read {file_data.sheet_count} sheets")
+                    file_data = reader.read_sync()
+                    sheet_count = len(list(file_data.sheets))
+                    logger.info(f"Successfully read {sheet_count} sheets")
                 except ReaderError as e:
                     logger.error(f"Failed to read file: {e}")
                     raise ValueError(
@@ -135,10 +110,9 @@ class GridPorter:
                         f"Please check if the file exists and is in a supported format."
                     ) from e
 
-            # Run table detection using complex table agent
+            # Run simplified table detection
             sheets = []
-            total_llm_calls = 0
-            total_llm_tokens = 0
+            total_tables = 0
 
             for sheet_data in file_data.sheets:
                 from gridporter.models import SheetResult
@@ -147,40 +121,19 @@ class GridPorter:
                     sheet_start_time = time.time()
                     sheet_errors = []
 
-                    # Set file path and type for feature collection
-                    sheet_data.file_path = str(file_path)
-                    sheet_data.file_type = file_info.type.value
-
                     try:
-                        # Run vision pipeline if enabled
-                        vision_result = None
-                        with OperationContext("vision_analysis"):
-                            if self.config.use_vision and self._vision_pipeline:
-                                pipeline_result = self._vision_pipeline.process_sheet(sheet_data)
-                                # Convert pipeline result to vision result format
-                                # (This is simplified - real implementation would do proper conversion)
-                                vision_result = pipeline_result
-
-                        # Detect complex tables
+                        # Run simplified detection
                         with OperationContext("table_detection"):
-                            detection_result = await self._complex_table_agent.detect_complex_tables(
-                                sheet_data,
-                                vision_result=vision_result,
-                                simple_tables=None,  # Could pass simple tables from initial detection
-                            )
+                            detection_result = await self._detection_agent.detect_tables(sheet_data)
 
-                        # Track LLM usage if applicable
-                        if hasattr(detection_result, "llm_calls"):
-                            total_llm_calls += detection_result.llm_calls
-                        if hasattr(detection_result, "llm_tokens"):
-                            total_llm_tokens += detection_result.llm_tokens
+                        total_tables += len(detection_result.tables)
 
                         sheet_result = SheetResult(
                             name=sheet_data.name,
                             tables=detection_result.tables,
                             processing_time=time.time() - sheet_start_time,
                             errors=sheet_errors,
-                            metadata=detection_result.detection_metadata,
+                            metadata=detection_result.processing_metadata,
                         )
                     except Exception as e:
                         logger.error(f"Error processing sheet: {e}")
@@ -196,10 +149,16 @@ class GridPorter:
 
             detection_time = time.time() - start_time
 
-            # Collect methods used
-            methods_used = ["file_reading", "complex_detection"]
-            if self.config.use_vision:
-                methods_used.extend(["vision_analysis", "bitmap_detection"])
+            # Simplified methods used
+            methods_used = ["file_reading", "simplified_detection"]
+
+            # Calculate total cells (simplified)
+            total_cells = 0
+            try:
+                for sheet in file_data.sheets:
+                    total_cells += len(sheet.cells)
+            except Exception:
+                total_cells = 0
 
             result = DetectionResult(
                 file_info=file_info,
@@ -208,29 +167,34 @@ class GridPorter:
                 methods_used=methods_used,
                 metadata={
                     "file_data_available": True,
-                    "total_cells": sum(
-                        len(sheet.get_non_empty_cells()) for sheet in file_data.sheets
-                    ),
-                    "reader_metadata": file_data.metadata,
-                    "total_tables": sum(len(sheet.tables) for sheet in sheets),
-                    "vision_enabled": self.config.use_vision,
-                    "multi_row_headers_detected": sum(
-                        1
-                        for sheet in sheets
-                        for table in sheet.tables
-                        if table.header_info and table.header_info.is_multi_row
-                    ),
-                    "llm_calls": total_llm_calls,
-                    "llm_tokens": total_llm_tokens,
+                    "total_cells": total_cells,
+                    "total_tables": total_tables,
+                    "vision_enabled": False,  # Removed in simplified architecture
+                    "simplified_architecture": True,
                 },
             )
 
             logger.info(
                 f"Detection completed in {detection_time:.2f}s. "
-                f"Read {len(file_data.sheets)} sheets with {result.metadata.get('total_cells', 0)} non-empty cells."
+                f"Read {len(sheets)} sheets with {total_tables} tables detected."
             )
 
             return result
+
+    # Convenience method for sync usage
+    def extract_from_file(self, file_path: str | Path) -> DetectionResult:
+        """Synchronous wrapper for detect_tables."""
+        import asyncio
+
+        if asyncio.get_event_loop().is_running():
+            # If we're already in an async context, we need to create a new loop
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, self.detect_tables(file_path))
+                return future.result()
+        else:
+            return asyncio.run(self.detect_tables(file_path))
 
     def _validate_file(self, file_path: Path) -> None:
         """Validate that file exists and is within size limits."""

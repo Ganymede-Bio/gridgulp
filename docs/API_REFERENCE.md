@@ -1,19 +1,5 @@
 # GridPorter API Reference
 
-## Overview
-
-This document provides a comprehensive reference for the GridPorter API, focusing on the new features introduced in v0.2.1 for semantic understanding and complex table detection.
-
-## Table of Contents
-
-1. [Core Classes](#core-classes)
-2. [Agents](#agents)
-3. [Detectors](#detectors)
-4. [Models](#models)
-5. [Telemetry](#telemetry)
-6. [Configuration](#configuration)
-7. [Utilities](#utilities)
-
 ## Core Classes
 
 ### GridPorter
@@ -22,549 +8,478 @@ The main entry point for table detection.
 
 ```python
 class GridPorter:
-    def __init__(
-        self,
-        config: Config | None = None,
-        use_vision: bool = True,
-        suggest_names: bool = True,
-        confidence_threshold: float = 0.7,
-        enable_feature_collection: bool = False,
-        feature_db_path: str | None = None,
-        **kwargs
-    )
+    def __init__(self, config: Config | None = None):
+        """Initialize GridPorter with optional configuration.
+
+        Args:
+            config: Configuration object. If None, uses defaults.
+        """
+
+    async def detect_tables(self, file_path: str | Path) -> DetectionResult:
+        """Detect tables in a spreadsheet file.
+
+        Args:
+            file_path: Path to the file to process
+
+        Returns:
+            DetectionResult containing all detected tables
+
+        Raises:
+            FileNotFoundError: If file doesn't exist
+            ReaderError: If file cannot be read
+            DetectionError: If detection fails
+        """
 ```
 
-#### Parameters
-- `config`: Configuration object (optional, will use defaults if not provided)
-- `use_vision`: Enable vision-based detection (default: True)
-- `suggest_names`: Use LLM for table naming suggestions (default: True)
-- `confidence_threshold`: Minimum confidence for table detection (default: 0.7)
-- `enable_feature_collection`: Enable telemetry collection (default: False)
-- `feature_db_path`: Path to feature database (default: ~/.gridporter/features.db)
+### Config
 
-#### Methods
+Configuration options for GridPorter.
 
-##### detect_tables
 ```python
-async def detect_tables(
-    self,
-    file_path: str | Path
-) -> DetectionResult
+class Config(BaseModel):
+    # Detection Configuration
+    confidence_threshold: float = 0.7  # Min confidence (0.0-1.0)
+    max_tables_per_sheet: int = 50    # Max tables per sheet
+    min_table_size: tuple[int, int] = (2, 2)  # Min (rows, cols)
+    detect_merged_cells: bool = True   # Handle merged cells
+
+    # File Detection
+    enable_magika: bool = True         # AI file type detection
+    strict_format_checking: bool = False  # Strict format validation
+    file_detection_buffer_size: int = 8192  # Detection buffer size
+
+    # Processing Limits
+    max_file_size_mb: float = 2000.0   # Max file size
+    timeout_seconds: int = 300         # Processing timeout
+    max_sheets: int = 10               # Max sheets to process
+
+    # Performance
+    excel_reader: str = "calamine"     # "calamine" or "openpyxl"
+    max_memory_mb: int = 1000          # Max memory usage
+    chunk_size: int = 10000            # Streaming chunk size
+
+    # Detection Methods
+    enable_simple_case_detection: bool = True  # Fast path
+    enable_island_detection: bool = True       # Multi-table
+    use_excel_metadata: bool = True           # Excel metadata
+
+    # Detection Thresholds
+    island_min_cells: int = 20         # Min cells for island
+    island_density_threshold: float = 0.8  # Required density
+
+    @classmethod
+    def from_env(cls) -> "Config":
+        """Create config from environment variables."""
 ```
 
-Detect all tables in a spreadsheet file.
+## Data Models
 
-**Parameters:**
-- `file_path`: Path to the Excel or CSV file
+### DetectionResult
 
-**Returns:**
-- `DetectionResult`: Contains file info, detected tables, and metadata
+The main result object returned by table detection.
 
-**Example:**
 ```python
-gridporter = GridPorter()
-result = await gridporter.detect_tables("report.xlsx")
+class DetectionResult(BaseModel):
+    file_info: FileInfo                # File metadata
+    sheets: list[SheetResult]          # Results per sheet
+    metadata: dict[str, Any]           # Additional metadata
+
+    @property
+    def total_tables(self) -> int:
+        """Total number of tables detected."""
+
+    @property
+    def detection_time(self) -> float:
+        """Total detection time in seconds."""
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary format."""
+
+    def to_summary(self) -> dict:
+        """Create summary statistics."""
 ```
 
-## Agents
+### SheetResult
 
-### ComplexTableAgent
-
-Orchestrates complex table detection with semantic understanding.
+Detection results for a single sheet.
 
 ```python
-class ComplexTableAgent:
-    def __init__(self, config: Config)
+class SheetResult(BaseModel):
+    name: str                          # Sheet name
+    tables: list[TableInfo]            # Detected tables
+    metadata: dict[str, Any] = {}      # Sheet metadata
+
+    @property
+    def has_tables(self) -> bool:
+        """Check if sheet has any tables."""
 ```
 
-#### Methods
+### TableInfo
 
-##### detect_complex_tables
+Information about a detected table.
+
 ```python
-async def detect_complex_tables(
-    self,
-    sheet_data: SheetData
-) -> ComplexTableResult
+class TableInfo(BaseModel):
+    range: TableRange                  # Table boundaries
+    suggested_name: str | None = None  # Optional name
+    confidence: float                  # Detection confidence (0-1)
+    detection_method: str              # Method used
+    headers: list[str] | None = None   # Column headers
+    data_preview: list[dict] | None = None  # Sample data
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        """Table dimensions (rows, cols)."""
+
+    @property
+    def id(self) -> str:
+        """Unique table identifier."""
 ```
 
-Detect complex tables with multi-row headers and semantic structure.
+### TableRange
 
-**Parameters:**
-- `sheet_data`: Sheet data to analyze
+Table boundary definition.
 
-**Returns:**
-- `ComplexTableResult`: Contains detected tables with semantic features
-
-**Example:**
 ```python
-agent = ComplexTableAgent(config)
-result = await agent.detect_complex_tables(sheet_data)
+class TableRange(BaseModel):
+    start_row: int                     # 0-based start row
+    start_col: int                     # 0-based start column
+    end_row: int                       # 0-based end row (inclusive)
+    end_col: int                       # 0-based end column (inclusive)
 
-for table in result.tables:
-    print(f"Table: {table.range}")
-    print(f"Multi-row headers: {table.multi_row_headers}")
-    print(f"Semantic features: {table.semantic_features}")
+    @property
+    def excel_range(self) -> str:
+        """Excel-style range (e.g., 'A1:D10')."""
+
+    @property
+    def rows(self) -> int:
+        """Number of rows in range."""
+
+    @property
+    def cols(self) -> int:
+        """Number of columns in range."""
+
+    def contains(self, row: int, col: int) -> bool:
+        """Check if cell is within range."""
+```
+
+### FileInfo
+
+File metadata and type information.
+
+```python
+class FileInfo(BaseModel):
+    path: Path                         # File path
+    type: FileType                     # Detected file type
+    size_mb: float                     # File size in MB
+    detected_type: str | None = None   # MIME type
+
+    @property
+    def extension(self) -> str:
+        """File extension (lowercase)."""
+```
+
+### FileType
+
+Enumeration of supported file types.
+
+```python
+class FileType(str, Enum):
+    XLSX = "xlsx"      # Modern Excel
+    XLS = "xls"        # Legacy Excel
+    XLSM = "xlsm"      # Excel with macros
+    XLSB = "xlsb"      # Excel binary
+    CSV = "csv"        # Comma-separated
+    TSV = "tsv"        # Tab-separated
+    TXT = "txt"        # Text file
+    UNKNOWN = "unknown"
 ```
 
 ## Detectors
 
-### MultiHeaderDetector
+### SimpleCaseDetector
 
-Detects multi-row headers with merged cells.
-
-```python
-class MultiHeaderDetector:
-    def __init__(
-        self,
-        min_header_confidence: float = 0.7,
-        max_header_rows: int = 10
-    )
-```
-
-#### Methods
-
-##### detect_multi_row_headers
-```python
-def detect_multi_row_headers(
-    self,
-    sheet_data: SheetData,
-    table_range: TableRange,
-    data: pd.DataFrame | None = None
-) -> MultiRowHeader | None
-```
-
-**Parameters:**
-- `sheet_data`: Sheet containing the table
-- `table_range`: Bounds of the table
-- `data`: Optional pandas DataFrame
-
-**Returns:**
-- `MultiRowHeader`: Header information with column mappings
-
-### MergedCellAnalyzer
-
-Analyzes merged cells in spreadsheets.
+Fast detection for single tables.
 
 ```python
-class MergedCellAnalyzer:
-    def __init__(self)
+class SimpleCaseDetector:
+    def detect_simple_table(self, sheet_data: SheetData) -> SimpleCaseResult:
+        """Detect a single table starting near A1.
+
+        Args:
+            sheet_data: Sheet data to analyze
+
+        Returns:
+            SimpleCaseResult with detection info
+        """
+
+    def is_simple_case(self, sheet_data: SheetData) -> bool:
+        """Check if sheet is a simple single-table case."""
 ```
 
-#### Methods
+### IslandDetector
 
-##### analyze_merged_cells
-```python
-def analyze_merged_cells(
-    self,
-    sheet_data: SheetData,
-    table_range: TableRange | None = None
-) -> list[MergedCell]
-```
-
-**Parameters:**
-- `sheet_data`: Sheet to analyze
-- `table_range`: Optional bounds to limit analysis
-
-**Returns:**
-- List of `MergedCell` objects
-
-##### get_column_header_mapping
-```python
-def get_column_header_mapping(
-    self,
-    merged_cells: list[MergedCell],
-    num_cols: int,
-    start_col: int = 0
-) -> dict[int, list[str]]
-```
-
-Build hierarchical column mappings from merged cells.
-
-**Returns:**
-- Dictionary mapping column index to header hierarchy
-
-### SemanticFormatAnalyzer
-
-Analyzes semantic structure and formatting patterns.
+Multi-table detection using connected components.
 
 ```python
-class SemanticFormatAnalyzer:
-    def __init__(
-        self,
-        section_keywords: list[str] | None = None,
-        total_keywords: list[str] | None = None
-    )
+class IslandDetector:
+    def detect_islands(self, sheet_data: SheetData) -> list[Island]:
+        """Detect disconnected data regions.
+
+        Args:
+            sheet_data: Sheet data to analyze
+
+        Returns:
+            List of Island objects
+        """
+
+    def calculate_density(self, island: Island) -> float:
+        """Calculate cell density for an island."""
 ```
 
-#### Methods
+### ExcelMetadataExtractor
 
-##### analyze_semantic_structure
-```python
-def analyze_semantic_structure(
-    self,
-    sheet_data: SheetData,
-    table_range: TableRange
-) -> SemanticStructure
-```
-
-**Returns:**
-- `SemanticStructure`: Contains semantic rows, sections, format patterns
-
-## Models
-
-### TableInfo (Enhanced)
-
-Extended with semantic features in v0.2.1.
+Extract tables from Excel metadata.
 
 ```python
-class TableInfo(BaseModel):
-    range: str  # Excel-style range (e.g., "A1:E10")
-    suggested_name: str | None = None
-    confidence: float
-    detection_method: str
-    headers: list[str] | None = None
+class ExcelMetadataExtractor:
+    def extract_list_objects(self, workbook: Workbook) -> list[TableInfo]:
+        """Extract Excel ListObjects (defined tables).
 
-    # New in v0.2.1
-    multi_row_headers: int | None = None
-    column_hierarchy: dict[int, list[str]] | None = None
-    semantic_features: dict[str, Any] | None = None
+        Args:
+            workbook: openpyxl Workbook object
+
+        Returns:
+            List of TableInfo for defined tables
+        """
+
+    def extract_named_ranges(self, workbook: Workbook) -> list[NamedRange]:
+        """Extract named ranges from workbook."""
 ```
 
-### MultiRowHeader
+## Readers
 
-Information about multi-row headers.
+### BaseReader
+
+Abstract base class for file readers.
 
 ```python
-class MultiRowHeader(BaseModel):
-    start_row: int
-    end_row: int
-    start_col: int
-    end_col: int
-    column_mappings: dict[int, list[str]]
-    merged_cells: list[MergedCell]
-    confidence: float
+class BaseReader(ABC):
+    @abstractmethod
+    async def read(self) -> FileData:
+        """Read file and return structured data."""
+
+    @abstractmethod
+    def can_read(self) -> bool:
+        """Check if reader can handle the file."""
+
+    def validate_file(self) -> None:
+        """Validate file exists and is readable."""
 ```
 
-### SemanticRow
+### ExcelReader
 
-Represents a row with semantic meaning.
+Reader for Excel files.
 
 ```python
-class SemanticRow(BaseModel):
-    row_index: int
-    row_type: RowType
-    confidence: float
-    metadata: dict[str, Any] = {}
+class ExcelReader(SyncBaseReader):
+    def read_sync(self) -> FileData:
+        """Read Excel file synchronously."""
+
+    def get_sheet_names(self) -> list[str]:
+        """Get list of sheet names."""
 ```
 
-### RowType
+### CSVReader
 
-Enum for semantic row types.
+Reader for CSV/TSV files.
 
 ```python
-class RowType(Enum):
-    HEADER = "header"
-    DATA = "data"
-    TOTAL = "total"
-    SUBTOTAL = "subtotal"
-    SECTION_HEADER = "section_header"
-    BLANK = "blank"
-    SEPARATOR = "separator"
+class CSVReader(SyncBaseReader):
+    def read_sync(self) -> FileData:
+        """Read CSV file with auto-detection."""
+
+    def _detect_dialect(self, sample: str) -> csv.Dialect:
+        """Detect CSV dialect (delimiter, etc)."""
 ```
 
-## Telemetry
+### TextReader
 
-### FeatureCollector
-
-Singleton service for collecting detection features.
+Reader for text files with tabular data.
 
 ```python
-from gridporter.telemetry import get_feature_collector
+class TextReader(BaseReader):
+    def can_read(self) -> bool:
+        """Check if text file contains tabular data."""
 
-collector = get_feature_collector()
+    def _detect_encoding_sophisticated(self,
+                                     header_bytes: bytes) -> EncodingResult:
+        """Sophisticated encoding detection."""
 ```
 
-#### Methods
+## Sheet Data
 
-##### initialize
-```python
-def initialize(
-    self,
-    enabled: bool = False,
-    db_path: str | None = None
-) -> None
-```
+### SheetData
 
-##### record_detection
-```python
-def record_detection(
-    self,
-    file_path: str,
-    file_type: str,
-    sheet_name: str | None,
-    table_range: str,
-    detection_method: str,
-    confidence: float,
-    success: bool,
-    **features
-) -> int | None
-```
-
-##### get_summary_statistics
-```python
-def get_summary_statistics(self) -> dict[str, Any]
-```
-
-Get statistics about collected features.
-
-##### export_features
-```python
-def export_features(
-    self,
-    output_path: str,
-    min_confidence: float | None = None,
-    detection_method: str | None = None
-) -> None
-```
-
-Export features to CSV for analysis.
-
-### DetectionFeatures
-
-Comprehensive feature model with 40+ metrics.
+Container for sheet content.
 
 ```python
-class DetectionFeatures(BaseModel):
-    # Identification
-    file_path: str
-    file_type: str
-    sheet_name: str | None
-    table_range: str
-    detection_method: str
+class SheetData(BaseModel):
+    name: str                          # Sheet name
+    cells: dict[str, CellData]         # Cells by address
+    max_row: int = 0                   # Max row index
+    max_column: int = 0                # Max column index
 
-    # Geometric features
-    rectangularness: float | None
-    filledness: float | None
-    density: float | None
-    contiguity: float | None
-    edge_quality: float | None
-    aspect_ratio: float | None
-    size_ratio: float | None
+    def has_data(self) -> bool:
+        """Check if sheet has any data."""
 
-    # Pattern features
-    pattern_type: str | None
-    has_multi_headers: bool | None
-    orientation: str | None
+    def get_cell(self, row: int, column: int) -> CellData | None:
+        """Get cell at position."""
 
-    # Format features
-    header_row_count: int | None
-    has_bold_headers: bool | None
-    has_totals: bool | None
-    has_subtotals: bool | None
-    section_count: int | None
+    def set_cell(self, row: int, column: int, cell_data: CellData) -> None:
+        """Set cell at position."""
 
-    # Results
-    confidence: float
-    detection_success: bool
-    processing_time_ms: int | None
+    def get_range_data(self, start_row: int, start_col: int,
+                      end_row: int, end_col: int) -> list[list[CellData | None]]:
+        """Get cells in range."""
 ```
 
-## Configuration
+### CellData
 
-### Config
-
-Enhanced configuration options for v0.2.1.
+Individual cell information.
 
 ```python
-class Config(BaseModel):
-    # Core settings
-    use_vision: bool = True
-    suggest_names: bool = True
-    confidence_threshold: float = 0.7
+class CellData(BaseModel):
+    value: Any                         # Cell value
+    formatted_value: str | None = None # Display value
+    data_type: str = "string"          # Data type
 
-    # Feature collection (new in v0.2.1)
-    enable_feature_collection: bool = False
-    feature_db_path: str | None = None
-    feature_retention_days: int = 30
+    # Formatting
+    is_bold: bool = False
+    is_italic: bool = False
+    font_size: float | None = None
 
-    # API settings
-    openai_api_key: str | None = None
-    openai_model: str = "gpt-4o-mini"
-    use_local_llm: bool = False
-    ollama_url: str = "http://localhost:11434"
-    ollama_text_model: str = "deepseek-r1:7b"
-    ollama_vision_model: str = "qwen2.5vl:7b"
+    # Position
+    row: int = 0
+    column: int = 0
 
-    # Processing limits
-    max_file_size_mb: float = 100
-    max_processing_time: int = 300
-```
+    @property
+    def is_empty(self) -> bool:
+        """Check if cell is empty."""
 
-### Environment Variables
-
-All configuration options can be set via environment variables:
-
-```bash
-export GRIDPORTER_USE_VISION=true
-export GRIDPORTER_ENABLE_FEATURE_COLLECTION=true
-export GRIDPORTER_FEATURE_DB_PATH=~/.gridporter/features.db
-export OPENAI_API_KEY=your_key_here
+    @property
+    def excel_address(self) -> str:
+        """Get Excel address (e.g., 'A1')."""
 ```
 
 ## Utilities
 
-### Excel Range Utilities
+### FileFormatDetector
+
+Advanced file type detection.
 
 ```python
-from gridporter.utils.excel_utils import (
-    excel_range_to_indices,
-    indices_to_excel_range,
-    expand_range,
-    merge_ranges
-)
+class FileFormatDetector:
+    def detect_file_type(self, file_path: Path) -> FileInfo:
+        """Detect file type using multiple methods.
 
-# Convert Excel range to indices
-start_row, start_col, end_row, end_col = excel_range_to_indices("A1:C10")
+        Uses Magika, python-magic, and content analysis.
+        """
 
-# Convert indices to Excel range
-range_str = indices_to_excel_range(0, 0, 9, 2)  # Returns "A1:C10"
+    def _detect_encoding_sophisticated(self,
+                                     raw_data: bytes) -> EncodingResult:
+        """Multi-layer encoding detection."""
 ```
 
-### Visualization
+### ReaderFactory
+
+Factory for creating appropriate readers.
 
 ```python
-from gridporter.utils.visualization import visualize_detection
+class ReaderFactory:
+    @staticmethod
+    def create_reader(file_path: Path,
+                     file_info: FileInfo) -> BaseReader:
+        """Create reader for file type.
 
-# Visualize detection results
-visualize_detection(
-    detection_result,
-    sheet_index=0,
-    output_path="detection_viz.png"
-)
+        Args:
+            file_path: Path to file
+            file_info: Detected file information
+
+        Returns:
+            Appropriate reader instance
+        """
 ```
 
-## Error Handling
+## Exceptions
 
-GridPorter uses custom exceptions for specific error cases:
+### ReaderError
+
+Base exception for reader errors.
 
 ```python
-from gridporter.exceptions import (
-    GridPorterError,
-    FileNotFoundError,
-    UnsupportedFormatError,
-    DetectionError,
-    ConfigurationError
-)
-
-try:
-    result = await gridporter.detect_tables("file.xlsx")
-except FileNotFoundError:
-    print("File not found")
-except UnsupportedFormatError:
-    print("File format not supported")
-except DetectionError as e:
-    print(f"Detection failed: {e}")
+class ReaderError(Exception):
+    """Base exception for file reading errors."""
 ```
 
-## Best Practices
+### DetectionError
 
-1. **Enable Feature Collection** for production deployments to improve detection over time:
-   ```python
-   gridporter = GridPorter(enable_feature_collection=True)
-   ```
-
-2. **Use Confidence Thresholds** appropriate for your use case:
-   ```python
-   # Higher threshold for critical data
-   gridporter = GridPorter(confidence_threshold=0.9)
-
-   # Lower threshold for exploration
-   gridporter = GridPorter(confidence_threshold=0.5)
-   ```
-
-3. **Handle Complex Tables** explicitly when needed:
-   ```python
-   if result.metadata.get('has_complex_tables'):
-       # Process with special handling
-       pass
-   ```
-
-4. **Monitor Performance** using telemetry:
-   ```python
-   collector = get_feature_collector()
-   stats = collector.get_summary_statistics()
-   print(f"Avg processing time: {stats['avg_processing_time_ms']}ms")
-   ```
-
-## Examples
-
-### Complete Example: Financial Report Processing
+Base exception for detection errors.
 
 ```python
-import asyncio
-from gridporter import GridPorter
-from gridporter.telemetry import get_feature_collector
-
-async def process_financial_report():
-    # Initialize with all features
-    gridporter = GridPorter(
-        use_vision=True,
-        suggest_names=True,
-        enable_feature_collection=True,
-        confidence_threshold=0.8
-    )
-
-    # Process the report
-    result = await gridporter.detect_tables("quarterly_report.xlsx")
-
-    # Handle each sheet
-    for sheet in result.sheets:
-        print(f"\nSheet: {sheet.name}")
-
-        for table in sheet.tables:
-            print(f"\nTable: {table.suggested_name or table.range}")
-            print(f"Confidence: {table.confidence:.2%}")
-
-            # Check for multi-row headers
-            if table.multi_row_headers:
-                print(f"Multi-row headers: {table.multi_row_headers} rows")
-
-                # Show column hierarchy
-                if table.column_hierarchy:
-                    for col, hierarchy in table.column_hierarchy.items():
-                        print(f"  Column {col}: {' > '.join(hierarchy)}")
-
-            # Check semantic features
-            if table.semantic_features:
-                features = table.semantic_features
-                if features.get('has_subtotals'):
-                    print("  Contains subtotals")
-                if features.get('section_count', 0) > 0:
-                    print(f"  Has {features['section_count']} sections")
-
-    # Get feature statistics
-    collector = get_feature_collector()
-    stats = collector.get_summary_statistics()
-    print(f"\nProcessed {stats['total_records']} tables")
-    print(f"Average confidence: {stats['avg_confidence']:.2%}")
-
-# Run the example
-asyncio.run(process_financial_report())
+class DetectionError(Exception):
+    """Base exception for table detection errors."""
 ```
 
-## Version History
+### Specific Exceptions
 
-### v0.2.1 (2025-07-27)
-- Added `ComplexTableAgent` for semantic understanding
-- Added `MultiHeaderDetector` for multi-row headers
-- Added `MergedCellAnalyzer` for merged cell handling
-- Added `SemanticFormatAnalyzer` for structure analysis
-- Added comprehensive feature collection system
-- Enhanced `TableInfo` with semantic features
+```python
+class UnsupportedFileError(ReaderError):
+    """File format not supported."""
 
-### v0.2.0 (2025-07-25)
-- Vision infrastructure and region verification
-- Basic table detection capabilities
+class CorruptedFileError(ReaderError):
+    """File is corrupted or unreadable."""
 
-### v0.1.0 (2025-07-23)
-- Initial release with project foundation
+class NoTablesFoundError(DetectionError):
+    """No tables detected in file."""
+
+class DetectionTimeoutError(DetectionError):
+    """Detection exceeded timeout."""
+```
+
+## Constants
+
+Key constants used throughout the system:
+
+```python
+# From core.constants
+DEFAULT_CONFIDENCE_THRESHOLD = 0.7
+MAX_TABLES_PER_SHEET = 50
+MIN_TABLE_SIZE = (2, 2)
+
+# Detection methods
+DETECTION_SIMPLE_CASE = "simple_case_fast"
+DETECTION_ISLAND = "island_detection_fast"
+DETECTION_METADATA = "excel_metadata"
+
+# File size limits
+MAX_FILE_SIZE_MB = 2000.0
+DEFAULT_TIMEOUT_SECONDS = 300
+```
+
+## Type Definitions
+
+Common type aliases:
+
+```python
+from typing import TypeAlias
+
+# Cell position
+CellPos: TypeAlias = tuple[int, int]  # (row, col)
+
+# Table bounds
+TableBounds: TypeAlias = tuple[int, int, int, int]  # (r1, c1, r2, c2)
+
+# Detection confidence
+Confidence: TypeAlias = float  # 0.0 to 1.0
+```

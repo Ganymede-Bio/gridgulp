@@ -201,14 +201,9 @@ __pycache__/
 # GitHub Copilot
 .copilot/
 
-# Model files (if storing locally)
-/models/
-*.bin
-*.safetensors
-*.onnx
-
 # Output directories
 output/
+outputs/
 results/
 exports/
 

@@ -4,17 +4,17 @@
 import asyncio
 import json
 import os
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-import subprocess
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from gridporter import GridPorter
-from gridporter.config import Config
 from gridporter.agents import VisionOrchestratorAgent
+from gridporter.config import Config
 from gridporter.readers import create_reader
 
 
