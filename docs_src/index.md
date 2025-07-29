@@ -1,12 +1,10 @@
 # GridGulp
 
-<div align="center">
-  <h3>Automatically detect and extract tables from Excel, CSV, and text files</h3>
+**Automatically detect and extract tables from Excel, CSV, and text files**
 
-  [![PyPI version](https://badge.fury.io/py/gridgulp.svg)](https://badge.fury.io/py/gridgulp)
-  [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-</div>
+[![PyPI version](https://badge.fury.io/py/gridgulp.svg)](https://badge.fury.io/py/gridgulp)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## What is GridGulp?
 
