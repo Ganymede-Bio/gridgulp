@@ -2,25 +2,25 @@
 # This file defines code ownership for automatic PR review assignments
 
 # Global owners - these users will be requested for review on all PRs
-* @bensonlee
+* @bensonlee5
 
 # Source code
-/src/ @bensonlee
+/src/ @bensonlee5
 
 # Documentation
-/docs/ @bensonlee
-*.md @bensonlee
+/docs/ @bensonlee5
+*.md @bensonlee5
 
 # Configuration and CI/CD
-/.github/ @bensonlee
-/pyproject.toml @bensonlee
-/Makefile @bensonlee
+/.github/ @bensonlee5
+/pyproject.toml @bensonlee5
+/Makefile @bensonlee5
 
 # Tests
-/tests/ @bensonlee
+/tests/ @bensonlee5
 
 # Scripts
-/scripts/ @bensonlee
+/scripts/ @bensonlee5
 
 # Examples
-/examples/ @bensonlee
+/examples/ @bensonlee5
