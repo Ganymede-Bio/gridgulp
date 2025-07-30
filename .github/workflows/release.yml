@@ -142,6 +142,7 @@ jobs:
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
+        tag_name: v${{ needs.build.outputs.version }}
         name: v${{ needs.build.outputs.version }}
         body_path: release_notes.md
         files: |

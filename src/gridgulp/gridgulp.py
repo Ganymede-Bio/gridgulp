@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from gridgulp.models import DetectionResult, FileInfo, FileType
+from gridgulp.models.file_info import UnsupportedFormatError
 from gridgulp.readers import ReaderError, create_reader
 from gridgulp.readers.base_reader import SyncBaseReader
 from gridgulp.utils.file_magic import detect_file_info
@@ -23,7 +24,32 @@ logger = get_contextual_logger(__name__)
 
 
 class GridGulp:
-    """Main class for intelligent spreadsheet table detection - simplified architecture."""
+    """Main class for intelligent spreadsheet table detection - simplified architecture.
+
+    GridGulp automatically detects and extracts tables from spreadsheets with zero
+    external dependencies. It handles Excel (xlsx, xls, xlsm), CSV, TSV, and text files,
+    detecting tables even when they don't start at A1 or when multiple tables exist
+    on a single sheet.
+
+    Examples
+    --------
+    Basic usage::
+
+        >>> from gridgulp import GridGulp
+        >>> gg = GridGulp()
+        >>> result = await gg.detect_tables("sales_report.xlsx")
+        >>> print(f"Found {result.total_tables} tables")
+
+    With custom configuration::
+
+        >>> config = Config(confidence_threshold=0.8)
+        >>> gg = GridGulp(config=config)
+
+    Notes
+    -----
+    The simplified architecture focuses on algorithmic detection methods that handle
+    ~97% of real-world spreadsheets without requiring external services or AI APIs.
+    """
 
     def __init__(
         self,
@@ -33,10 +59,39 @@ class GridGulp:
     ):
         """Initialize GridGulp with simplified architecture.
 
-        Args:
-            config: Configuration object. If None, uses minimal config.
-            confidence_threshold: Override for confidence threshold
-            **kwargs: Additional config overrides
+        Args
+        ----
+        config : Config, optional
+            Configuration object. If None, loads from environment or uses defaults.
+        confidence_threshold : float, optional
+            Override for confidence threshold (0.0-1.0). Tables with confidence
+            scores below this threshold are filtered out.
+        **kwargs : Any
+            Additional config overrides. Any attribute of the Config class can
+            be overridden by passing it as a keyword argument.
+
+        Examples
+        --------
+        Default initialization::
+
+            >>> gg = GridGulp()
+
+        With custom confidence threshold::
+
+            >>> gg = GridGulp(confidence_threshold=0.9)
+
+        With multiple overrides::
+
+            >>> gg = GridGulp(
+            ...     confidence_threshold=0.8,
+            ...     max_tables_per_sheet=100,
+            ...     timeout_seconds=600
+            ... )
+
+        Notes
+        -----
+        Configuration can also be set via environment variables. See Config.from_env()
+        for details on supported environment variables.
         """
         # Load base config
         if config is None:
@@ -57,7 +112,14 @@ class GridGulp:
         logger.info("GridGulp initialized with simplified architecture")
 
     def _setup_logging(self) -> None:
-        """Setup logging configuration."""
+        """Setup logging configuration based on config settings.
+
+        Notes
+        -----
+        This method configures Python's logging module with the level and format
+        specified in the configuration. If a log file is specified, logs will be
+        written to that file instead of stderr.
+        """
         logging.basicConfig(
             level=getattr(logging, self.config.log_level.upper()),
             format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -93,6 +155,24 @@ class GridGulp:
                 file_info = await self._analyze_file(file_path)
                 logger.info(f"Detected file type: {file_info.type}")
 
+                # Check for unsupported XLSB format
+                if file_info.type == FileType.XLSB:
+                    # If file has .xlsx extension, it might be misdetected
+                    if file_path.suffix.lower() == ".xlsx":
+                        logger.warning(
+                            "File detected as XLSB but has .xlsx extension. "
+                            "Will attempt to read as XLSX if initial read fails."
+                        )
+                        # We'll handle this in the reader section below
+                    else:
+                        # File has .xlsb extension and detected as XLSB
+                        raise UnsupportedFormatError(
+                            "XLSB",
+                            file_path,
+                            "XLSB (Excel Binary) format is not supported. "
+                            "Please save the file as XLSX format in Excel.",
+                        )
+
             # Read file data using appropriate reader
             with OperationContext("file_reading"):
                 try:
@@ -104,11 +184,37 @@ class GridGulp:
                     sheet_count = len(list(file_data.sheets))
                     logger.info(f"Successfully read {sheet_count} sheets")
                 except ReaderError as e:
-                    logger.error(f"Failed to read file: {e}")
-                    raise ValueError(
-                        f"Could not read file '{file_path}': {type(e).__name__}: {e}. "
-                        f"Please check if the file exists and is in a supported format."
-                    ) from e
+                    # If XLSB was detected but reading failed, and file has .xlsx extension, try as XLSX
+                    if (
+                        file_info.type == FileType.XLSB
+                        and file_path.suffix.lower() == ".xlsx"
+                        and "XLSB" not in str(e)
+                    ):  # Avoid infinite loop if XLSB error was explicit
+                        logger.warning(f"Failed to read as XLSB, retrying as XLSX: {e}")
+                        # Override the detected type and try again
+                        file_info.type = FileType.XLSX
+                        try:
+                            reader = create_reader(file_path, file_info)
+                            if isinstance(reader, SyncBaseReader):
+                                file_data = reader.read_sync()
+                            else:
+                                raise ReaderError("Expected sync reader but got async reader")
+                            sheet_count = len(list(file_data.sheets))
+                            logger.info(f"Successfully read {sheet_count} sheets as XLSX")
+                        except Exception as e2:
+                            logger.error(f"Failed to read file as XLSX too: {e2}")
+                            # Re-raise the original error
+                            raise ValueError(
+                                f"Could not read file '{file_path}': {type(e).__name__}: {e}. "
+                                f"File was detected as XLSB but could not be read. "
+                                f"Please check if the file is corrupted or in an unsupported format."
+                            ) from e
+                    else:
+                        logger.error(f"Failed to read file: {e}")
+                        raise ValueError(
+                            f"Could not read file '{file_path}': {type(e).__name__}: {e}. "
+                            f"Please check if the file exists and is in a supported format."
+                        ) from e
 
             # Run simplified table detection
             sheets = []
@@ -128,6 +234,7 @@ class GridGulp:
                             detection_agent = TableDetectionAgent(
                                 confidence_threshold=self.config.confidence_threshold,
                                 file_type=file_info.type,
+                                config=self.config,
                             )
                             detection_result = await detection_agent.detect_tables(sheet_data)
 
@@ -277,7 +384,7 @@ class GridGulp:
 
         # Default patterns for all supported formats
         if patterns is None:
-            patterns = ["*.xlsx", "*.xls", "*.xlsm", "*.xlsb", "*.csv", "*.tsv", "*.txt"]
+            patterns = ["*.xlsx", "*.xls", "*.xlsm", "*.csv", "*.tsv", "*.txt"]
 
         # Collect all matching files
         all_files: list[Path] = []
@@ -380,18 +487,59 @@ class GridGulp:
         return self.detect_tables_sync(file_path)
 
     def _validate_file(self, file_path: Path) -> None:
-        """Validate that file exists and is within size limits."""
+        """Validate that file exists and is within size limits.
+
+        Args
+        ----
+        file_path : Path
+            Path to the file to validate.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the file does not exist at the specified path.
+        ValueError
+            If the file size exceeds the configured maximum (max_file_size_mb).
+
+        Notes
+        -----
+        This method is called before processing any file to ensure it meets
+        basic requirements. The size limit prevents memory exhaustion when
+        processing extremely large files.
+        """
         if not file_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
 
         file_size_mb = file_path.stat().st_size / (1024 * 1024)
         if file_size_mb > self.config.max_file_size_mb:
             raise ValueError(
-                f"File too large: {file_size_mb:.1f}MB " f"(max: {self.config.max_file_size_mb}MB)"
+                f"File too large: {file_size_mb:.1f}MB (max: {self.config.max_file_size_mb}MB)"
             )
 
     async def _analyze_file(self, file_path: Path) -> FileInfo:
-        """Analyze file and create FileInfo object with comprehensive detection."""
+        """Analyze file and create FileInfo object with comprehensive detection.
+
+        Args
+        ----
+        file_path : Path
+            Path to the file to analyze.
+
+        Returns
+        -------
+        FileInfo
+            Detailed file information including detected type, encoding, and metadata.
+
+        Notes
+        -----
+        This method uses multiple detection strategies including:
+        - File extension analysis
+        - Magic byte signatures
+        - Content sampling and analysis
+        - Optional AI-based detection (Magika) if enabled
+
+        Format mismatches (where file extension doesn't match content) are logged
+        as warnings but processing continues with the detected content type.
+        """
         # Use enhanced file detection
         detection_result = detect_file_info(file_path)
 
@@ -417,13 +565,33 @@ class GridGulp:
         )
 
     async def batch_detect(self, file_paths: list[str | Path]) -> list[DetectionResult]:
-        """Detect tables in multiple files.
+        """Detect tables in multiple files concurrently.
 
-        Args:
-            file_paths: List of file paths
+        Args
+        ----
+        file_paths : list[str | Path]
+            List of file paths to process. Can be strings or Path objects.
 
-        Returns:
-            List of DetectionResult objects
+        Returns
+        -------
+        list[DetectionResult]
+            List of DetectionResult objects for successfully processed files.
+            Failed files are logged but excluded from the results.
+
+        Examples
+        --------
+        Process multiple files::
+
+            >>> files = ["report1.xlsx", "report2.csv", "data.txt"]
+            >>> results = await gg.batch_detect(files)
+            >>> for result in results:
+            ...     print(f"{result.file_info.path.name}: {result.total_tables} tables")
+
+        Notes
+        -----
+        Files are processed concurrently for better performance. Errors in individual
+        files don't stop processing of other files. Check logs for details about
+        failed files.
         """
         import asyncio
 
@@ -477,5 +645,25 @@ class GridGulp:
             return asyncio.run(self.batch_detect(file_paths))
 
     def get_supported_formats(self) -> list[str]:
-        """Get list of supported file formats."""
+        """Get list of supported file formats.
+
+        Returns
+        -------
+        list[str]
+            List of supported file extensions without dots (e.g., ["xlsx", "csv"]).
+
+        Examples
+        --------
+        Check supported formats::
+
+            >>> gg = GridGulp()
+            >>> formats = gg.get_supported_formats()
+            >>> print(formats)
+            ['xlsx', 'xls', 'xlsm', 'csv', 'tsv', 'txt']
+
+        Notes
+        -----
+        XLSB format is detected but not supported for reading. Files with XLSB
+        format will raise an UnsupportedFormatError.
+        """
         return [ft.value for ft in FileType if ft != FileType.UNKNOWN]

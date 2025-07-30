@@ -28,7 +28,7 @@ GridGulp finds tables in your spreadsheets - even when there are multiple tables
 
     ---
 
-    Supports Excel (`.xlsx`, `.xls`, `.xlsm`, `.xlsb`), CSV, TSV, and text files with automatic format detection.
+    Supports Excel (`.xlsx`, `.xls`, `.xlsm`), CSV, TSV, and text files with automatic format detection.
 
 -   :material-table-multiple:{ .lg .middle } **Multi-Table Support**
 
@@ -93,7 +93,7 @@ for sheet in result.sheets:
 - Process most files in under 1 second
 - Memory-efficient streaming for large files
 - Configurable performance/accuracy trade-offs
-- Optional fast parsing with `python-calamine`
+- Optimized parsing for Excel and CSV files
 
 ### 🔧 Flexible Configuration
 

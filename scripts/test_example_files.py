@@ -9,7 +9,6 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -21,7 +20,7 @@ from gridgulp.config import Config
 class ExampleFileTester:
     """Test runner for example files."""
 
-    def __init__(self, config: Optional[Config] = None):
+    def __init__(self, config: Config | None = None):
         """Initialize the tester with optional config."""
         self.config = config or Config(
             confidence_threshold=0.7,
@@ -109,7 +108,7 @@ class ExampleFileTester:
     async def test_directory(
         self,
         directory: Path,
-        patterns: Optional[list[str]] = None,
+        patterns: list[str] | None = None,
         recursive: bool = True,
     ) -> list[dict]:
         """Test all files in a directory matching the given patterns."""
@@ -274,7 +273,7 @@ class ExampleFileTester:
             if len(self.errors) > 5:
                 print(f"  ... and {len(self.errors) - 5} more errors")
 
-    def save_results(self, output_path: Optional[Path] = None) -> Path:
+    def save_results(self, output_path: Path | None = None) -> Path:
         """Save detailed results to JSON file."""
         if output_path is None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

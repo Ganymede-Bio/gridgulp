@@ -31,10 +31,6 @@ class Config(BaseModel):
     max_sheets: int = Field(10, ge=1, description="Maximum sheets to process")
 
     # Performance Configuration
-    excel_reader: str = Field(
-        "calamine",
-        description="Excel reader to use: 'calamine' (fast), 'openpyxl' (full features), 'auto'",
-    )
     max_memory_mb: int = Field(1000, ge=100, description="Maximum memory usage in MB")
     chunk_size: int = Field(10000, ge=100, description="Rows per chunk for streaming")
 
@@ -56,6 +52,17 @@ class Config(BaseModel):
     island_density_threshold: float = Field(
         0.8, ge=0.0, le=1.0, description="High density threshold for island detection"
     )
+
+    # Adaptive threshold configuration
+    adaptive_thresholds: bool = Field(
+        True, description="Enable adaptive table size thresholds based on sheet size"
+    )
+    min_table_percentage: float = Field(
+        0.005, ge=0.0, le=1.0, description="Minimum percentage of sheet cells for a valid table"
+    )
+    prefer_large_tables: bool = Field(
+        True, description="Favor detection of larger tables over smaller fragments"
+    )
     format_blank_row_threshold: float = Field(
         0.9,
         ge=0.0,
@@ -67,6 +74,28 @@ class Config(BaseModel):
         ge=0.0,
         le=1.0,
         description="Percentage of cells that must be bold for total formatting",
+    )
+
+    # Enhanced detection parameters (new in v0.3.3)
+    empty_row_tolerance: int = Field(
+        1,
+        ge=0,
+        le=5,
+        description="Number of empty rows to tolerate within tables (prevents false splits)",
+    )
+    column_gap_prevents_merge: bool = Field(
+        True,
+        description="Prevent merging tables separated by empty columns",
+    )
+    use_border_detection: bool = Field(
+        True,
+        description="Use cell borders for precise table boundary detection",
+    )
+    min_column_overlap_for_merge: float = Field(
+        0.5,
+        ge=0.0,
+        le=1.0,
+        description="Minimum column overlap ratio required to merge tables (0.0-1.0)",
     )
 
     # Caching
@@ -93,7 +122,6 @@ class Config(BaseModel):
                 os.getenv("GRIDGULP_FILE_DETECTION_BUFFER_SIZE", "8192")
             ),
             # Performance Configuration
-            excel_reader=os.getenv("GRIDGULP_EXCEL_READER", "calamine"),
             max_memory_mb=int(os.getenv("GRIDGULP_MAX_MEMORY_MB", "1000")),
             chunk_size=int(os.getenv("GRIDGULP_CHUNK_SIZE", "10000")),
             enable_simple_case_detection=os.getenv(

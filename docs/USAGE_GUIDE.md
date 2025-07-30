@@ -40,7 +40,8 @@ asyncio.run(main())
 - `.xlsx` - Modern Excel format (2007+)
 - `.xls` - Legacy Excel format (97-2003)
 - `.xlsm` - Excel with macros
-- `.xlsb` - Excel binary format
+
+**Note:** `.xlsb` (Excel Binary format) files are detected but not supported. If you have XLSB files, please save them as XLSX format in Excel before processing.
 
 ### CSV Files
 - `.csv` - Comma-separated values
@@ -132,8 +133,6 @@ config = Config(
 
 ```python
 config = Config(
-    # Reader selection
-    excel_reader="calamine",    # "calamine" (fast) or "openpyxl" (features)
 
     # Memory management
     max_memory_mb=1000,         # Maximum memory usage
@@ -323,7 +322,6 @@ async def validate_extraction(file_path, expected_tables):
 ```python
 # For files > 50MB
 config = Config(
-    excel_reader="calamine",     # Faster reader
     chunk_size=50000,            # Larger chunks
     timeout_seconds=300,         # Longer timeout
 )

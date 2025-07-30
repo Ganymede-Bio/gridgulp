@@ -26,7 +26,6 @@ class ReaderFactory:
         self.register_reader(FileType.XLSX, ExcelReader)
         self.register_reader(FileType.XLS, ExcelReader)
         self.register_reader(FileType.XLSM, ExcelReader)
-        self.register_reader(FileType.XLSB, ExcelReader)
 
         # CSV readers
         self.register_reader(FileType.CSV, CSVReader)

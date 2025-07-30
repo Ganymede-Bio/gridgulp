@@ -48,48 +48,136 @@ except ImportError:
 
 
 class ExcelReader(SyncBaseReader):
-    """Reader for Excel files (.xlsx, .xlsm, .xlsb, .xls)."""
+    """Reader for Excel files (.xlsx, .xlsm, .xls).
+
+    This reader handles both modern Excel formats (XLSX/XLSM) using openpyxl
+    and legacy formats (XLS) using xlrd. It automatically selects the appropriate
+    backend based on file type and extracts cell data, formatting, and metadata.
+
+    Examples
+    --------
+    Basic usage::
+
+        >>> from gridgulp.readers import get_reader
+        >>> reader = get_reader("sales_report.xlsx")
+        >>> file_data = reader.read_sync()
+        >>> print(f"Sheets: {len(file_data.sheets)}")
+
+    With context manager::
+
+        >>> with ExcelReader(path, file_info) as reader:
+        ...     file_data = reader.read_sync()
+        ...     # Workbook is automatically closed
+
+    Notes
+    -----
+    The reader preserves formatting information including borders, bold/italic
+    text, and cell alignment. Excel metadata such as ListObjects (tables) and
+    named ranges are also extracted when available.
+
+    Password-protected files are detected and raise appropriate errors. XLSB
+    format is detected but not supported and will raise UnsupportedFormatError.
+    """
 
     def __init__(self, file_path: Path, file_info: FileInfo):
         """Initialize Excel reader.
 
-        Args:
-            file_path: Path to Excel file
-            file_info: File information
+        Args
+        ----
+        file_path : Path
+            Path to the Excel file to read.
+        file_info : FileInfo
+            Pre-analyzed file information including detected type.
+
+        Notes
+        -----
+        The appropriate backend (openpyxl or xlrd) is selected based on file type:
+        - XLSX/XLSM: Uses openpyxl for full feature support
+        - XLS: Uses xlrd for legacy format compatibility
         """
         super().__init__(file_path, file_info)
         self._workbook: Any = None  # Type varies by backend
         self._use_openpyxl = file_info.type in {
             FileType.XLSX,
             FileType.XLSM,
-            FileType.XLSB,
         }
         self._metadata_extractor = ExcelMetadataExtractor()
         self._excel_metadata: ExcelMetadata | None = None
 
     def can_read(self) -> bool:
-        """Check if can read Excel files."""
+        """Check if can read Excel files.
+
+        Returns
+        -------
+        bool
+            True if the file type is XLSX, XLS, or XLSM; False otherwise.
+
+        Notes
+        -----
+        XLSB format is explicitly not supported even though it's an Excel format.
+        This method is used by the factory to validate reader compatibility.
+        """
         return self.file_info.type in {
             FileType.XLSX,
             FileType.XLS,
             FileType.XLSM,
-            FileType.XLSB,
         }
 
     def get_supported_formats(self) -> list[str]:
-        """Get supported Excel formats."""
-        return ["xlsx", "xls", "xlsm", "xlsb"]
+        """Get supported Excel formats.
+
+        Returns
+        -------
+        list[str]
+            List of supported file extensions: ["xlsx", "xls", "xlsm"].
+
+        Notes
+        -----
+        This is a static list of formats this reader can handle. XLSB is
+        intentionally excluded as it requires specialized parsing not
+        currently implemented.
+        """
+        return ["xlsx", "xls", "xlsm"]
 
     def __enter__(self) -> "ExcelReader":
-        """Context manager entry."""
+        """Context manager entry.
+
+        Returns
+        -------
+        ExcelReader
+            Returns self for use in with statements.
+        """
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        """Context manager exit - cleanup resources."""
+        """Context manager exit - cleanup resources.
+
+        Args
+        ----
+        exc_type : Any
+            Exception type if an exception occurred.
+        exc_val : Any
+            Exception value if an exception occurred.
+        exc_tb : Any
+            Exception traceback if an exception occurred.
+
+        Notes
+        -----
+        Always closes the workbook regardless of whether an exception occurred.
+        This ensures Excel file handles are properly released.
+        """
         self.close()
 
     def close(self) -> None:
-        """Close workbook and free resources."""
+        """Close workbook and free resources.
+
+        Notes
+        -----
+        This method safely closes the Excel workbook and releases file handles.
+        It's automatically called when using the reader as a context manager,
+        but can also be called manually. Multiple calls are safe - subsequent
+        calls have no effect.
+        """
         if self._workbook is not None:
             try:
                 if hasattr(self._workbook, "close"):
@@ -271,6 +359,13 @@ class ExcelReader(SyncBaseReader):
                 # Get horizontal alignment
                 horizontal_alignment = alignment.horizontal
 
+            # Extract border information
+            border = cell.border
+            border_top = self._get_border_style(border.top) if border else None
+            border_bottom = self._get_border_style(border.bottom) if border else None
+            border_left = self._get_border_style(border.left) if border else None
+            border_right = self._get_border_style(border.right) if border else None
+
             return CellData(
                 value=value,
                 formatted_value=str(value) if value is not None else None,
@@ -281,6 +376,10 @@ class ExcelReader(SyncBaseReader):
                 font_size=font.size,
                 font_color=self._get_color_hex(font.color),
                 background_color=self._get_fill_color_hex(fill),
+                border_top=border_top,
+                border_bottom=border_bottom,
+                border_left=border_left,
+                border_right=border_right,
                 is_merged=is_merged,
                 merge_range=merge_range,
                 has_formula=cell.data_type == "f",
@@ -299,7 +398,7 @@ class ExcelReader(SyncBaseReader):
         """Read legacy Excel file using xlrd."""
         if not HAS_XLRD:
             raise ReaderError(
-                "xlrd is required to read .xls files. " "Please install it with: pip install xlrd"
+                "xlrd is required to read .xls files. Please install it with: pip install xlrd"
             )
 
         try:
@@ -440,6 +539,11 @@ class ExcelReader(SyncBaseReader):
                 has_formula=cell.ctype == xlrd.XL_CELL_FORMULA,
                 indentation_level=indentation_level,
                 alignment=alignment,
+                # Border information not available in xlrd
+                border_top=None,
+                border_bottom=None,
+                border_left=None,
+                border_right=None,
                 row=row_idx,
                 column=col_idx,
             )
@@ -475,6 +579,34 @@ class ExcelReader(SyncBaseReader):
         try:
             if fill and hasattr(fill, "start_color") and fill.start_color.rgb:
                 return f"#{fill.start_color.rgb[2:8]}"  # Remove alpha channel
+        except Exception:
+            pass
+        return None
+
+    def _get_border_style(self, border_side: Any) -> str | None:
+        """Extract border style from openpyxl border side."""
+        try:
+            if not border_side or not border_side.style:
+                return None
+
+            # Map openpyxl border styles to our simplified format
+            style_mapping = {
+                "thin": "thin",
+                "medium": "medium",
+                "thick": "thick",
+                "hair": "thin",
+                "dotted": "thin",
+                "dashed": "thin",
+                "dashDot": "thin",
+                "dashDotDot": "thin",
+                "double": "thick",
+                "slantDashDot": "thin",
+                "mediumDashed": "medium",
+                "mediumDashDot": "medium",
+                "mediumDashDotDot": "medium",
+            }
+
+            return style_mapping.get(border_side.style, "thin")
         except Exception:
             pass
         return None

@@ -4,11 +4,9 @@ import logging
 from pathlib import Path
 
 from ..config import GridGulpConfig
-from ..models.file_info import FileInfo, FileType
+from ..models.file_info import FileInfo
 from ..models.sheet_data import FileData
 from .base_reader import BaseReader
-from .calamine_reader import CalamineReader
-from .excel_reader import ExcelReader
 from .factory import ReaderFactory
 
 logger = logging.getLogger(__name__)
@@ -41,46 +39,8 @@ class ReaderAdapter:
         Returns:
             Appropriate reader instance
         """
-        # For Excel files, check configuration
-        if file_info.type in {
-            FileType.XLSX,
-            FileType.XLS,
-            FileType.XLSM,
-            FileType.XLSB,
-        }:
-            if self.config.excel_reader == "calamine":
-                # Use fast Calamine reader
-                logger.info("Using Calamine reader for Excel file")
-                return CalamineReader(file_path, file_info)
-            elif self.config.excel_reader == "openpyxl":
-                # Use feature-rich openpyxl reader
-                logger.info("Using openpyxl reader for Excel file")
-                return ExcelReader(file_path, file_info)
-            else:  # auto
-                # Auto-select based on file characteristics
-                return self._auto_select_excel_reader(file_path, file_info)
-
-        # For other file types, use factory default
+        # Use factory to get appropriate reader
         return self.factory.get_reader(file_path, file_info)
-
-    def _auto_select_excel_reader(self, file_path: Path, file_info: FileInfo) -> BaseReader:
-        """Auto-select Excel reader based on file characteristics.
-
-        Args:
-            file_path: Path to file
-            file_info: File information
-
-        Returns:
-            Selected reader
-        """
-        # Use Calamine by default for performance
-        # Could add logic here to detect when openpyxl is needed
-        # (e.g., password protected, needs formatting info, etc.)
-
-        # Check if file requires formatting information
-        # For now, default to Calamine for speed
-        logger.info("Auto-selecting Calamine reader for performance")
-        return CalamineReader(file_path, file_info)
 
     async def read_file(self, file_path: Path, file_info: FileInfo) -> FileData:
         """Read file with appropriate reader and convert to configured format.

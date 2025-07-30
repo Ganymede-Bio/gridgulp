@@ -40,6 +40,16 @@ class CellData(BaseModel):
     font_color: str | None = Field(None, description="Font color (hex)")
     background_color: str | None = Field(None, description="Background color (hex)")
 
+    # Border information
+    border_top: str | None = Field(None, description="Top border style (none/thin/medium/thick)")
+    border_bottom: str | None = Field(
+        None, description="Bottom border style (none/thin/medium/thick)"
+    )
+    border_left: str | None = Field(None, description="Left border style (none/thin/medium/thick)")
+    border_right: str | None = Field(
+        None, description="Right border style (none/thin/medium/thick)"
+    )
+
     # Cell properties
     is_merged: bool = Field(False, description="Cell is part of merged range")
     merge_range: str | None = Field(None, description="Merge range if applicable")
@@ -87,6 +97,10 @@ class CellData(BaseModel):
             "font_size": self.font_size,
             "font_color": self.font_color,
             "background_color": self.background_color,
+            "border_top": self.border_top,
+            "border_bottom": self.border_bottom,
+            "border_left": self.border_left,
+            "border_right": self.border_right,
             "indentation_level": self.indentation_level,
             "alignment": self.alignment,
         }

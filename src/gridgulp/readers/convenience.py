@@ -166,7 +166,7 @@ def is_supported(file_path: str | Path) -> bool:
 
     # Check by extension first (fast)
     extension = file_path.suffix.lower()
-    supported_extensions = {".xlsx", ".xls", ".xlsm", ".xlsb", ".csv", ".tsv", ".txt"}
+    supported_extensions = {".xlsx", ".xls", ".xlsm", ".csv", ".tsv", ".txt"}
     if extension in supported_extensions:
         return True
 

@@ -10,9 +10,10 @@ The system follows a hierarchical detection strategy:
 
 1. **File Type Detection**: Use file magic and content analysis to determine actual file type
 2. **Single Table Check**: Fast check if file/sheet contains only one table (handles ~80% of cases)
-3. **Excel Metadata**: For Excel files, check native table objects and named ranges
-4. **Island Detection**: Algorithm to find disconnected data regions for multi-table sheets
-5. **Heuristic Analysis**: Apply header/format analysis for improved accuracy
+3. **Box Table Detection**: For Excel files, detect tables with complete borders (95% confidence)
+4. **Excel Metadata**: For Excel files, check native table objects and named ranges
+5. **Island Detection**: Algorithm to find disconnected data regions for multi-table sheets
+6. **Heuristic Analysis**: Apply header/format analysis for improved accuracy
 
 ### Detection Components
 
@@ -21,12 +22,21 @@ The system follows a hierarchical detection strategy:
 - Fast path optimization for common cases
 - Uses gap detection and data density analysis
 - Returns high confidence scores for clear single-table layouts
+- Always extracts headers from the first row
+
+#### BoxTableDetector
+- Detects tables with complete borders on all four sides
+- Assigns 95% confidence to these tables (addresses user feedback)
+- Verifies data density to avoid empty bordered regions
+- Ideal for formatted Excel tables with clear boundaries
+- Extracts headers with formatting-based detection
 
 #### IslandDetector
 - Identifies multiple disconnected data regions
 - Creates binary mask of non-empty cells
 - Uses connected component analysis
 - Handles complex multi-table layouts
+- Always extracts headers from first row of each island
 
 #### ExcelMetadataExtractor
 - Extracts Excel ListObjects (native tables)
@@ -47,25 +57,26 @@ class TableInfo(BaseModel):
     range: CellRange = Field(..., description="Table boundaries")
     confidence: float = Field(..., ge=0.0, le=1.0)
     detection_method: str
-    headers: list[str] | None = None
+    headers: list[str] | None = None  # Always extracted from first row
+    has_headers: bool = True  # Header detection confidence
     shape: tuple[int, int] = Field(..., description="(rows, columns)")
 ```
 
 ### File Handling Strategy
 
 #### Excel Files
-- Use openpyxl for .xlsx/.xlsm/.xlsb files
+- Use openpyxl for .xlsx/.xlsm files
 - Use xlrd for legacy .xls files
 - Preserve formatting metadata for detection
 - Handle multiple sheets independently
-- Support for python-calamine for fast parsing
 
 #### CSV/Text Files
 - Auto-detect delimiter using csv.Sniffer
 - Sophisticated encoding detection (BOM, chardet, pattern-based)
 - Handle various delimiters (comma, tab, pipe, semicolon)
 - Support UTF-8, UTF-16 (LE/BE), Latin-1, and more
-- Detect header rows using heuristics
+- Detect header rows using heuristics (bold text, data type differences)
+- Background color is no longer a primary header indicator
 
 #### File Type Detection
 - Check file signatures before trusting extensions

@@ -7,7 +7,6 @@ from .base_reader import (
     ReaderError,
     UnsupportedFileError,
 )
-from .calamine_reader import CalamineReader
 from .convenience import get_async_reader, get_reader, is_supported
 from .csv_reader import CSVReader
 from .excel_reader import ExcelReader
@@ -18,7 +17,6 @@ __all__ = [
     "BaseReader",
     "ExcelReader",
     "CSVReader",
-    "CalamineReader",
     "ReaderFactory",
     "ReaderAdapter",
     "create_reader",

@@ -68,9 +68,13 @@ def detect_file_format(file_path: Path) -> FileInfo:
 ### Selection Logic
 ```python
 def select_reader(file_info: FileInfo) -> BaseReader:
-    if file_info.type in [FileType.XLSX, FileType.XLSM, FileType.XLSB]:
-        if config.prefer_calamine and calamine_available():
-            return CalamineReader(file_info)
+    if file_info.type == FileType.XLSB:
+        raise UnsupportedFormatError(
+            "XLSB (Excel Binary) format is not supported. "
+            "Please save as XLSX format in Excel."
+        )
+
+    if file_info.type in [FileType.XLSX, FileType.XLSM]:
         return ExcelReader(file_info)
 
     elif file_info.type in [FileType.CSV, FileType.TSV]:

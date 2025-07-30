@@ -118,7 +118,27 @@ class DataFrameExtractor:
     def _extract_values_matrix(
         self, range_data: list[list[CellData | None]]
     ) -> list[list[Any]] | None:
-        """Convert CellData matrix to values matrix."""
+        """Convert CellData matrix to values matrix.
+
+        Args
+        ----
+        range_data : list[list[CellData | None]]
+            2D matrix of CellData objects or None values representing
+            a rectangular region of cells.
+
+        Returns
+        -------
+        list[list[Any]] | None
+            2D matrix of cell values extracted from the CellData objects.
+            Returns None if range_data is empty. Empty cells are represented
+            as None in the output matrix.
+
+        Notes
+        -----
+        This method extracts raw values from CellData objects, stripping away
+        formatting and metadata. The output matrix has the same dimensions as
+        the input and is suitable for DataFrame construction or analysis.
+        """
         if not range_data:
             return None
 
@@ -135,7 +155,25 @@ class DataFrameExtractor:
         return values_matrix
 
     def _calculate_density(self, values_matrix: list[list[Any]]) -> float:
-        """Calculate the ratio of non-empty cells."""
+        """Calculate the ratio of non-empty cells.
+
+        Args
+        ----
+        values_matrix : list[list[Any]]
+            2D matrix of cell values to analyze.
+
+        Returns
+        -------
+        float
+            Density ratio between 0.0 and 1.0, where 1.0 means all cells
+            have values and 0.0 means all cells are empty (None).
+
+        Notes
+        -----
+        Density is a key metric for table quality. Very low density (< 0.2)
+        often indicates scattered data rather than a proper table. This metric
+        is used to filter out regions that don't contain meaningful tabular data.
+        """
         total_cells = len(values_matrix) * len(values_matrix[0]) if values_matrix else 0
         if total_cells == 0:
             return 0.0
@@ -150,7 +188,38 @@ class DataFrameExtractor:
         sheet_data: SheetData,
         cell_range: CellRange,
     ) -> HeaderDetectionResult:
-        """Detect headers in the data matrix with advanced analysis."""
+        """Detect headers in the data matrix with advanced analysis.
+
+        Args
+        ----
+        values_matrix : list[list[Any]]
+            2D matrix of cell values to analyze for headers.
+        sheet_data : SheetData
+            Original sheet data for accessing cell formatting information.
+        cell_range : CellRange
+            Range boundaries for mapping matrix positions to sheet cells.
+
+        Returns
+        -------
+        HeaderDetectionResult
+            Detailed information about detected headers including:
+            - Whether headers exist
+            - Number of header rows/columns
+            - Header orientation (vertical/horizontal)
+            - Extracted header values
+            - Confidence score
+
+        Notes
+        -----
+        This method uses multiple detection strategies:
+
+        1. **Plate Map Detection**: Checks for standard plate formats (96-well, etc.)
+        2. **Horizontal Headers**: Detects transposed tables with headers in columns
+        3. **Vertical Headers**: Most common case with headers in top rows
+
+        The detection considers formatting (bold text), data type consistency,
+        and structural patterns to identify headers with high accuracy.
+        """
         # First check if this might be a plate map
         plate_info = self._detect_plate_format(values_matrix)
         if plate_info:
@@ -260,7 +329,32 @@ class DataFrameExtractor:
         return filled / len(row)
 
     def _score_headers(self, headers: list[str], data_rows: list[list[Any]]) -> float:
-        """Score the quality of detected headers."""
+        """Score the quality of detected headers.
+
+        Args
+        ----
+        headers : list[str]
+            List of potential header values to evaluate.
+        data_rows : list[list[Any]]
+            Data rows below the headers for type consistency analysis.
+
+        Returns
+        -------
+        float
+            Quality score between 0.0 and 1.0, where higher scores indicate
+            better header quality.
+
+        Notes
+        -----
+        The scoring algorithm evaluates multiple factors:
+
+        1. **Uniqueness** (30%): Headers should be unique identifiers
+        2. **Text Content** (30%): Headers are typically text, not numbers
+        3. **Type Consistency** (40%): Data columns should have consistent types
+
+        This multi-factor approach helps distinguish true headers from data rows
+        that happen to be at the top of a table.
+        """
         if not headers or not data_rows:
             return 0.0
 
@@ -285,7 +379,32 @@ class DataFrameExtractor:
         return score
 
     def _check_column_type_consistency(self, data_rows: list[list[Any]]) -> float:
-        """Check if columns have consistent data types."""
+        """Check if columns have consistent data types.
+
+        Args
+        ----
+        data_rows : list[list[Any]]
+            Data rows to analyze for type consistency. Each inner list
+            represents a row of data values.
+
+        Returns
+        -------
+        float
+            Consistency score between 0.0 and 1.0, where 1.0 means all columns
+            have perfectly consistent data types (all numeric, all dates, etc.).
+
+        Notes
+        -----
+        This method categorizes values into broad types:
+
+        - **numeric**: int, float, or numeric strings
+        - **date**: datetime objects or date-like strings
+        - **text**: all other non-empty values
+
+        A column is considered consistent if at least 80% of its non-empty values
+        share the same type. This threshold allows for some data quality issues
+        while still identifying well-structured tables.
+        """
         if not data_rows or not data_rows[0]:
             return 0.0
 
@@ -419,7 +538,7 @@ class DataFrameExtractor:
             for rows, cols in dimensions:
                 # Check if matrix dimensions are compatible (accounting for headers)
                 logger.debug(
-                    f"Checking {wells}-well: need {rows+1}x{cols+1}, have {len(values_matrix)}x{len(values_matrix[0]) if values_matrix else 0}"
+                    f"Checking {wells}-well: need {rows + 1}x{cols + 1}, have {len(values_matrix)}x{len(values_matrix[0]) if values_matrix else 0}"
                 )
                 if len(values_matrix) >= rows + 1 and len(values_matrix[0]) >= cols + 1:
                     # Check if first column contains row labels (A, B, C, etc.)

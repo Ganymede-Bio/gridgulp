@@ -1,12 +1,22 @@
 # GridGulp
 
+[![PyPI version](https://badge.fury.io/py/gridgulp.svg)](https://pypi.org/project/gridgulp/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/gridgulp.svg)](https://pypi.org/project/gridgulp/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://ganymede-bio.github.io/gridgulp/)
+
 Automatically detect and extract tables from Excel, CSV, and text files.
 
 ## What is GridGulp?
 
-GridGulp finds tables in your spreadsheets - even when there are multiple tables on one sheet or when tables don't start at cell A1. It comes with reasonable defaults and is fully configurable.
+GridGulp finds tables in your spreadsheets, even when
 
-**Supported formats:** `.xlsx`, `.xls`, `.xlsm`, `.xlsb`, `.csv`, `.tsv`, `.txt`
+- there are multiple tables on one sheet
+- tables don't start at cell A1
+- file extensions do not reflect its file type
+- the file encoding is opaque
+
+**Supported formats:** `.xlsx`, `.xls`, `.xlsm`, `.csv`, `.tsv`, `.txt`
 
 ## Installation
 
@@ -16,22 +26,38 @@ pip install gridgulp
 
 ## Quick Start
 
+### Trying GridGulp Out
+
+To quickly try GridGulp on some spreadsheets, clone the repo, place example spreadsheets in the examples/ directory, and run
+
+```bash
+python scripts/test_example_files.py
+```
+
+You will receive output that looks like, representing identified ranges:
+
+📁 tests/manual
+----------------------------------------------------------------------------------------------------
+✓ sample.xlsx                              | Tables: 1  | Time: 1.099s | Size: 122.6KB | Method: magika
+  📄 Sheet: Sheet
+     └─ A1:CV203        | 203×100 | Conf: 70%
+
+
 ### Table Ranges vs DataFrames
 
 GridGulp provides two ways to work with detected tables:
 
-1. **Table Ranges** - Lightweight metadata about where tables are located (e.g., "A1:E100")
+1. **Table Ranges** - JSON metadata about where tables are located (e.g., "A1:E100")
    - Fast and memory-efficient
-   - Perfect for mapping table locations or visualizing spreadsheet structure
+   - Perfect for agent use as tools - mapping table locations or visualizing spreadsheet structure
    - No actual data is loaded into memory
 
 2. **DataFrames** - The actual data extracted from those ranges as pandas DataFrames
    - Contains the full data with proper types
    - Ready for analysis, transformation, or export
-   - Requires more memory but provides full data access
 
 Choose based on your needs:
-- Use **ranges only** when you need to know where tables are or want to process them later
+- Use **ranges only** when you need to know where tables are and want to submit to other tasks - for example, a downstream process to infer purpose / intent based on data content
 - Use **DataFrames** when you need to analyze or transform the actual data
 
 ### Getting Table Ranges Only
@@ -185,14 +211,14 @@ if all_dataframes:
 - **Smart Headers** - Detects single and multi-row headers automatically
 - **Multiple Tables** - Handles sheets with multiple separate tables
 - **Quality Scoring** - Confidence scores for each detected table
-- **Fast** - Processes most files in under a second
+- **Fast** - Processes 1M+ cells/second for simple tables, 100K+ cells/second for complex tables
 
 ## Documentation
 
 - [Full Usage Guide](docs/USAGE_GUIDE.md) - Detailed examples and configuration
 - [API Reference](docs/API_REFERENCE.md) - Complete API documentation
 - [Architecture](docs/ARCHITECTURE.md) - How GridGulp works internally
-- [Testing Guide](docs/TESTING_WITH_SCRIPT.md) - Test spreadsheets in bulk with the unified test script
+- [Testing Guide](docs/TESTING_GUIDE.md) - Test spreadsheets in bulk with the unified test script
 
 ## License
 

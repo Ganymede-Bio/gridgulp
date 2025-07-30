@@ -190,7 +190,7 @@ async def process_file(file_path: Path, porter: GridGulp, capture: DetectionOutp
 
 def find_spreadsheet_files(directory: Path) -> list[Path]:
     """Find all spreadsheet files in a directory."""
-    extensions = {".xlsx", ".xls", ".xlsm", ".xlsb", ".csv", ".tsv", ".txt"}
+    extensions = {".xlsx", ".xls", ".xlsm", ".csv", ".tsv", ".txt"}
     files = []
 
     for file_path in directory.rglob("*"):

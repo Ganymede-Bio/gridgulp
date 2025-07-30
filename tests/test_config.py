@@ -139,19 +139,5 @@ class TestConfig:
         assert hasattr(config, "enable_simple_case_detection")
         assert hasattr(config, "enable_island_detection")
         assert hasattr(config, "log_level")
-        assert hasattr(config, "excel_reader")
         assert hasattr(config, "enable_magika")
         assert hasattr(config, "timeout_seconds")
-
-    def test_excel_reader_options(self):
-        """Test excel reader configuration."""
-        # Default should be calamine
-        config = Config()
-        assert config.excel_reader == "calamine"
-
-        # Can set to other options
-        config = Config(excel_reader="openpyxl")
-        assert config.excel_reader == "openpyxl"
-
-        config = Config(excel_reader="auto")
-        assert config.excel_reader == "auto"

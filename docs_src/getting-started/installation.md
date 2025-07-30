@@ -88,9 +88,6 @@ sudo apt-get install libmagic1
 **Windows:**
 The Python package includes the necessary DLLs, but if you encounter issues, see the [python-magic documentation](https://github.com/ahupp/python-magic#installation).
 
-### Performance Considerations
-
-For best performance with Excel files, GridGulp can use the `python-calamine` package (Rust-based reader). This is installed by default and will be used automatically when available.
 
 ## Next Steps
 

@@ -6,7 +6,7 @@ allowing the system to avoid expensive vision processing for simple cases.
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from ..models.table import TableInfo, TableRange
 from ..utils.excel_utils import get_column_letter
@@ -119,8 +119,28 @@ class SimpleCaseDetector:
     def _find_data_bounds(self, sheet_data: "SheetData") -> tuple[int, int, int, int]:
         """Find the bounding box of all data in the sheet - OPTIMIZED for performance.
 
-        Returns:
-            Tuple of (min_row, max_row, min_col, max_col) in 0-based indices
+        Args
+        ----
+        sheet_data : SheetData
+            Sheet data to analyze for bounds.
+
+        Returns
+        -------
+        tuple[int, int, int, int]
+            Tuple of (min_row, max_row, min_col, max_col) in 0-based indices.
+            Returns (0, 0, 0, 0) if no data is found.
+
+        Notes
+        -----
+        This method is performance optimized with two strategies:
+
+        1. For dense tables starting at A1 (>30% density), it uses pre-computed
+           sheet bounds to avoid cell iteration.
+        2. For sparse or complex layouts, it falls back to iterating through
+           non-empty cells.
+
+        The optimization significantly improves performance for the common case
+        of simple, dense spreadsheets while maintaining accuracy for edge cases.
         """
         # PERFORMANCE OPTIMIZATION: Use sheet_data's pre-computed bounds if available
         if hasattr(sheet_data, "max_row") and hasattr(sheet_data, "max_column"):
@@ -164,8 +184,30 @@ class SimpleCaseDetector:
     ) -> list[int]:
         """Find empty rows within the data bounds - OPTIMIZED for performance.
 
-        Returns:
-            List of 0-based row indices that are empty
+        Args
+        ----
+        sheet_data : SheetData
+            Sheet data to analyze.
+        min_row : int
+            Starting row index (0-based, inclusive).
+        max_row : int
+            Ending row index (0-based, inclusive).
+        min_col : int
+            Starting column index (0-based, inclusive).
+        max_col : int
+            Ending column index (0-based, inclusive).
+
+        Returns
+        -------
+        list[int]
+            List of 0-based row indices that are completely empty within the
+            specified column range. Empty list if no empty rows found.
+
+        Notes
+        -----
+        This method uses set-based lookups for O(1) cell existence checks rather
+        than nested loops, significantly improving performance for large sheets.
+        Empty rows break table continuity and indicate multiple tables.
         """
         # PERFORMANCE OPTIMIZATION: Use set lookup instead of nested loops
         non_empty_cells = sheet_data.get_non_empty_cells()
@@ -192,8 +234,30 @@ class SimpleCaseDetector:
     ) -> list[int]:
         """Find empty columns within the data bounds - OPTIMIZED for performance.
 
-        Returns:
-            List of 0-based column indices that are empty
+        Args
+        ----
+        sheet_data : SheetData
+            Sheet data to analyze.
+        min_row : int
+            Starting row index (0-based, inclusive).
+        max_row : int
+            Ending row index (0-based, inclusive).
+        min_col : int
+            Starting column index (0-based, inclusive).
+        max_col : int
+            Ending column index (0-based, inclusive).
+
+        Returns
+        -------
+        list[int]
+            List of 0-based column indices that are completely empty within the
+            specified row range. Empty list if no empty columns found.
+
+        Notes
+        -----
+        This method caches cell positions to avoid redundant processing when
+        called after _find_empty_rows(). The cache is stored as _cached_cell_positions
+        for the duration of the detection process.
         """
         # PERFORMANCE OPTIMIZATION: Reuse cell_positions from memory if possible
         if not hasattr(self, "_cached_cell_positions"):
@@ -223,8 +287,29 @@ class SimpleCaseDetector:
     ) -> int:
         """Count the number of filled cells in the region.
 
-        Returns:
-            Number of cells with non-None values
+        Args
+        ----
+        sheet_data : SheetData
+            Sheet data containing cells to count.
+        min_row : int
+            Starting row index (0-based, inclusive).
+        max_row : int
+            Ending row index (0-based, inclusive).
+        min_col : int
+            Starting column index (0-based, inclusive).
+        max_col : int
+            Ending column index (0-based, inclusive).
+
+        Returns
+        -------
+        int
+            Number of cells with non-None values in the specified region.
+
+        Notes
+        -----
+        This count is used to calculate data density, which helps determine
+        if a region contains a cohesive table or scattered data. A density
+        below 50% typically indicates the region is not a simple table.
         """
         count = 0
         for row in range(min_row, max_row + 1):
@@ -239,13 +324,33 @@ class SimpleCaseDetector:
     ) -> bool:
         """Detect if the first row contains headers.
 
-        Headers are detected by:
-        1. All cells in first row are text
-        2. Different data types in subsequent rows
-        3. Bold formatting in first row
+        Args
+        ----
+        sheet_data : SheetData
+            Sheet data to analyze.
+        first_row : int
+            Row index to check for headers (0-based).
+        min_col : int
+            Starting column index (0-based).
+        max_col : int
+            Ending column index (0-based).
 
-        Returns:
-            True if headers are likely present
+        Returns
+        -------
+        bool
+            True if headers are likely present, False otherwise.
+
+        Notes
+        -----
+        Headers are detected using multiple heuristics:
+
+        1. All cells in first row are text/string type
+        2. Different data types (numbers, dates) in subsequent rows
+        3. Bold formatting in first row (common header styling)
+
+        The method returns True if the first row contains all strings AND
+        either has bold formatting OR the second row contains non-string types.
+        This approach balances accuracy with performance.
         """
         # Check first row characteristics
         first_row_cells = []
@@ -285,15 +390,37 @@ class SimpleCaseDetector:
     ) -> float:
         """Calculate confidence score for simple table detection.
 
-        Args:
-            min_row: Starting row (0-based)
-            min_col: Starting column (0-based)
-            density: Data density ratio
-            has_headers: Whether headers were detected
-            row_count: Number of rows in table
+        Args
+        ----
+        min_row : int
+            Starting row index (0-based).
+        min_col : int
+            Starting column index (0-based).
+        density : float
+            Data density ratio (filled cells / total cells), between 0 and 1.
+        has_headers : bool
+            Whether headers were detected in the first row.
+        row_count : int
+            Total number of rows in the detected table.
 
-        Returns:
-            Confidence score between 0 and 1
+        Returns
+        -------
+        float
+            Confidence score between 0.0 and 1.0, where higher values indicate
+            stronger confidence that this is a simple single table.
+
+        Notes
+        -----
+        The confidence calculation uses multiple factors:
+
+        - Base confidence: 0.5
+        - +0.2 for tables starting at A1 (most common case)
+        - +0.1 for tables starting within 1 row/column of A1
+        - +0.2 for density > 90%, +0.1 for density > 70%
+        - +0.1 for detected headers
+        - -0.1 penalty for very small tables (< 3 rows)
+
+        The final score is clamped to [0.0, 1.0] range.
         """
         confidence = 0.5  # Base confidence
 
@@ -319,12 +446,15 @@ class SimpleCaseDetector:
 
         return min(max(confidence, 0.0), 1.0)
 
-    def convert_to_table_info(self, result: SimpleTableResult, sheet_name: str) -> TableInfo | None:
+    def convert_to_table_info(
+        self, result: SimpleTableResult, sheet_name: str, sheet_data: Optional["SheetData"] = None
+    ) -> TableInfo | None:
         """Convert simple table result to TableInfo.
 
         Args:
             result: SimpleTableResult from detection
             sheet_name: Name of the sheet
+            sheet_data: Sheet data for header extraction (optional)
 
         Returns:
             TableInfo if simple table detected, None otherwise
@@ -353,8 +483,53 @@ class SimpleCaseDetector:
                 suggested_name=f"{sheet_name}_table",
                 confidence=result.confidence,
                 detection_method="simple_case",
-                headers=None,  # Would need to extract if needed
+                headers=self._extract_headers(sheet_data, table_range)
+                if result.has_headers and sheet_data
+                else None,
                 data_preview=None,  # Would need to extract if needed
             )
 
         return None
+
+    def _extract_headers(self, sheet_data: "SheetData", table_range: TableRange) -> list[str]:
+        """Extract header values from the first row of a table.
+
+        Args
+        ----
+        sheet_data : SheetData
+            Sheet data containing the cells to extract headers from.
+        table_range : TableRange
+            Range defining the table boundaries.
+
+        Returns
+        -------
+        list[str]
+            List of header strings extracted from the first row. Empty cells
+            are replaced with their column letter (e.g., "A", "B", "C").
+
+        Examples
+        --------
+        >>> headers = detector._extract_headers(sheet_data, table_range)
+        >>> print(headers)
+        ['Date', 'Product', 'Quantity', 'Price', 'Total']
+
+        Notes
+        -----
+        Header values are converted to strings and stripped of whitespace.
+        If a header cell is empty, the column letter is used as a fallback
+        to ensure all columns have identifiers.
+        """
+        headers = []
+
+        # Extract values from first row
+        for col in range(table_range.start_col, table_range.end_col + 1):
+            cell = sheet_data.get_cell(table_range.start_row, col)
+            if cell and cell.value is not None:
+                # Convert value to string for header
+                header_val = str(cell.value).strip()
+                headers.append(header_val)
+            else:
+                # Use column letter as fallback for empty headers
+                headers.append(get_column_letter(col))
+
+        return headers

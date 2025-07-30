@@ -59,7 +59,7 @@ config = Config(
 **Purpose**: Uses Excel's native table definitions and named ranges.
 
 **When it's used**:
-- Only for Excel files (.xlsx, .xlsm, .xlsb)
+- Only for Excel files (.xlsx, .xlsm)
 - When Excel tables (ListObjects) are defined
 - When named ranges might contain tables
 

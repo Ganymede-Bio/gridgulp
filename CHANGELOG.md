@@ -5,13 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.3.4] - 2025-07-29
+
+### Added
+- BoxTableDetector for high-confidence detection of tables with complete borders (95% confidence)
+- Headers are now always extracted from the first row of detected tables
+- Header extraction support for all detection methods (SimpleCaseDetector, IslandDetector, BoxTableDetector)
+
+### Changed
+- Improved header detection to focus on bold text and data type differences
+- Reduced emphasis on background color for header detection (based on user feedback)
+- Updated detection pipeline to include box table detection as a fast path
+
+### Fixed
+- Fixed header extraction in island detection - headers were not being returned
+- Fixed sheet_data parameter bug in SimpleCaseDetector.convert_to_table_info
+- Fixed has_headers property to correctly transfer from islands to TableInfo objects
+
 ## [0.3.1] - 2025-07-29
 
 ### Changed
-- **Project Rename**: Renamed from GridPorter to GridGulp
-  - Updated all package references throughout codebase
-  - Renamed source directory from `src/gridporter/` to `src/gridgulp/`
-  - Updated project metadata and documentation
 - CI improvements:
   - Added Python version matrix testing (3.10, 3.11, 3.12, 3.13)
   - Updated ruff target version to py310 (minimum supported)

@@ -107,6 +107,7 @@ class TestTableDetectionAgent:
             "simple_case_fast",
             "ultra_fast",
             "island_detection_fast",
+            "island_detection",  # Island detector may return this
         ]
         assert result.tables[0].range.start_row == 0
         assert result.tables[0].range.start_col == 0

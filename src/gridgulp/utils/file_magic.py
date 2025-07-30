@@ -49,9 +49,10 @@ class FileFormatDetector:
         # Supported spreadsheet formats
         "csv": FileType.CSV,
         "tsv": FileType.TSV,
-        "xlsx": FileType.XLSX,  # Note: Magika can't distinguish XLSM/XLSB, they appear as xlsx
+        "xlsx": FileType.XLSX,  # Note: Magika can't distinguish XLSM, they appear as xlsx
         "xls": FileType.XLS,
-        # Note: XLSM and XLSB detection requires ZIP content analysis, not available via Magika
+        "xlsb": FileType.XLSB,
+        # Note: XLSM detection requires ZIP content analysis, not available via Magika
         # Text formats that might be delimited
         "txt": FileType.TXT,  # Will use content analysis for tabular detection
         # Sometimes Magika misidentifies UTF-16 text files
@@ -175,7 +176,19 @@ class FileFormatDetector:
         self.enable_magika = enable_magika
 
     def _check_magic_availability(self) -> bool:
-        """Check if python-magic is available."""
+        """Check if python-magic is available.
+
+        Returns
+        -------
+        bool
+            True if python-magic is installed and functional; False otherwise.
+
+        Notes
+        -----
+        This method not only checks if the module can be imported but also
+        verifies it can actually detect MIME types. Some installations may
+        have import issues or missing dependencies (like libmagic).
+        """
         try:
             import magic
 
@@ -187,7 +200,19 @@ class FileFormatDetector:
             return False
 
     def _check_filetype_availability(self) -> bool:
-        """Check if filetype library is available."""
+        """Check if filetype library is available.
+
+        Returns
+        -------
+        bool
+            True if the filetype library is installed; False otherwise.
+
+        Notes
+        -----
+        The filetype library provides pure-Python file type detection based on
+        file signatures. It's used as a fallback when python-magic is unavailable
+        or for additional validation.
+        """
         try:
             import filetype  # noqa: F401
 
@@ -197,7 +222,20 @@ class FileFormatDetector:
             return False
 
     def _check_magika_availability(self) -> bool:
-        """Check if Magika library is available."""
+        """Check if Magika library is available.
+
+        Returns
+        -------
+        bool
+            True if Google's Magika AI-based file detection is available; False otherwise.
+
+        Notes
+        -----
+        Magika is Google's AI-powered file type detection library that provides
+        high accuracy for file format identification. It's optional but recommended
+        for improved detection accuracy, especially for files with misleading
+        extensions or corrupted headers.
+        """
         try:
             from magika import Magika  # noqa: F401
 
@@ -406,7 +444,7 @@ class FileFormatDetector:
                     # Determine specific Excel format
                     if any("vbaProject" in f for f in file_list):
                         return FileType.XLSM, 0.95  # Macro-enabled
-                    elif any(f.endswith(".bin") for f in file_list):
+                    elif self._is_xlsb_format(file_list):
                         return FileType.XLSB, 0.95  # Binary format
                     else:
                         return FileType.XLSX, 0.95  # Standard Excel
@@ -418,6 +456,30 @@ class FileFormatDetector:
             logger.debug(f"ZIP analysis failed: {e}")
 
         return None, 0.0
+
+    def _is_xlsb_format(self, file_list: list[str]) -> bool:
+        """More accurate XLSB detection based on file structure.
+
+        XLSB files have specific characteristics:
+        - xl/workbook.bin (not workbook.xml)
+        - xl/worksheets/sheet*.bin (not sheet*.xml)
+        - No xml worksheet files
+        """
+        # Check for binary workbook file
+        has_workbook_bin = any("xl/workbook.bin" in f for f in file_list)
+
+        # Check for binary worksheet files
+        has_sheet_bin = any(
+            f.startswith("xl/worksheets/sheet") and f.endswith(".bin") for f in file_list
+        )
+
+        # Check for absence of XML worksheet files (XLSB won't have these)
+        has_sheet_xml = any(
+            f.startswith("xl/worksheets/sheet") and f.endswith(".xml") for f in file_list
+        )
+
+        # XLSB should have binary workbook AND sheets, but NO XML sheets
+        return has_workbook_bin and has_sheet_bin and not has_sheet_xml
 
     def _analyze_text_content(
         self, file_path: Path, header_bytes: bytes

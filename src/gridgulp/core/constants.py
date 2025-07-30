@@ -12,7 +12,7 @@ from typing import Final
 class IslandDetectionConstants:
     """Constants for island detection algorithm."""
 
-    # Minimum cell counts for confidence levels
+    # Minimum cell counts for confidence levels (used as baseline, adjusted by sheet size)
     MIN_CELLS_GOOD: Final[int] = 20  # Islands with 20+ cells get good confidence boost
     MIN_CELLS_MEDIUM: Final[int] = 10  # Islands with 10-19 cells get medium confidence boost
     MIN_CELLS_SMALL: Final[int] = 4  # Islands with 4-9 cells get small/no confidence boost
@@ -34,13 +34,25 @@ class IslandDetectionConstants:
     CONFIDENCE_PENALTY_LOW_DENSITY: Final[float] = 0.2  # Penalty for sparse islands (<30% filled)
 
     # Structural analysis parameters
-    COLUMN_CONSISTENCY_THRESHOLD: Final[
-        float
-    ] = 0.8  # Min similarity for grouping rows by column usage
+    COLUMN_CONSISTENCY_THRESHOLD: Final[float] = (
+        0.8  # Min similarity for grouping rows by column usage
+    )
     MIN_EMPTY_ROWS_TO_SPLIT: Final[int] = 1  # Number of empty rows needed to split islands
     DEFAULT_MAX_GAP: Final[int] = 1  # Default max gap between cells for connectivity
     TEXT_FILE_MAX_GAP: Final[int] = 0  # Max gap for text files (stricter separation)
     EXCEL_FILE_MAX_GAP: Final[int] = 1  # Max gap for Excel files
+
+    # Relative size thresholds (percentage of total sheet cells)
+    RELATIVE_SIZE_LARGE: Final[float] = 0.05  # 5%+ of sheet cells is a large table
+    RELATIVE_SIZE_MEDIUM: Final[float] = 0.01  # 1-5% of sheet cells is medium table
+    RELATIVE_SIZE_SMALL: Final[float] = 0.005  # 0.5-1% of sheet cells is small table
+    RELATIVE_SIZE_TINY: Final[float] = 0.001  # <0.1% is tiny (usually noise)
+
+    # Border analysis parameters
+    BORDER_WIDTH: Final[int] = 2  # Width of border to check around tables
+    BORDER_CELL_THRESHOLD: Final[float] = 0.3  # 30%+ border cells populated is concerning
+    CONFIDENCE_PENALTY_BORDER: Final[float] = 0.2  # Penalty for high border population
+    CONFIDENCE_PENALTY_SUBSET: Final[float] = 0.3  # Penalty for being subset of another table
 
 
 @dataclass(frozen=True)
@@ -50,9 +62,9 @@ class FormatAnalysisConstants:
     # Thresholds
     BLANK_ROW_THRESHOLD: Final[float] = 0.9  # Row is blank if 90%+ cells are empty
     TOTAL_FORMATTING_THRESHOLD: Final[float] = 0.5  # Row is total/summary if 50%+ cells are bold
-    CONSISTENT_COLUMN_THRESHOLD: Final[
-        float
-    ] = 0.8  # Column has consistent type if 80%+ cells match
+    CONSISTENT_COLUMN_THRESHOLD: Final[float] = (
+        0.8  # Column has consistent type if 80%+ cells match
+    )
 
     # Pattern detection
     MIN_DATA_ROWS_FOR_PATTERN: Final[int] = 4  # Need at least 4 data rows to detect patterns
@@ -66,13 +78,13 @@ class ComplexTableConstants:
     """Constants for complex table detection."""
 
     # Confidence thresholds
-    DEFAULT_SIMPLE_HEADER_CONFIDENCE: Final[
-        float
-    ] = 0.7  # Default confidence for simple header detection
+    DEFAULT_SIMPLE_HEADER_CONFIDENCE: Final[float] = (
+        0.7  # Default confidence for simple header detection
+    )
     MIN_CONFIDENCE_FOR_ISLAND: Final[float] = 0.5  # Minimum confidence to accept island detection
-    MIN_CONFIDENCE_FOR_GOOD_ISLAND: Final[
-        float
-    ] = 0.6  # Confidence threshold for high-quality islands (lowered to accept more good results)
+    MIN_CONFIDENCE_FOR_GOOD_ISLAND: Final[float] = (
+        0.6  # Confidence threshold for high-quality islands (lowered to accept more good results)
+    )
 
     # Analysis parameters
     SEMANTIC_ROW_SCORE_DIVISOR: Final[int] = 5  # Divisor for semantic row scoring calculation
@@ -93,9 +105,9 @@ class CostOptimizationConstants:
     # Cost limits
     DEFAULT_MAX_COST_PER_SESSION: Final[float] = 1.0  # Maximum USD cost allowed per session
     DEFAULT_MAX_COST_PER_FILE: Final[float] = 0.1  # Maximum USD cost allowed per file
-    DEFAULT_CONFIDENCE_THRESHOLD: Final[
-        float
-    ] = 0.6  # Default confidence threshold for detection (lowered for better recall)
+    DEFAULT_CONFIDENCE_THRESHOLD: Final[float] = (
+        0.6  # Default confidence threshold for detection (lowered for better recall)
+    )
 
     # Caching
     DEFAULT_CACHE_TTL_SECONDS: Final[int] = 3600  # Cache time-to-live: 1 hour (3600 seconds)
@@ -112,9 +124,9 @@ class CostOptimizationConstants:
 
     # Token estimates
     VISION_TOKEN_MULTIPLIER: Final[int] = 100000  # Multiplier for vision token estimates
-    MINI_MODEL_COST_PER_TOKEN: Final[
-        float
-    ] = 0.0000004  # Cost per token for mini models (GPT-4o-mini)
+    MINI_MODEL_COST_PER_TOKEN: Final[float] = (
+        0.0000004  # Cost per token for mini models (GPT-4o-mini)
+    )
     LARGE_MODEL_COST_PER_TOKEN: Final[float] = 0.00001  # Cost per token for large models (GPT-4o)
     CLAUDE_COST_PER_TOKEN: Final[float] = 0.000008  # Cost per token for Claude models
     DEFAULT_COST_PER_TOKEN: Final[float] = 0.000001  # Default/fallback cost per token
@@ -169,6 +181,50 @@ class VisionOrchestratorConstants:
     CONFIDENCE_THRESHOLD_HIGH: Final[float] = 0.9  # High confidence: use premium strategies
     CONFIDENCE_THRESHOLD_MEDIUM: Final[float] = 0.75  # Medium confidence: balanced approach
     CONFIDENCE_THRESHOLD_LOW: Final[float] = 0.6  # Low confidence: cost-conscious approach
+
+
+@dataclass(frozen=True)
+class FormattingDetectionConstants:
+    """Constants for formatting-based table detection."""
+
+    # Header detection thresholds
+    HEADER_BOLD_THRESHOLD: Final[float] = 0.7  # 70% of header row cells must be bold
+    HEADER_BACKGROUND_WEIGHT: Final[float] = 0.8  # Weight for background color in header detection
+
+    # Formatting change thresholds
+    BACKGROUND_CHANGE_THRESHOLD: Final[float] = 0.3  # Significant background color change
+    FONT_SIZE_CHANGE_THRESHOLD: Final[float] = 2.0  # Font size difference indicating new section
+    FONT_COLOR_CHANGE_THRESHOLD: Final[float] = 0.5  # Font color difference threshold
+
+    # Border-based boundary detection
+    BORDER_CONSISTENCY_THRESHOLD: Final[float] = 0.8  # Border similarity needed to group cells
+    BORDER_CHANGE_THRESHOLD: Final[float] = 0.5  # Significant border pattern change
+    OUTER_BORDER_WEIGHT: Final[float] = 0.3  # Weight for outer border in boundary detection
+    INNER_BORDER_WEIGHT: Final[float] = 0.7  # Weight for inner border consistency
+
+    # Border signature types
+    NO_BORDERS: Final[str] = "none"  # No borders present
+    ALL_BORDERS: Final[str] = "all"  # All borders present (top/bottom/left/right)
+    OUTER_ONLY: Final[str] = "outer"  # Only outer borders (table boundary)
+    HORIZONTAL_ONLY: Final[str] = "horizontal"  # Only top/bottom borders
+    VERTICAL_ONLY: Final[str] = "vertical"  # Only left/right borders
+    MIXED_BORDERS: Final[str] = "mixed"  # Mixed border pattern
+
+    # Formatting consistency requirements
+    MIN_FORMATTING_CONSISTENCY: Final[float] = 0.8  # Formatting consistency within table
+    FORMATTING_SIMILARITY_THRESHOLD: Final[float] = 0.7  # How similar formatting must be to group
+
+    # Visual boundary detection
+    EMPTY_ROW_FORMATTING_WEIGHT: Final[float] = 0.5  # Weight formatting in empty row analysis
+    MERGED_CELL_BOUNDARY_RESPECT: Final[bool] = True  # Respect merged cell boundaries
+
+    # Format-aware merging parameters
+    ALLOW_CROSS_FORMAT_MERGE: Final[bool] = (
+        False  # Don't merge tables with different header formats
+    )
+    HEADER_FORMAT_MERGE_THRESHOLD: Final[float] = (
+        0.9  # Similarity needed to merge different header formats
+    )
 
 
 @dataclass(frozen=True)
@@ -235,4 +291,5 @@ COST_OPTIMIZATION = CostOptimizationConstants()  # Constants for cost optimizati
 EXCEL_LIMITS = ExcelLimits()  # Excel format limitations
 COMPLEXITY_ASSESSMENT = ComplexityAssessmentConstants()  # Constants for complexity assessment
 VISION_ORCHESTRATOR = VisionOrchestratorConstants()  # Constants for vision orchestrator
+FORMATTING_DETECTION = FormattingDetectionConstants()  # Constants for formatting-based detection
 KEYWORDS = Keywords()  # Multi-language keywords for pattern detection
