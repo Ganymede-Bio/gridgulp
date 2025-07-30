@@ -54,7 +54,7 @@ class TableInfo(BaseModel):
 ### File Handling Strategy
 
 #### Excel Files
-- Use openpyxl for .xlsx/.xlsm/.xlsb files
+- Use openpyxl for .xlsx/.xlsm files
 - Use xlrd for legacy .xls files
 - Preserve formatting metadata for detection
 - Handle multiple sheets independently

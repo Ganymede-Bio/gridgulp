@@ -16,7 +16,7 @@ GridGulp finds tables in your spreadsheets - even when
 - file extensions do not reflect its file type
 - the file encoding is opaque
 
-**Supported formats:** `.xlsx`, `.xls`, `.xlsm`, `.xlsb`, `.csv`, `.tsv`, `.txt`
+**Supported formats:** `.xlsx`, `.xls`, `.xlsm`, `.csv`, `.tsv`, `.txt` (Note: `.xlsb` Excel Binary format is not supported)
 
 ## Installation
 

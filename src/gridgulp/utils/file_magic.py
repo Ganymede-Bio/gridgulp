@@ -49,9 +49,9 @@ class FileFormatDetector:
         # Supported spreadsheet formats
         "csv": FileType.CSV,
         "tsv": FileType.TSV,
-        "xlsx": FileType.XLSX,  # Note: Magika can't distinguish XLSM/XLSB, they appear as xlsx
+        "xlsx": FileType.XLSX,  # Note: Magika can't distinguish XLSM, they appear as xlsx
         "xls": FileType.XLS,
-        # Note: XLSM and XLSB detection requires ZIP content analysis, not available via Magika
+        # Note: XLSM detection requires ZIP content analysis, not available via Magika
         # Text formats that might be delimited
         "txt": FileType.TXT,  # Will use content analysis for tabular detection
         # Sometimes Magika misidentifies UTF-16 text files
@@ -568,10 +568,7 @@ class FileFormatDetector:
                     # Magika detected XLSX, but it might be XLSM or XLSB
                     # Do additional ZIP analysis to distinguish
                     zip_result = self._analyze_zip_content(file_path)
-                    if zip_result[0] and zip_result[0] in [
-                        FileType.XLSM,
-                        FileType.XLSB,
-                    ]:
+                    if zip_result[0] and zip_result[0] in [FileType.XLSM, FileType.XLSB]:
                         # More specific Excel format detected
                         return zip_result[0], min(confidence_score, zip_result[1])
                     else:

@@ -28,7 +28,7 @@ GridGulp finds tables in your spreadsheets - even when there are multiple tables
 
     ---
 
-    Supports Excel (`.xlsx`, `.xls`, `.xlsm`, `.xlsb`), CSV, TSV, and text files with automatic format detection.
+    Supports Excel (`.xlsx`, `.xls`, `.xlsm`), CSV, TSV, and text files with automatic format detection.
 
 -   :material-table-multiple:{ .lg .middle } **Multi-Table Support**
 

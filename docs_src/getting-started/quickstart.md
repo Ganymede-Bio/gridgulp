@@ -65,11 +65,13 @@ GridGulp automatically detects file types:
 
 ### Excel Files
 ```python
-# All Excel formats are supported
+# Supported Excel formats
 result = await gg.detect_tables("data.xlsx")  # Excel 2007+
 result = await gg.detect_tables("data.xls")   # Legacy Excel
 result = await gg.detect_tables("data.xlsm")  # With macros
-result = await gg.detect_tables("data.xlsb")  # Binary format
+
+# Note: .xlsb (Excel Binary) format is not supported
+# If you have .xlsb files, save them as .xlsx in Excel first
 ```
 
 ### CSV/TSV Files

@@ -48,7 +48,7 @@ except ImportError:
 
 
 class ExcelReader(SyncBaseReader):
-    """Reader for Excel files (.xlsx, .xlsm, .xlsb, .xls)."""
+    """Reader for Excel files (.xlsx, .xlsm, .xls)."""
 
     def __init__(self, file_path: Path, file_info: FileInfo):
         """Initialize Excel reader.
@@ -62,7 +62,6 @@ class ExcelReader(SyncBaseReader):
         self._use_openpyxl = file_info.type in {
             FileType.XLSX,
             FileType.XLSM,
-            FileType.XLSB,
         }
         self._metadata_extractor = ExcelMetadataExtractor()
         self._excel_metadata: ExcelMetadata | None = None
@@ -73,12 +72,11 @@ class ExcelReader(SyncBaseReader):
             FileType.XLSX,
             FileType.XLS,
             FileType.XLSM,
-            FileType.XLSB,
         }
 
     def get_supported_formats(self) -> list[str]:
         """Get supported Excel formats."""
-        return ["xlsx", "xls", "xlsm", "xlsb"]
+        return ["xlsx", "xls", "xlsm"]
 
     def __enter__(self) -> "ExcelReader":
         """Context manager entry."""
@@ -271,6 +269,13 @@ class ExcelReader(SyncBaseReader):
                 # Get horizontal alignment
                 horizontal_alignment = alignment.horizontal
 
+            # Extract border information
+            border = cell.border
+            border_top = self._get_border_style(border.top) if border else None
+            border_bottom = self._get_border_style(border.bottom) if border else None
+            border_left = self._get_border_style(border.left) if border else None
+            border_right = self._get_border_style(border.right) if border else None
+
             return CellData(
                 value=value,
                 formatted_value=str(value) if value is not None else None,
@@ -281,6 +286,10 @@ class ExcelReader(SyncBaseReader):
                 font_size=font.size,
                 font_color=self._get_color_hex(font.color),
                 background_color=self._get_fill_color_hex(fill),
+                border_top=border_top,
+                border_bottom=border_bottom,
+                border_left=border_left,
+                border_right=border_right,
                 is_merged=is_merged,
                 merge_range=merge_range,
                 has_formula=cell.data_type == "f",
@@ -299,7 +308,7 @@ class ExcelReader(SyncBaseReader):
         """Read legacy Excel file using xlrd."""
         if not HAS_XLRD:
             raise ReaderError(
-                "xlrd is required to read .xls files. " "Please install it with: pip install xlrd"
+                "xlrd is required to read .xls files. Please install it with: pip install xlrd"
             )
 
         try:
@@ -440,6 +449,11 @@ class ExcelReader(SyncBaseReader):
                 has_formula=cell.ctype == xlrd.XL_CELL_FORMULA,
                 indentation_level=indentation_level,
                 alignment=alignment,
+                # Border information not available in xlrd
+                border_top=None,
+                border_bottom=None,
+                border_left=None,
+                border_right=None,
                 row=row_idx,
                 column=col_idx,
             )
@@ -475,6 +489,34 @@ class ExcelReader(SyncBaseReader):
         try:
             if fill and hasattr(fill, "start_color") and fill.start_color.rgb:
                 return f"#{fill.start_color.rgb[2:8]}"  # Remove alpha channel
+        except Exception:
+            pass
+        return None
+
+    def _get_border_style(self, border_side: Any) -> str | None:
+        """Extract border style from openpyxl border side."""
+        try:
+            if not border_side or not border_side.style:
+                return None
+
+            # Map openpyxl border styles to our simplified format
+            style_mapping = {
+                "thin": "thin",
+                "medium": "medium",
+                "thick": "thick",
+                "hair": "thin",
+                "dotted": "thin",
+                "dashed": "thin",
+                "dashDot": "thin",
+                "dashDotDot": "thin",
+                "double": "thick",
+                "slantDashDot": "thin",
+                "mediumDashed": "medium",
+                "mediumDashDot": "medium",
+                "mediumDashDotDot": "medium",
+            }
+
+            return style_mapping.get(border_side.style, "thin")
         except Exception:
             pass
         return None

@@ -31,10 +31,6 @@ class Config(BaseModel):
     max_sheets: int = Field(10, ge=1, description="Maximum sheets to process")
 
     # Performance Configuration
-    excel_reader: str = Field(
-        "calamine",
-        description="Excel reader to use: 'calamine' (fast), 'openpyxl' (full features), 'auto'",
-    )
     max_memory_mb: int = Field(1000, ge=100, description="Maximum memory usage in MB")
     chunk_size: int = Field(10000, ge=100, description="Rows per chunk for streaming")
 
@@ -104,7 +100,6 @@ class Config(BaseModel):
                 os.getenv("GRIDGULP_FILE_DETECTION_BUFFER_SIZE", "8192")
             ),
             # Performance Configuration
-            excel_reader=os.getenv("GRIDGULP_EXCEL_READER", "calamine"),
             max_memory_mb=int(os.getenv("GRIDGULP_MAX_MEMORY_MB", "1000")),
             chunk_size=int(os.getenv("GRIDGULP_CHUNK_SIZE", "10000")),
             enable_simple_case_detection=os.getenv(

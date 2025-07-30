@@ -26,10 +26,6 @@ class ReaderFactory:
         self.register_reader(FileType.XLSX, ExcelReader)
         self.register_reader(FileType.XLS, ExcelReader)
         self.register_reader(FileType.XLSM, ExcelReader)
-        # XLSB: Use ExcelReader for better formatting support
-        # Note: ExcelReader (openpyxl) can read XLSB files and provides rich formatting
-        # CalamineReader is faster but has limited formatting extraction
-        self.register_reader(FileType.XLSB, ExcelReader)
 
         # CSV readers
         self.register_reader(FileType.CSV, CSVReader)

@@ -244,7 +244,7 @@ class FileType(str, Enum):
     XLSX = "xlsx"      # Modern Excel
     XLS = "xls"        # Legacy Excel
     XLSM = "xlsm"      # Excel with macros
-    XLSB = "xlsb"      # Excel binary
+    XLSB = "xlsb"      # Excel binary (detected but not supported)
     CSV = "csv"        # Comma-separated
     TSV = "tsv"        # Tab-separated
     TXT = "txt"        # Text file

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from gridgulp.models import DetectionResult, FileInfo, FileType
+from gridgulp.models.file_info import UnsupportedFormatError
 from gridgulp.readers import ReaderError, create_reader
 from gridgulp.readers.base_reader import SyncBaseReader
 from gridgulp.utils.file_magic import detect_file_info
@@ -92,6 +93,15 @@ class GridGulp:
             with OperationContext("file_type_detection"):
                 file_info = await self._analyze_file(file_path)
                 logger.info(f"Detected file type: {file_info.type}")
+
+                # Check for unsupported XLSB format
+                if file_info.type == FileType.XLSB:
+                    raise UnsupportedFormatError(
+                        "XLSB",
+                        file_path,
+                        "XLSB (Excel Binary) format is not supported. "
+                        "Please save the file as XLSX format in Excel.",
+                    )
 
             # Read file data using appropriate reader
             with OperationContext("file_reading"):
@@ -278,7 +288,7 @@ class GridGulp:
 
         # Default patterns for all supported formats
         if patterns is None:
-            patterns = ["*.xlsx", "*.xls", "*.xlsm", "*.xlsb", "*.csv", "*.tsv", "*.txt"]
+            patterns = ["*.xlsx", "*.xls", "*.xlsm", "*.csv", "*.tsv", "*.txt"]
 
         # Collect all matching files
         all_files: list[Path] = []
@@ -388,7 +398,7 @@ class GridGulp:
         file_size_mb = file_path.stat().st_size / (1024 * 1024)
         if file_size_mb > self.config.max_file_size_mb:
             raise ValueError(
-                f"File too large: {file_size_mb:.1f}MB " f"(max: {self.config.max_file_size_mb}MB)"
+                f"File too large: {file_size_mb:.1f}MB (max: {self.config.max_file_size_mb}MB)"
             )
 
     async def _analyze_file(self, file_path: Path) -> FileInfo:

@@ -40,7 +40,6 @@ dependencies = [
     "chardet",
     "aiofiles",
     "rich", # For nice CLI output
-    "python-calamine", # Fast Excel/ODS reader (Rust-based)
     "polars"
 ]
 

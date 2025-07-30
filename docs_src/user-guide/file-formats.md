@@ -11,7 +11,6 @@ GridGulp supports a wide range of spreadsheet and text file formats, with automa
 | Excel 2007+ | .xlsx | Modern Excel (Office Open XML) | openpyxl, calamine |
 | Excel 97-2003 | .xls | Legacy Excel (BIFF) | xlrd, calamine |
 | Excel Macro | .xlsm | Excel with macros | openpyxl, calamine |
-| Excel Binary | .xlsb | Binary Excel format | calamine |
 
 ### Text Formats
 
@@ -90,14 +89,19 @@ config = Config(
 # No additional configuration needed
 ```
 
-### Excel Binary (.xlsb)
+### Excel Binary (.xlsb) - Not Supported
 
-**Benefits**:
-- Smaller file size
-- Faster to open
-- Same features as .xlsx
+**Important**: GridGulp does not support .xlsb (Excel Binary) format.
 
-**Requirements**:
+If you have .xlsb files, you must:
+1. Open the file in Microsoft Excel
+2. Save As → Excel Workbook (.xlsx)
+3. Use the .xlsx file with GridGulp
+
+**Why not supported**:
+- Limited Python library support
+- Complexity of binary format
+- Most features available in .xlsx format
 ```python
 # Requires calamine reader
 # Install: pip install python-calamine
@@ -219,7 +223,6 @@ config = Config(
 | .xlsx (calamine) | Very Fast | Low | Best overall performance |
 | .xlsx (openpyxl) | Slow | High | Feature-complete |
 | .xls | Medium | Medium | Limited by xlrd |
-| .xlsb | Very Fast | Low | Requires calamine |
 | .csv/.tsv | Fast | Very Low | Streaming capable |
 | .txt | Fast | Very Low | Depends on content |
 

@@ -33,9 +33,9 @@ class DataIsland:
     confidence: float = 0.0
     total_sheet_cells: int = 0  # Total cells in the sheet for relative size calculation
     border_cell_ratio: float = 0.0  # Ratio of populated cells in border area
-    is_subset_of: Optional[
-        "DataIsland"
-    ] = None  # Reference to containing island if this is a subset
+    is_subset_of: Optional["DataIsland"] = (
+        None  # Reference to containing island if this is a subset
+    )
 
     def add_cell(self, row: int, col: int) -> None:
         """Add a cell to the island and update bounds."""
@@ -571,15 +571,13 @@ class IslandDetector:
                 gap_start = island1.max_row + 1
                 gap_end = island2.min_row - 1
 
+                # Check columns in the range that both islands span
+                check_col_start = min(island1.min_col or 0, island2.min_col or 0)
+                check_col_end = max(island1.max_col or 0, island2.max_col or 0)
+
                 gap_has_data = False
                 for row in range(gap_start, gap_end + 1):
-                    for col in range(
-                        max(0, min(island1.min_col or 0, island2.min_col or 0)),
-                        min(
-                            sheet_data.max_column + 1,
-                            max(island1.max_col or 0, island2.max_col or 0) + 1,
-                        ),
-                    ):
+                    for col in range(check_col_start, check_col_end + 1):
                         cell = sheet_data.get_cell(row, col)
                         if cell and not cell.is_empty:
                             gap_has_data = True
@@ -588,6 +586,7 @@ class IslandDetector:
                         break
 
                 if not gap_has_data:
+                    # At least one completely empty row exists
                     continue  # This pair is well-separated, check next pair
                 else:
                     return False  # Found a pair that's not well-separated
@@ -965,6 +964,7 @@ class IslandDetector:
                 "font_sizes": set(),
                 "is_likely_header": False,
                 "formatting_consistency": 0.0,
+                "border_signature": FORMATTING_DETECTION.NO_BORDERS,
             }
 
         # Calculate formatting metrics
@@ -1010,6 +1010,7 @@ class IslandDetector:
             "is_likely_header": is_likely_header,
             "formatting_consistency": formatting_consistency,
             "cell_count": len(row_cells),
+            "border_signature": self._get_border_signature(row_cells),
         }
 
     def _detect_formatting_boundaries(
@@ -1045,7 +1046,8 @@ class IslandDetector:
                 continue
 
             if prev_row is not None:
-                prev = row_analysis[prev_row]  # type: ignore[unreachable]
+                assert prev_row is not None  # Help mypy understand
+                prev = row_analysis[prev_row]
 
                 # Check if this looks like a new table start
                 is_new_table_start = False
@@ -1054,12 +1056,11 @@ class IslandDetector:
                 if not prev["is_likely_header"] and current["is_likely_header"]:
                     is_new_table_start = True
 
-                # Case 2: Significant background color change indicating new section
-                if (
-                    current["background_colors"] != prev["background_colors"]
-                    and len(current["background_colors"]) > 0
-                    and len(prev["background_colors"]) > 0
-                ):
+                # Case 2: Significant border pattern change indicating new section
+                border_similarity = self._calculate_border_similarity(
+                    current["border_signature"], prev["border_signature"]
+                )
+                if border_similarity < FORMATTING_DETECTION.BORDER_CONSISTENCY_THRESHOLD:
                     is_new_table_start = True
 
                 # Case 3: Major formatting shift (combined factors)
@@ -1096,7 +1097,7 @@ class IslandDetector:
                 if is_new_table_start and current_table_start is not None:
                     boundaries.append(row)  # Split before this header row
                     logger.debug(
-                        f"Table boundary detected before header at row {row+1}: "
+                        f"Table boundary detected before header at row {row + 1}: "
                         f"prev_header={prev['is_likely_header']}, curr_header={current['is_likely_header']}"
                     )
 
@@ -1156,7 +1157,121 @@ class IslandDetector:
         )
         similarity_factors.append(consistency_similarity)
 
+        # Border pattern similarity
+        border_similarity = self._calculate_border_similarity(
+            format1.get("border_signature", FORMATTING_DETECTION.NO_BORDERS),
+            format2.get("border_signature", FORMATTING_DETECTION.NO_BORDERS),
+        )
+        similarity_factors.append(border_similarity)
+
         return float(sum(similarity_factors) / len(similarity_factors))
+
+    def _get_border_signature(self, row_cells: list) -> str:
+        """Get border signature for a row of cells.
+
+        Args:
+            row_cells: List of CellData objects in the row
+
+        Returns:
+            Border signature string indicating border pattern
+        """
+        if not row_cells:
+            return FORMATTING_DETECTION.NO_BORDERS
+
+        # Count border patterns
+        border_patterns = {
+            "all": 0,
+            "none": 0,
+            "horizontal": 0,
+            "vertical": 0,
+            "mixed": 0,
+        }
+
+        for cell in row_cells:
+            has_top = cell.border_top is not None and cell.border_top != "none"
+            has_bottom = cell.border_bottom is not None and cell.border_bottom != "none"
+            has_left = cell.border_left is not None and cell.border_left != "none"
+            has_right = cell.border_right is not None and cell.border_right != "none"
+
+            border_count = sum([has_top, has_bottom, has_left, has_right])
+
+            if border_count == 0:
+                border_patterns["none"] += 1
+            elif border_count == 4:
+                border_patterns["all"] += 1
+            elif has_top or has_bottom:
+                if not has_left and not has_right:
+                    border_patterns["horizontal"] += 1
+                else:
+                    border_patterns["mixed"] += 1
+            elif has_left or has_right:
+                if not has_top and not has_bottom:
+                    border_patterns["vertical"] += 1
+                else:
+                    border_patterns["mixed"] += 1
+            else:
+                border_patterns["mixed"] += 1
+
+        # Find most common pattern
+        max_count = max(border_patterns.values())
+        if max_count == 0:
+            return FORMATTING_DETECTION.NO_BORDERS
+
+        # Return the most common pattern
+        pattern_mapping = {
+            "all": FORMATTING_DETECTION.ALL_BORDERS,
+            "none": FORMATTING_DETECTION.NO_BORDERS,
+            "horizontal": FORMATTING_DETECTION.HORIZONTAL_ONLY,
+            "vertical": FORMATTING_DETECTION.VERTICAL_ONLY,
+            "mixed": FORMATTING_DETECTION.MIXED_BORDERS,
+        }
+
+        for pattern, count in border_patterns.items():
+            if count == max_count:
+                return pattern_mapping.get(pattern, FORMATTING_DETECTION.MIXED_BORDERS)
+
+        return FORMATTING_DETECTION.MIXED_BORDERS
+
+    def _calculate_border_similarity(self, signature1: str, signature2: str) -> float:
+        """Calculate similarity between two border signatures.
+
+        Args:
+            signature1: First border signature
+            signature2: Second border signature
+
+        Returns:
+            Similarity score between 0.0 and 1.0
+        """
+        if signature1 == signature2:
+            return 1.0
+
+        # Define similarity matrix for border patterns
+        similarity_matrix = {
+            (FORMATTING_DETECTION.NO_BORDERS, FORMATTING_DETECTION.NO_BORDERS): 1.0,
+            (FORMATTING_DETECTION.ALL_BORDERS, FORMATTING_DETECTION.ALL_BORDERS): 1.0,
+            (FORMATTING_DETECTION.HORIZONTAL_ONLY, FORMATTING_DETECTION.HORIZONTAL_ONLY): 1.0,
+            (FORMATTING_DETECTION.VERTICAL_ONLY, FORMATTING_DETECTION.VERTICAL_ONLY): 1.0,
+            (FORMATTING_DETECTION.MIXED_BORDERS, FORMATTING_DETECTION.MIXED_BORDERS): 1.0,
+            # Similar patterns have moderate similarity
+            (FORMATTING_DETECTION.HORIZONTAL_ONLY, FORMATTING_DETECTION.ALL_BORDERS): 0.7,
+            (FORMATTING_DETECTION.VERTICAL_ONLY, FORMATTING_DETECTION.ALL_BORDERS): 0.7,
+            (FORMATTING_DETECTION.HORIZONTAL_ONLY, FORMATTING_DETECTION.MIXED_BORDERS): 0.6,
+            (FORMATTING_DETECTION.VERTICAL_ONLY, FORMATTING_DETECTION.MIXED_BORDERS): 0.6,
+            (FORMATTING_DETECTION.ALL_BORDERS, FORMATTING_DETECTION.MIXED_BORDERS): 0.8,
+            # No borders vs any borders has low similarity
+            (FORMATTING_DETECTION.NO_BORDERS, FORMATTING_DETECTION.ALL_BORDERS): 0.2,
+            (FORMATTING_DETECTION.NO_BORDERS, FORMATTING_DETECTION.HORIZONTAL_ONLY): 0.3,
+            (FORMATTING_DETECTION.NO_BORDERS, FORMATTING_DETECTION.VERTICAL_ONLY): 0.3,
+            (FORMATTING_DETECTION.NO_BORDERS, FORMATTING_DETECTION.MIXED_BORDERS): 0.2,
+            # Different directional borders have moderate similarity
+            (FORMATTING_DETECTION.HORIZONTAL_ONLY, FORMATTING_DETECTION.VERTICAL_ONLY): 0.5,
+        }
+
+        # Check both directions
+        key1 = (signature1, signature2)
+        key2 = (signature2, signature1)
+
+        return similarity_matrix.get(key1, similarity_matrix.get(key2, 0.3))
 
     def _apply_formatting_splits(
         self, islands: list[DataIsland], sheet_data: "SheetData"

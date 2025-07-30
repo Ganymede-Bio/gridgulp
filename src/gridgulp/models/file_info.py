@@ -24,7 +24,7 @@ class FileType(str, Enum):
     XLSX = "xlsx"
     XLS = "xls"
     XLSM = "xlsm"
-    XLSB = "xlsb"
+    XLSB = "xlsb"  # Detected but not supported
     CSV = "csv"
     TSV = "tsv"
     TXT = "txt"

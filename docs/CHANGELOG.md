@@ -14,11 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Adaptive merge distance based on formatting patterns and empty row separation
   - Formatting boundary detection using cell styling (bold, background colors)
 
-### Improved
-- **XLSB File Support**: Enhanced Excel Binary format handling
-  - Proper formatting extraction via ExcelReader instead of CalamineReader
-  - Better table detection in XLSB files with multiple tables
-  - Format mismatch handling for files with incorrect extensions
+### Removed
+- **XLSB File Support**: Excel Binary format is no longer supported
+  - XLSB files are detected but will return a clear error message
+  - Removed python-calamine dependency
+  - Users must save XLSB files as XLSX format in Excel before processing
 
 - **Island Detection Algorithm**: Smarter merging logic
   - Detects well-separated tables and skips aggressive merging
@@ -35,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed header exclusion issue where headers were separated from data
 - Fixed confidence calculation bug with order of operations
 - Fixed empty cell detection treating empty strings as data
-- Fixed XLSB format support with proper reader selection
+- Fixed file format detection to properly identify XLSB files and provide clear error messages
 
 ## [0.3.3] - 2025-07-29
 

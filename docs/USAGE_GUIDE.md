@@ -40,7 +40,8 @@ asyncio.run(main())
 - `.xlsx` - Modern Excel format (2007+)
 - `.xls` - Legacy Excel format (97-2003)
 - `.xlsm` - Excel with macros
-- `.xlsb` - Excel binary format
+
+**Note:** `.xlsb` (Excel Binary format) files are detected but not supported. If you have XLSB files, please save them as XLSX format in Excel before processing.
 
 ### CSV Files
 - `.csv` - Comma-separated values

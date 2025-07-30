@@ -311,7 +311,6 @@ class TestExcelReader:
         assert "xlsx" in formats
         assert "xls" in formats
         assert "xlsm" in formats
-        assert "xlsb" in formats
 
     def test_get_data_type(self):
         """Test data type detection."""
