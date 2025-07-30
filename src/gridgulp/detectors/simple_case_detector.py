@@ -6,7 +6,7 @@ allowing the system to avoid expensive vision processing for simple cases.
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from ..models.table import TableInfo, TableRange
 from ..utils.excel_utils import get_column_letter
@@ -319,12 +319,15 @@ class SimpleCaseDetector:
 
         return min(max(confidence, 0.0), 1.0)
 
-    def convert_to_table_info(self, result: SimpleTableResult, sheet_name: str) -> TableInfo | None:
+    def convert_to_table_info(
+        self, result: SimpleTableResult, sheet_name: str, sheet_data: Optional["SheetData"] = None
+    ) -> TableInfo | None:
         """Convert simple table result to TableInfo.
 
         Args:
             result: SimpleTableResult from detection
             sheet_name: Name of the sheet
+            sheet_data: Sheet data for header extraction (optional)
 
         Returns:
             TableInfo if simple table detected, None otherwise
@@ -353,8 +356,35 @@ class SimpleCaseDetector:
                 suggested_name=f"{sheet_name}_table",
                 confidence=result.confidence,
                 detection_method="simple_case",
-                headers=None,  # Would need to extract if needed
+                headers=self._extract_headers(sheet_data, table_range)
+                if result.has_headers and sheet_data
+                else None,
                 data_preview=None,  # Would need to extract if needed
             )
 
         return None
+
+    def _extract_headers(self, sheet_data: "SheetData", table_range: TableRange) -> list[str]:
+        """Extract header values from the first row of a table.
+
+        Args:
+            sheet_data: Sheet data containing cells
+            table_range: Range of the table
+
+        Returns:
+            List of header strings
+        """
+        headers = []
+
+        # Extract values from first row
+        for col in range(table_range.start_col, table_range.end_col + 1):
+            cell = sheet_data.get_cell(table_range.start_row, col)
+            if cell and cell.value is not None:
+                # Convert value to string for header
+                header_val = str(cell.value).strip()
+                headers.append(header_val)
+            else:
+                # Use column letter as fallback for empty headers
+                headers.append(get_column_letter(col))
+
+        return headers

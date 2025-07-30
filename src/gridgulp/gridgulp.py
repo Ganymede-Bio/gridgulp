@@ -96,12 +96,21 @@ class GridGulp:
 
                 # Check for unsupported XLSB format
                 if file_info.type == FileType.XLSB:
-                    raise UnsupportedFormatError(
-                        "XLSB",
-                        file_path,
-                        "XLSB (Excel Binary) format is not supported. "
-                        "Please save the file as XLSX format in Excel.",
-                    )
+                    # If file has .xlsx extension, it might be misdetected
+                    if file_path.suffix.lower() == ".xlsx":
+                        logger.warning(
+                            "File detected as XLSB but has .xlsx extension. "
+                            "Will attempt to read as XLSX if initial read fails."
+                        )
+                        # We'll handle this in the reader section below
+                    else:
+                        # File has .xlsb extension and detected as XLSB
+                        raise UnsupportedFormatError(
+                            "XLSB",
+                            file_path,
+                            "XLSB (Excel Binary) format is not supported. "
+                            "Please save the file as XLSX format in Excel.",
+                        )
 
             # Read file data using appropriate reader
             with OperationContext("file_reading"):
@@ -114,11 +123,37 @@ class GridGulp:
                     sheet_count = len(list(file_data.sheets))
                     logger.info(f"Successfully read {sheet_count} sheets")
                 except ReaderError as e:
-                    logger.error(f"Failed to read file: {e}")
-                    raise ValueError(
-                        f"Could not read file '{file_path}': {type(e).__name__}: {e}. "
-                        f"Please check if the file exists and is in a supported format."
-                    ) from e
+                    # If XLSB was detected but reading failed, and file has .xlsx extension, try as XLSX
+                    if (
+                        file_info.type == FileType.XLSB
+                        and file_path.suffix.lower() == ".xlsx"
+                        and "XLSB" not in str(e)
+                    ):  # Avoid infinite loop if XLSB error was explicit
+                        logger.warning(f"Failed to read as XLSB, retrying as XLSX: {e}")
+                        # Override the detected type and try again
+                        file_info.type = FileType.XLSX
+                        try:
+                            reader = create_reader(file_path, file_info)
+                            if isinstance(reader, SyncBaseReader):
+                                file_data = reader.read_sync()
+                            else:
+                                raise ReaderError("Expected sync reader but got async reader")
+                            sheet_count = len(list(file_data.sheets))
+                            logger.info(f"Successfully read {sheet_count} sheets as XLSX")
+                        except Exception as e2:
+                            logger.error(f"Failed to read file as XLSX too: {e2}")
+                            # Re-raise the original error
+                            raise ValueError(
+                                f"Could not read file '{file_path}': {type(e).__name__}: {e}. "
+                                f"File was detected as XLSB but could not be read. "
+                                f"Please check if the file is corrupted or in an unsupported format."
+                            ) from e
+                    else:
+                        logger.error(f"Failed to read file: {e}")
+                        raise ValueError(
+                            f"Could not read file '{file_path}': {type(e).__name__}: {e}. "
+                            f"Please check if the file exists and is in a supported format."
+                        ) from e
 
             # Run simplified table detection
             sheets = []

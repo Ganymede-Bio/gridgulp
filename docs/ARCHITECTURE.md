@@ -30,8 +30,9 @@ GridGulp is a streamlined table detection framework that uses proven algorithms 
 │                 Detection Pipeline                      │
 │  ┌─────────────────────────────────────────────────┐    │
 │  │ 1. SimpleCaseDetector (single table near A1)    │    │
-│  │ 2. IslandDetector (multi-table detection)       │    │
-│  │ 3. ExcelMetadataExtractor (ListObjects)         │    │
+│  │ 2. BoxTableDetector (tables with complete borders)│    │
+│  │ 3. IslandDetector (multi-table detection)       │    │
+│  │ 4. ExcelMetadataExtractor (ListObjects)         │    │
 │  └─────────────────────────────────────────────────┘    │
 ├─────────────────────────────────────────────────────────┤
 │                   Output Models                         │
@@ -88,12 +89,21 @@ GridGulp is a streamlined table detection framework that uses proven algorithms 
 - **Performance**: < 1ms for most sheets
 - **Accuracy**: 100% for standard tables
 - **Algorithm**: Find data bounds, check density
+- **Headers**: Always extracted from first row
+
+#### BoxTableDetector
+- **Use Case**: Tables with complete borders on all four sides
+- **Performance**: < 10ms for most sheets
+- **Accuracy**: 95% confidence for bordered tables
+- **Algorithm**: Detect cells with borders on all sides, verify data density
+- **Headers**: Extracted with formatting-based detection
 
 #### IslandDetector
 - **Use Case**: Multiple disconnected tables
 - **Performance**: < 100ms for complex sheets
 - **Accuracy**: 95%+ for well-formatted data
 - **Algorithm**: Connected component analysis
+- **Headers**: Always extracted, with header detection confidence
 
 #### ExcelMetadataExtractor
 - **Use Case**: Excel tables with defined ListObjects
@@ -142,8 +152,16 @@ for sheet in file_data.sheets:
     # Try simple case first (fast path)
     if simple_detector.is_simple_case(sheet):
         tables = [simple_detector.detect_simple_table(sheet)]
+    # Try box detection for Excel files with formatting
+    elif file_type in [FileType.XLSX, FileType.XLS]:
+        box_tables = box_detector.detect_box_tables(sheet)
+        if box_tables:
+            tables = box_tables
+        else:
+            # Fall back to island detection
+            tables = island_detector.detect_tables(sheet)
     else:
-        # Fall back to island detection
+        # Use island detection for other formats
         tables = island_detector.detect_tables(sheet)
 ```
 

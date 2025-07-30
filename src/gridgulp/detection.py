@@ -1,7 +1,7 @@
 """Simplified table detection module implementing Option 3 (Hybrid Approach).
 
-This module provides a lightweight interface that uses only the proven detection
-algorithms (SimpleCaseDetector and IslandDetector) that handle most real-world cases.
+This module provides a lightweight interface that uses proven detection
+algorithms (SimpleCaseDetector, BoxTableDetector, and IslandDetector) that handle most real-world cases.
 """
 
 import time
@@ -10,6 +10,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from .core.constants import ISLAND_DETECTION
+from .detectors.box_table_detector import BoxTableDetector
 from .detectors.island_detector import IslandDetector
 from .detectors.simple_case_detector import SimpleCaseDetector
 from .detectors.structured_text_detector import StructuredTextDetector
@@ -44,6 +45,7 @@ class TableDetectionAgent:
         self.confidence_threshold = confidence_threshold
         self.file_type = file_type
         self.simple_detector = SimpleCaseDetector()
+        self.box_detector = BoxTableDetector()
         self.structured_text_detector: StructuredTextDetector | None = None
 
         # Extract config values
@@ -66,12 +68,17 @@ class TableDetectionAgent:
                 max_gap=ISLAND_DETECTION.TEXT_FILE_MAX_GAP,
                 use_structural_analysis=True,
                 adaptive_thresholds=adaptive_thresholds,
+                empty_row_tolerance=config.empty_row_tolerance if config else 1,
+                use_formatting_boundaries=config.use_border_detection if config else True,
             )
             self.structured_text_detector = StructuredTextDetector()
         else:
             # Use default settings for Excel and other files
             self.island_detector = IslandDetector(
-                max_gap=ISLAND_DETECTION.EXCEL_FILE_MAX_GAP, adaptive_thresholds=adaptive_thresholds
+                max_gap=ISLAND_DETECTION.EXCEL_FILE_MAX_GAP,
+                adaptive_thresholds=adaptive_thresholds,
+                empty_row_tolerance=config.empty_row_tolerance if config else 1,
+                use_formatting_boundaries=config.use_border_detection if config else True,
             )
 
     async def detect_tables(self, sheet_data: SheetData) -> DetectionResult:
@@ -100,12 +107,15 @@ class TableDetectionAgent:
             )
             table_range = self._parse_range(simple_result.table_range)
             if table_range:
+                # Always extract headers from first row
+                headers = self.simple_detector._extract_headers(sheet_data, table_range)
                 table = TableInfo(
                     id=f"ultra_fast_{table_range.start_row}_{table_range.start_col}",
                     range=table_range,
                     confidence=simple_result.confidence,
                     detection_method="ultra_fast",
                     has_headers=simple_result.has_headers,
+                    headers=headers,
                 )
                 tables = [table]
                 method_used = "ultra_fast"
@@ -114,15 +124,27 @@ class TableDetectionAgent:
         elif simple_result.confidence >= 0.95:
             table_range = self._parse_range(simple_result.table_range)
             if table_range:
+                # Always extract headers from first row
+                headers = self.simple_detector._extract_headers(sheet_data, table_range)
                 table = TableInfo(
                     id=f"simple_case_fast_{table_range.start_row}_{table_range.start_col}",
                     range=table_range,
                     confidence=simple_result.confidence,
                     detection_method="simple_case_fast",
                     has_headers=simple_result.has_headers,
+                    headers=headers,
                 )
                 tables = [table]
                 method_used = "simple_case_fast"
+
+        # Box table detection (high confidence border-based)
+        if not tables and self.file_type not in (FileType.TXT, FileType.TSV, FileType.CSV):
+            # Box table detector is primarily for Excel files with formatting
+            box_tables = self.box_detector.detect_box_tables(sheet_data)
+            if box_tables:
+                logger.info(f"Box table detector found {len(box_tables)} tables")
+                tables = box_tables
+                method_used = "box_table_detection"
 
         # Multi-table detection (74% success rate)
         if not tables:
@@ -139,33 +161,25 @@ class TableDetectionAgent:
                 good_islands = [i for i in islands if i.confidence >= self.confidence_threshold]
 
                 if good_islands:
-                    tables = []
-                    for _i, island in enumerate(good_islands):
-                        range_str = (
-                            island.to_range()
-                        )  # Use to_range() method instead of table_range attribute
-                        table_range = self._parse_range(range_str)
-                        if table_range:
-                            table = TableInfo(
-                                id=f"island_detection_fast_{table_range.start_row}_{table_range.start_col}",
-                                range=table_range,
-                                confidence=island.confidence,
-                                detection_method="island_detection_fast",
-                                has_headers=island.has_headers,
-                            )
-                            tables.append(table)
+                    # Convert islands to TableInfo objects
+                    tables = self.island_detector.convert_to_table_infos(
+                        good_islands, sheet_data.name, self.confidence_threshold, sheet_data
+                    )
                     method_used = "island_detection_fast"
 
         # Fallback (3% success rate)
         if not tables and simple_result.confidence >= self.confidence_threshold:
             table_range = self._parse_range(simple_result.table_range)
             if table_range:
+                # Always extract headers from first row
+                headers = self.simple_detector._extract_headers(sheet_data, table_range)
                 table = TableInfo(
                     id=f"simple_case_{table_range.start_row}_{table_range.start_col}",
                     range=table_range,
                     confidence=simple_result.confidence,
                     detection_method="simple_case",
                     has_headers=simple_result.has_headers,
+                    headers=headers,
                 )
                 tables = [table]
                 method_used = "simple_case"

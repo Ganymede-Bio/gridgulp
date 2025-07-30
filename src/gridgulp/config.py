@@ -76,6 +76,28 @@ class Config(BaseModel):
         description="Percentage of cells that must be bold for total formatting",
     )
 
+    # Enhanced detection parameters (new in v0.3.3)
+    empty_row_tolerance: int = Field(
+        1,
+        ge=0,
+        le=5,
+        description="Number of empty rows to tolerate within tables (prevents false splits)",
+    )
+    column_gap_prevents_merge: bool = Field(
+        True,
+        description="Prevent merging tables separated by empty columns",
+    )
+    use_border_detection: bool = Field(
+        True,
+        description="Use cell borders for precise table boundary detection",
+    )
+    min_column_overlap_for_merge: float = Field(
+        0.5,
+        ge=0.0,
+        le=1.0,
+        description="Minimum column overlap ratio required to merge tables (0.0-1.0)",
+    )
+
     # Caching
     enable_cache: bool = Field(True, description="Enable result caching")
     cache_dir: Path | None = Field(None, description="Cache directory path")

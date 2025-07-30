@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Enhanced Table Detection Algorithms**: Major improvements to table detection accuracy
+  - **Column Gap Detection**: Prevents merging of side-by-side tables separated by empty columns
+  - **Empty Row Tolerance**: Configurable tolerance (0-5 rows) prevents splitting tables with section breaks
+  - **Border-Based Detection**: Uses Excel cell borders for precise table boundary detection
+  - **Weighted Scoring System**: Comprehensive confidence scoring using 7 weighted factors
+
+- **New Configuration Options**: Fine-tune detection behavior
+  - `empty_row_tolerance`: Number of empty rows to tolerate within tables (default: 1)
+  - `column_gap_prevents_merge`: Prevent merging across empty columns (default: True)
+  - `use_border_detection`: Enable border-based boundaries (default: True)
+  - `min_column_overlap_for_merge`: Required column overlap ratio (default: 0.5)
+
+### Improved
+- **Detection Accuracy**: Addresses specific issues with complex layouts
+  - Side-by-side tables (like dashboards) now correctly detected as separate
+  - Tables with subtotals or section breaks stay intact
+  - Border patterns provide precise table edges
+  - Better confidence scores reflect actual table quality
+
+- **Scoring Components**: Enhanced confidence calculation
+  - Size Score (20%): Relative and absolute table size
+  - Density Score (15%): Data density within region
+  - Shape Score (10%): Preference for rectangular tables
+  - Header Score (15%): Detection of header rows
+  - Border Score (15%): Clean border patterns
+  - Formatting Score (15%): Consistency analysis
+  - Isolation Score (10%): Independence from other tables
+
 ## [0.3.3] - 2025-07-29
 
 ### Added

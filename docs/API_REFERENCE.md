@@ -180,7 +180,8 @@ class TableInfo(BaseModel):
     suggested_name: str | None = None  # Optional name
     confidence: float                  # Detection confidence (0-1)
     detection_method: str              # Method used
-    headers: list[str] | None = None   # Column headers
+    headers: list[str] | None = None   # Column headers (always extracted from first row)
+    has_headers: bool = True           # Whether headers were detected (confidence)
     data_preview: list[dict] | None = None  # Sample data
 
     @property
@@ -262,6 +263,8 @@ class SimpleCaseDetector:
     def detect_simple_table(self, sheet_data: SheetData) -> SimpleCaseResult:
         """Detect a single table starting near A1.
 
+        Headers are always extracted from the first row of detected tables.
+
         Args:
             sheet_data: Sheet data to analyze
 
@@ -271,6 +274,37 @@ class SimpleCaseDetector:
 
     def is_simple_case(self, sheet_data: SheetData) -> bool:
         """Check if sheet is a simple single-table case."""
+```
+
+### BoxTableDetector
+
+High-confidence detection for tables with complete borders.
+
+```python
+class BoxTableDetector:
+    def __init__(self,
+                 min_table_size: tuple[int, int] = (2, 2),
+                 box_confidence: float = 0.95):
+        """Initialize box table detector.
+
+        Args:
+            min_table_size: Minimum (rows, cols) for valid table
+            box_confidence: Confidence score for bordered tables (default: 0.95)
+        """
+
+    def detect_box_tables(self, sheet_data: SheetData) -> list[TableInfo]:
+        """Detect tables with complete borders on all four sides.
+
+        This detector assigns high confidence (95%) to tables that have
+        borders on all sides, addressing cases where formatting clearly
+        indicates table boundaries.
+
+        Args:
+            sheet_data: Sheet data to analyze
+
+        Returns:
+            List of TableInfo objects with high confidence
+        """
 ```
 
 ### IslandDetector
@@ -293,6 +327,9 @@ class IslandDetector:
 
     def detect_islands(self, sheet_data: SheetData) -> list[DataIsland]:
         """Detect disconnected data regions.
+
+        Headers are always extracted from the first row of each detected
+        island, regardless of header detection confidence.
 
         Args:
             sheet_data: Sheet data to analyze
@@ -584,6 +621,7 @@ MIN_TABLE_SIZE = (2, 2)
 
 # Detection methods
 DETECTION_SIMPLE_CASE = "simple_case_fast"
+DETECTION_BOX_TABLE = "box_table_detection"
 DETECTION_ISLAND = "island_detection_fast"
 DETECTION_METADATA = "excel_metadata"
 

@@ -61,18 +61,40 @@ class DataIsland:
         ):
             return
 
+        # Store sheet data for formatting analysis
+        self._sheet_data = sheet_data
+
         # Calculate density
         total_cells = (self.max_row - self.min_row + 1) * (self.max_col - self.min_col + 1)
         self.density = len(self.cells) / total_cells if total_cells > 0 else 0
 
-        # Detect headers (simple check - all text in first row)
+        # Detect headers with enhanced analysis
         first_row_cells = [
             sheet_data.get_cell(self.min_row, col) for col in range(self.min_col, self.max_col + 1)
         ]
-        self.has_headers = all(
+
+        # Check multiple header indicators
+        all_text = all(
             cell and cell.value is not None and cell.data_type == "string"
             for cell in first_row_cells
         )
+        any_bold = any(cell and cell.is_bold for cell in first_row_cells)
+
+        # Headers likely if all text AND bold (background color less important)
+        # or if all text and different data types in next row
+        self.has_headers = all_text and any_bold
+
+        # If not bold, check if next row has different data types
+        if not self.has_headers and all_text and self.max_row > self.min_row:
+            second_row_cells = [
+                sheet_data.get_cell(self.min_row + 1, col)
+                for col in range(self.min_col, self.max_col + 1)
+            ]
+            has_numeric = any(
+                cell and cell.data_type in ["number", "datetime"] for cell in second_row_cells
+            )
+            if has_numeric:
+                self.has_headers = True
 
         # Analyze border cells
         self.border_cell_ratio = self._analyze_border_cells(sheet_data)
@@ -81,42 +103,48 @@ class DataIsland:
         self.confidence = self._calculate_confidence()
 
     def _calculate_confidence(self) -> float:
-        """Calculate confidence score for this island being a table."""
-        confidence = ISLAND_DETECTION.BASE_CONFIDENCE
+        """Calculate confidence score for this island being a table.
 
-        # Calculate relative size if sheet cells are known
+        Enhanced with weighted scoring system using multiple cell attributes.
+        """
+        # Start with weighted scoring components
+        score_components = {}
+
+        # 1. SIZE SCORE (20% weight) - Relative and absolute size
         cell_count = len(self.cells)
         relative_size = cell_count / self.total_sheet_cells if self.total_sheet_cells > 0 else 0
 
-        # Use relative size for confidence calculation
+        size_score = 0.5  # Base
         if relative_size >= ISLAND_DETECTION.RELATIVE_SIZE_LARGE:
-            # Large table relative to sheet
-            confidence += ISLAND_DETECTION.CONFIDENCE_BOOST_LARGE * 1.5
+            size_score = 1.0
         elif relative_size >= ISLAND_DETECTION.RELATIVE_SIZE_MEDIUM:
-            # Medium table relative to sheet
-            confidence += ISLAND_DETECTION.CONFIDENCE_BOOST_LARGE
+            size_score = 0.8
         elif relative_size >= ISLAND_DETECTION.RELATIVE_SIZE_SMALL:
-            # Small but acceptable table
-            confidence += ISLAND_DETECTION.CONFIDENCE_BOOST_MEDIUM
+            size_score = 0.6
         elif relative_size < ISLAND_DETECTION.RELATIVE_SIZE_TINY:
-            # Tiny table - likely noise
-            confidence -= ISLAND_DETECTION.CONFIDENCE_PENALTY_SMALL * 2
+            size_score = 0.2
 
-        # Also consider absolute size as a secondary factor
+        # Boost for absolute size
         if cell_count >= ISLAND_DETECTION.MIN_CELLS_GOOD:
-            confidence += ISLAND_DETECTION.CONFIDENCE_BOOST_MEDIUM
+            size_score = min(1.0, size_score + 0.1)
         elif cell_count < ISLAND_DETECTION.MIN_CELLS_SMALL:
-            confidence -= ISLAND_DETECTION.CONFIDENCE_PENALTY_SMALL
+            size_score = max(0.0, size_score - 0.2)
 
-        # Density factor
+        score_components["size"] = (size_score, 0.20)
+
+        # 2. DENSITY SCORE (15% weight) - How filled the region is
+        density_score = 0.5  # Base
         if self.density > ISLAND_DETECTION.DENSITY_HIGH:
-            confidence += ISLAND_DETECTION.CONFIDENCE_BOOST_LARGE
+            density_score = 1.0
         elif self.density > ISLAND_DETECTION.DENSITY_MEDIUM:
-            confidence += ISLAND_DETECTION.CONFIDENCE_BOOST_MEDIUM
+            density_score = 0.7
         elif self.density < ISLAND_DETECTION.DENSITY_LOW:
-            confidence -= ISLAND_DETECTION.CONFIDENCE_PENALTY_LOW_DENSITY
+            density_score = 0.3
 
-        # Shape factor (prefer rectangular)
+        score_components["density"] = (density_score, 0.15)
+
+        # 3. SHAPE SCORE (10% weight) - Prefer rectangular tables
+        shape_score = 0.5  # Base
         if (
             self.min_row is not None
             and self.max_row is not None
@@ -132,24 +160,295 @@ class DataIsland:
                     <= aspect_ratio
                     <= ISLAND_DETECTION.ASPECT_RATIO_MAX
                 ):
-                    confidence += ISLAND_DETECTION.CONFIDENCE_BOOST_MEDIUM
+                    shape_score = 0.9
+                else:
+                    # Penalize extreme aspect ratios
+                    if aspect_ratio < 0.05 or aspect_ratio > 20:
+                        shape_score = 0.2
 
-        # Header detection
-        if self.has_headers:
-            confidence += ISLAND_DETECTION.CONFIDENCE_BOOST_MEDIUM
+        score_components["shape"] = (shape_score, 0.10)
 
-        # Border cell penalty
+        # 4. HEADER SCORE (15% weight) - Tables usually have headers
+        header_score = 0.8 if self.has_headers else 0.4
+        score_components["headers"] = (header_score, 0.15)
+
+        # 5. BORDER SCORE (15% weight) - Clean borders indicate tables
+        border_score = 1.0  # Start high
         if self.border_cell_ratio > ISLAND_DETECTION.BORDER_CELL_THRESHOLD:
-            confidence -= ISLAND_DETECTION.CONFIDENCE_PENALTY_BORDER
-            # Extra penalty for very high border population
+            border_score = 0.5
             if self.border_cell_ratio > 0.5:
-                confidence -= ISLAND_DETECTION.CONFIDENCE_PENALTY_BORDER
+                border_score = 0.2
 
-        # Subset penalty
-        if self.is_subset_of is not None:
-            confidence -= ISLAND_DETECTION.CONFIDENCE_PENALTY_SUBSET
+        score_components["borders"] = (border_score, 0.15)
 
+        # 6. FORMATTING SCORE (15% weight) - Will be calculated if we have cell data
+        formatting_score = (
+            self._calculate_formatting_score() if hasattr(self, "_sheet_data") else 0.5
+        )
+        score_components["formatting"] = (formatting_score, 0.15)
+
+        # 7. ISOLATION SCORE (10% weight) - Not being subset of another table
+        isolation_score = 0.2 if self.is_subset_of is not None else 1.0
+        score_components["isolation"] = (isolation_score, 0.10)
+
+        # Calculate weighted total
+        total_score = 0.0
+        total_weight = 0.0
+
+        for _component_name, (score, weight) in score_components.items():
+            total_score += score * weight
+            total_weight += weight
+
+        # Normalize if weights don't sum to 1.0 (safety check)
+        if total_weight > 0:
+            confidence = total_score / total_weight
+        else:
+            confidence = ISLAND_DETECTION.BASE_CONFIDENCE
+
+        # Apply bounds
         return min(max(confidence, 0.0), 1.0)
+
+    def _calculate_formatting_score(self) -> float:
+        """Calculate formatting consistency score for the island.
+
+        Analyzes:
+        - Border consistency within the table
+        - Alignment patterns (numbers right, text left)
+        - Font/color consistency
+        - Data type patterns in columns
+
+        Returns:
+            Score between 0.0 and 1.0
+        """
+        if not hasattr(self, "_sheet_data") or not self._sheet_data:
+            return 0.5  # Default neutral score
+
+        if (
+            self.min_row is None
+            or self.max_row is None
+            or self.min_col is None
+            or self.max_col is None
+        ):
+            return 0.5
+
+        score_factors = []
+
+        # 1. Border consistency
+        border_consistency = self._analyze_border_consistency()
+        score_factors.append(border_consistency)
+
+        # 2. Column data type consistency
+        column_consistency = self._analyze_column_type_consistency()
+        score_factors.append(column_consistency)
+
+        # 3. Alignment patterns
+        alignment_score = self._analyze_alignment_patterns()
+        score_factors.append(alignment_score)
+
+        # 4. Formatting uniformity (fonts, colors)
+        format_uniformity = self._analyze_format_uniformity()
+        score_factors.append(format_uniformity)
+
+        # Return average of all factors
+        return sum(score_factors) / len(score_factors) if score_factors else 0.5
+
+    def _analyze_border_consistency(self) -> float:
+        """Analyze how consistent borders are within the table."""
+        if not hasattr(self, "_sheet_data"):
+            return 0.5
+
+        border_patterns: dict[tuple[bool, bool, bool, bool], int] = {}
+        total_cells = 0
+
+        if (
+            self.min_row is None
+            or self.max_row is None
+            or self.min_col is None
+            or self.max_col is None
+        ):
+            return 0.5
+
+        for row in range(self.min_row, self.max_row + 1):
+            for col in range(self.min_col, self.max_col + 1):
+                cell = self._sheet_data.get_cell(row, col)
+                if cell:
+                    total_cells += 1
+                    # Create border signature
+                    sig = (
+                        bool(cell.border_top),
+                        bool(cell.border_bottom),
+                        bool(cell.border_left),
+                        bool(cell.border_right),
+                    )
+                    border_patterns[sig] = border_patterns.get(sig, 0) + 1
+
+        if not border_patterns:
+            return 0.5
+
+        # Calculate consistency as ratio of most common pattern
+        most_common_count = max(border_patterns.values())
+        consistency = most_common_count / total_cells if total_cells > 0 else 0
+
+        # Bonus for having any borders at all
+        has_borders = any(any(sig) for sig in border_patterns)
+        if has_borders:
+            consistency = min(1.0, consistency + 0.1)
+
+        return consistency
+
+    def _analyze_column_type_consistency(self) -> float:
+        """Analyze how consistent data types are within columns."""
+        if not hasattr(self, "_sheet_data"):
+            return 0.5
+
+        if (
+            self.min_col is None
+            or self.max_col is None
+            or self.min_row is None
+            or self.max_row is None
+        ):
+            return 0.5
+
+        column_scores = []
+
+        for col in range(self.min_col, self.max_col + 1):
+            type_counts: dict[str, int] = {}
+            total_cells = 0
+
+            # Skip header row if detected
+            start_row = self.min_row + 1 if self.has_headers else self.min_row
+
+            for row in range(start_row, self.max_row + 1):
+                cell = self._sheet_data.get_cell(row, col)
+                if cell and cell.value is not None:
+                    total_cells += 1
+                    data_type = cell.data_type
+                    type_counts[data_type] = type_counts.get(data_type, 0) + 1
+
+            if total_cells > 0 and type_counts:
+                # Consistency is ratio of most common type
+                most_common = max(type_counts.values())
+                consistency = most_common / total_cells
+                column_scores.append(consistency)
+
+        return sum(column_scores) / len(column_scores) if column_scores else 0.5
+
+    def _analyze_alignment_patterns(self) -> float:
+        """Analyze if alignment follows expected patterns (numbers right, text left)."""
+        if not hasattr(self, "_sheet_data"):
+            return 0.5
+
+        if (
+            self.min_row is None
+            or self.max_row is None
+            or self.min_col is None
+            or self.max_col is None
+        ):
+            return 0.5
+
+        correct_alignments = 0
+        total_aligned_cells = 0
+
+        for row in range(self.min_row, self.max_row + 1):
+            for col in range(self.min_col, self.max_col + 1):
+                cell = self._sheet_data.get_cell(row, col)
+                if cell and cell.alignment:
+                    total_aligned_cells += 1
+
+                    # Expected patterns
+                    if (
+                        cell.data_type == "number"
+                        and cell.alignment == "right"
+                        or cell.data_type == "string"
+                        and cell.alignment in ["left", "center"]
+                        or cell.data_type == "datetime"
+                        and cell.alignment in ["left", "center"]
+                    ):
+                        correct_alignments += 1
+
+        # If no explicit alignment, assume default (which is usually correct)
+        if total_aligned_cells == 0:
+            return 0.7  # Neutral-positive score
+
+        return correct_alignments / total_aligned_cells
+
+    def _analyze_format_uniformity(self) -> float:
+        """Analyze formatting uniformity within the table."""
+        if not hasattr(self, "_sheet_data"):
+            return 0.5
+
+        if (
+            self.min_row is None
+            or self.max_row is None
+            or self.min_col is None
+            or self.max_col is None
+        ):
+            return 0.5
+
+        # Track formatting variations
+        font_sizes = set()
+        font_colors = set()
+        background_colors = set()
+        bold_count = 0
+        total_cells = 0
+
+        # Skip header row for uniformity check
+        start_row = self.min_row + 1 if self.has_headers else self.min_row
+
+        for row in range(start_row, self.max_row + 1):
+            for col in range(self.min_col, self.max_col + 1):
+                cell = self._sheet_data.get_cell(row, col)
+                if cell:
+                    total_cells += 1
+                    if cell.font_size:
+                        font_sizes.add(cell.font_size)
+                    if cell.font_color:
+                        font_colors.add(cell.font_color)
+                    if cell.background_color:
+                        background_colors.add(cell.background_color)
+                    if cell.is_bold:
+                        bold_count += 1
+
+        if total_cells == 0:
+            return 0.5
+
+        # Calculate uniformity scores
+        scores = []
+
+        # Font size uniformity (fewer is better)
+        if len(font_sizes) <= 1:
+            scores.append(1.0)
+        elif len(font_sizes) == 2:
+            scores.append(0.8)
+        else:
+            scores.append(0.5)
+
+        # Color uniformity
+        if len(font_colors) <= 1:
+            scores.append(1.0)
+        elif len(font_colors) <= 2:
+            scores.append(0.7)
+        else:
+            scores.append(0.4)
+
+        # Background uniformity
+        if len(background_colors) == 0:
+            scores.append(0.9)  # No backgrounds is uniform
+        elif len(background_colors) == 1:
+            scores.append(1.0)
+        else:
+            scores.append(0.5)
+
+        # Bold uniformity (all or none is good)
+        bold_ratio = bold_count / total_cells
+        if bold_ratio == 0 or bold_ratio == 1:
+            scores.append(1.0)
+        elif bold_ratio < 0.1 or bold_ratio > 0.9:
+            scores.append(0.8)
+        else:
+            scores.append(0.5)
+
+        return sum(scores) / len(scores) if scores else 0.5
 
     def _analyze_border_cells(
         self, sheet_data: "SheetData", border_width: int | None = None
@@ -253,6 +552,7 @@ class IslandDetector:
         use_structural_analysis: bool = False,
         adaptive_thresholds: bool = True,
         use_formatting_boundaries: bool = True,
+        empty_row_tolerance: int = 1,
     ):
         """Initialize the island detector.
 
@@ -265,6 +565,7 @@ class IslandDetector:
             use_structural_analysis: Enable structural analysis for text files
             adaptive_thresholds: Enable adaptive sizing based on sheet size
             use_formatting_boundaries: Enable formatting-based boundary detection
+            empty_row_tolerance: Number of empty rows to tolerate within a table (default: 1)
         """
         # Use constants if not provided
         if max_gap is None:
@@ -288,6 +589,7 @@ class IslandDetector:
         self.use_structural_analysis = use_structural_analysis
         self.adaptive_thresholds = adaptive_thresholds
         self.use_formatting_boundaries = use_formatting_boundaries
+        self.empty_row_tolerance = empty_row_tolerance
 
     def detect_islands(self, sheet_data: "SheetData") -> list[DataIsland]:
         """Detect all data islands in the sheet.
@@ -365,6 +667,15 @@ class IslandDetector:
                 f"After formatting splits: {len(islands)} data islands (was {original_count}, splits applied: {formatting_splits_applied})"
             )
 
+        # Reconnect islands separated by tolerable empty rows
+        if self.empty_row_tolerance > 0 and len(islands) > 1:
+            original_count = len(islands)
+            islands = self._reconnect_gap_separated_islands(islands, sheet_data)
+            if len(islands) < original_count:
+                self.logger.info(
+                    f"After reconnecting gap-separated islands: {len(islands)} data islands (was {original_count})"
+                )
+
         # Apply merging to reduce fragmentation
         if len(islands) > 1:
             # Check if islands are well-separated by empty rows
@@ -393,7 +704,9 @@ class IslandDetector:
                 merge_distance = 2
 
             if merge_distance > 0:
-                islands = self.merge_nearby_islands(islands, merge_distance=merge_distance)
+                islands = self.merge_nearby_islands(
+                    islands, merge_distance=merge_distance, sheet_data=sheet_data
+                )
                 # Recalculate metrics for merged islands
                 for island in islands:
                     # Pass total sheet cells for relative size calculation
@@ -410,6 +723,10 @@ class IslandDetector:
         # Check for subset relationships
         if len(islands) > 1:
             self._check_subset_relationships(islands)
+
+        # Calculate metrics for each island to detect headers and calculate confidence
+        for island in islands:
+            island.calculate_metrics(sheet_data)
 
         self.logger.info(f"Detected {len(islands)} data islands")
         return islands
@@ -475,7 +792,10 @@ class IslandDetector:
         return neighbors
 
     def merge_nearby_islands(
-        self, islands: list[DataIsland], merge_distance: int = 2
+        self,
+        islands: list[DataIsland],
+        merge_distance: int = 2,
+        sheet_data: Optional["SheetData"] = None,
     ) -> list[DataIsland]:
         """Merge islands that are very close to each other.
 
@@ -485,6 +805,7 @@ class IslandDetector:
         Args:
             islands: List of detected islands
             merge_distance: Maximum distance to consider for merging
+            sheet_data: Optional sheet data for checking gaps between islands
 
         Returns:
             List of islands after merging
@@ -506,14 +827,21 @@ class IslandDetector:
             merged_island.max_row = island1.max_row
             merged_island.min_col = island1.min_col
             merged_island.max_col = island1.max_col
+            merged_island.total_sheet_cells = island1.total_sheet_cells
 
             # Check for mergeable islands
             for j, island2 in enumerate(islands[i + 1 :], i + 1):
                 if j in used:
                     continue
 
-                # Check if islands are close enough to merge
-                if self._should_merge(island1, island2, merge_distance):
+                # Enhanced merge check with gap analysis
+                should_merge = self._should_merge(island1, island2, merge_distance)
+
+                # Additional check: if there's data in the gap, don't merge
+                if should_merge and sheet_data:
+                    should_merge = self._check_gap_is_empty(merged_island, island2, sheet_data)
+
+                if should_merge:
                     merged_island.cells.update(island2.cells)
                     if island2.min_row is not None and merged_island.min_row is not None:
                         merged_island.min_row = min(merged_island.min_row, island2.min_row)
@@ -525,11 +853,10 @@ class IslandDetector:
                         merged_island.max_col = max(merged_island.max_col, island2.max_col)
                     used.add(j)
 
-            # Recalculate metrics for merged island
-            if hasattr(self, "logger"):
-                # If called from instance method, we have access to sheet_data
-                # This is a limitation - we need sheet_data to recalculate metrics
-                pass
+            # Recalculate metrics for merged island if sheet_data available
+            if sheet_data:
+                merged_island.calculate_metrics(sheet_data)
+
             merged.append(merged_island)
             used.add(i)
 
@@ -600,6 +927,9 @@ class IslandDetector:
     def _should_merge(self, island1: DataIsland, island2: DataIsland, max_distance: int) -> bool:
         """Check if two islands should be merged based on proximity.
 
+        Enhanced to prevent merging tables separated by empty columns,
+        which is a strong indicator of separate tables.
+
         Args:
             island1: First island
             island2: Second island
@@ -635,6 +965,38 @@ class IslandDetector:
             island1.min_col - island2.max_col - 1,
         )
 
+        # IMPROVEMENT: Don't merge if there's a significant column gap
+        # This prevents merging tables that are side-by-side with empty columns between
+        if h_distance > 0:
+            # If islands are horizontally separated, check if they should be considered separate tables
+            # Tables separated by even 1 empty column are likely distinct
+            if h_distance >= 2:  # 2+ empty columns is definitely separate tables
+                self.logger.debug(
+                    f"Not merging islands due to column gap of {h_distance}: "
+                    f"{island1.to_range()} and {island2.to_range()}"
+                )
+                return False
+
+            # For single column gap, check vertical alignment
+            # Only merge if they have significant row overlap (>50%)
+            row_overlap_start = max(island1.min_row, island2.min_row)
+            row_overlap_end = min(island1.max_row, island2.max_row)
+
+            if row_overlap_start <= row_overlap_end:
+                overlap_rows = row_overlap_end - row_overlap_start + 1
+                island1_rows = island1.max_row - island1.min_row + 1
+                island2_rows = island2.max_row - island2.min_row + 1
+                min_rows = min(island1_rows, island2_rows)
+
+                overlap_ratio = overlap_rows / min_rows if min_rows > 0 else 0
+
+                if overlap_ratio < 0.5:  # Less than 50% row overlap
+                    self.logger.debug(
+                        f"Not merging islands with low row overlap ({overlap_ratio:.1%}): "
+                        f"{island1.to_range()} and {island2.to_range()}"
+                    )
+                    return False
+
         # Check if overlapping in one dimension and close in the other
         if v_distance == 0 and h_distance <= max_distance:
             return True
@@ -644,8 +1006,150 @@ class IslandDetector:
         # Check diagonal distance for small gaps
         return v_distance <= max_distance and h_distance <= max_distance
 
+    def _check_gap_is_empty(
+        self, island1: DataIsland, island2: DataIsland, sheet_data: "SheetData"
+    ) -> bool:
+        """Check if the gap between two islands is empty.
+
+        This prevents merging tables that have data between them,
+        even if they're otherwise close enough to merge.
+
+        Args:
+            island1: First island
+            island2: Second island
+            sheet_data: Sheet data to check for cells in gap
+
+        Returns:
+            True if gap is empty (safe to merge), False if data exists in gap
+        """
+        if (
+            island1.min_row is None
+            or island1.max_row is None
+            or island1.min_col is None
+            or island1.max_col is None
+            or island2.min_row is None
+            or island2.max_row is None
+            or island2.min_col is None
+            or island2.max_col is None
+        ):
+            return True  # Can't check, assume safe
+
+        # Determine the gap region between islands
+        # For horizontal gaps
+        if island1.max_col < island2.min_col:
+            # Island1 is to the left of island2
+            gap_col_start = island1.max_col + 1
+            gap_col_end = island2.min_col - 1
+            gap_row_start = max(island1.min_row, island2.min_row)
+            gap_row_end = min(island1.max_row, island2.max_row)
+        elif island2.max_col < island1.min_col:
+            # Island2 is to the left of island1
+            gap_col_start = island2.max_col + 1
+            gap_col_end = island1.min_col - 1
+            gap_row_start = max(island1.min_row, island2.min_row)
+            gap_row_end = min(island1.max_row, island2.max_row)
+        else:
+            gap_col_start = gap_col_end = -1
+
+        # For vertical gaps
+        if island1.max_row < island2.min_row:
+            # Island1 is above island2
+            gap_row_start = island1.max_row + 1
+            gap_row_end = island2.min_row - 1
+            gap_col_start = max(island1.min_col, island2.min_col)
+            gap_col_end = min(island1.max_col, island2.max_col)
+        elif island2.max_row < island1.min_row:
+            # Island2 is above island1
+            gap_row_start = island2.max_row + 1
+            gap_row_end = island1.min_row - 1
+            gap_col_start = max(island1.min_col, island2.min_col)
+            gap_col_end = min(island1.max_col, island2.max_col)
+
+        # Check if any cells exist in the gap
+        if gap_col_start >= 0 and gap_col_end >= gap_col_start:
+            for row in range(gap_row_start, gap_row_end + 1):
+                for col in range(gap_col_start, gap_col_end + 1):
+                    cell = sheet_data.get_cell(row, col)
+                    if cell and not cell.is_empty:
+                        self.logger.debug(
+                            f"Found data at ({row},{col}) in gap between "
+                            f"{island1.to_range()} and {island2.to_range()}"
+                        )
+                        return False  # Data exists in gap, don't merge
+
+        return True  # Gap is empty, safe to merge
+
+    def _has_table_end_border_pattern(
+        self, prev_row: int, current_row: int, sheet_data: "SheetData"
+    ) -> bool:
+        """Check if there's a table-ending border pattern between two rows.
+
+        A table end is indicated by:
+        1. Previous row has consistent bottom borders
+        2. Current row has no or different border pattern
+        3. Optional: Empty row(s) between them
+
+        Args:
+            prev_row: Previous row index
+            current_row: Current row index
+            sheet_data: Sheet data
+
+        Returns:
+            True if table-ending border pattern is detected
+        """
+        # Get cells from previous row
+        prev_cells = []
+        current_cells = []
+
+        # Find column range to check
+        col_start = col_end = None
+        for col in range(sheet_data.max_column + 1):
+            cell = sheet_data.get_cell(prev_row, col)
+            if cell and not cell.is_empty:
+                if col_start is None:
+                    col_start = col
+                col_end = col
+                prev_cells.append(cell)
+
+        if not prev_cells or col_start is None or col_end is None:
+            return False
+
+        # Check if previous row has consistent bottom borders
+        bottom_border_count = 0
+        for cell in prev_cells:
+            if cell.border_bottom and cell.border_bottom != "none":
+                bottom_border_count += 1
+
+        # Need at least 70% of cells to have bottom borders
+        if bottom_border_count < len(prev_cells) * 0.7:
+            return False
+
+        # Check current row in same column range
+        for col in range(col_start, col_end + 1):
+            cell = sheet_data.get_cell(current_row, col)
+            if cell and not cell.is_empty:
+                current_cells.append(cell)
+
+        if not current_cells:
+            # Current row is empty in this range - strong table end indicator
+            return True
+
+        # Check if current row has different border pattern
+        # Count top borders in current row (would indicate continuation)
+        top_border_count = 0
+        for cell in current_cells:
+            if cell.border_top and cell.border_top != "none":
+                top_border_count += 1
+
+        # If current row has few top borders, it's likely a new table
+        return top_border_count < len(current_cells) * 0.3
+
     def convert_to_table_infos(
-        self, islands: list[DataIsland], sheet_name: str, min_confidence: float = 0.3
+        self,
+        islands: list[DataIsland],
+        sheet_name: str,
+        min_confidence: float = 0.3,
+        sheet_data: Optional["SheetData"] = None,
     ) -> list[TableInfo]:
         """Convert data islands to TableInfo objects.
 
@@ -683,18 +1187,52 @@ class IslandDetector:
                 end_col=island.max_col,
             )
 
+            # Always extract headers from first row if sheet_data is available
+            headers = None
+            if sheet_data:
+                headers = self._extract_headers(sheet_data, table_range)
+                self.logger.debug(f"Extracted headers for island {i}: {headers}")
+
             table_info = TableInfo(
                 id=f"island_{island.min_row}_{island.min_col}",
                 range=table_range,
                 suggested_name=f"{sheet_name}_table_{i + 1}",
                 confidence=island.confidence,
                 detection_method="island_detection",
-                headers=None,  # Would need to extract if needed
+                has_headers=island.has_headers,
+                headers=headers,
                 data_preview=None,  # Would need to extract if needed
             )
             table_infos.append(table_info)
 
         return table_infos
+
+    def _extract_headers(self, sheet_data: "SheetData", table_range: TableRange) -> list[str]:
+        """Extract header values from the first row of a table.
+
+        Args:
+            sheet_data: Sheet data containing cells
+            table_range: Range of the table
+
+        Returns:
+            List of header strings
+        """
+        headers = []
+
+        # Extract values from first row
+        for col in range(table_range.start_col, table_range.end_col + 1):
+            cell = sheet_data.get_cell(table_range.start_row, col)
+            if cell and cell.value is not None:
+                # Convert value to string for header
+                header_val = str(cell.value).strip()
+                headers.append(header_val)
+            else:
+                # Use column letter as fallback for empty headers
+                from ..utils.excel_utils import get_column_letter
+
+                headers.append(get_column_letter(col))
+
+        return headers
 
     def _detect_islands_structural(self, sheet_data: "SheetData") -> list[DataIsland]:
         """Detect islands using structural analysis based on column consistency.
@@ -733,6 +1271,8 @@ class IslandDetector:
 
         # Sort islands by position
         islands.sort(key=lambda i: (i.min_row, i.min_col))
+
+        # Calculate metrics for each island (already done in loop above)
 
         self.logger.info(f"Detected {len(islands)} islands using structural analysis")
         return islands
@@ -792,12 +1332,32 @@ class IslandDetector:
             pattern = row_patterns[row]
 
             # Check if there's an empty row gap
-            if row - prev_row > self.min_empty_rows_to_split:
-                # Start new group due to empty rows
-                groups.append(current_group)
-                current_group = [row]
+            empty_row_gap = row - prev_row - 1
+
+            # Use empty_row_tolerance to decide if we should split
+            if empty_row_gap > self.empty_row_tolerance:
+                # Only split if gap exceeds tolerance
+                # Check if columns are still aligned despite the gap
+                similarity = self._calculate_column_similarity(prev_pattern, pattern)
+
+                if (
+                    similarity < self.column_consistency_threshold
+                    or empty_row_gap > self.min_empty_rows_to_split
+                ):
+                    # Start new group due to large gap or different columns
+                    groups.append(current_group)
+                    current_group = [row]
+                    self.logger.debug(
+                        f"Starting new group at row {row} due to gap of {empty_row_gap} rows"
+                    )
+                else:
+                    # Tolerate the gap - columns are still aligned
+                    current_group.append(row)
+                    self.logger.debug(
+                        f"Tolerating gap of {empty_row_gap} rows at row {row} due to column alignment"
+                    )
             else:
-                # Check column similarity
+                # Small or no gap - check column similarity as usual
                 similarity = self._calculate_column_similarity(prev_pattern, pattern)
 
                 if similarity >= self.column_consistency_threshold:
@@ -1063,6 +1623,15 @@ class IslandDetector:
                 if border_similarity < FORMATTING_DETECTION.BORDER_CONSISTENCY_THRESHOLD:
                     is_new_table_start = True
 
+                # Case 2b: Check for "table end" border pattern
+                # If previous row had bottom borders and current doesn't, likely table boundary
+                if self._has_table_end_border_pattern(prev_row, row, sheet_data):
+                    is_new_table_start = True
+                    self.logger.debug(
+                        f"Table end border pattern detected at row {row}: "
+                        f"Previous row has bottom borders, current row starts new table"
+                    )
+
                 # Case 3: Major formatting shift (combined factors)
                 formatting_change_score = 0.0
 
@@ -1178,16 +1747,23 @@ class IslandDetector:
         if not row_cells:
             return FORMATTING_DETECTION.NO_BORDERS
 
-        # Count border patterns
+        # Count border patterns with more detail
         border_patterns = {
             "all": 0,
             "none": 0,
             "horizontal": 0,
             "vertical": 0,
             "mixed": 0,
+            "outer": 0,  # Special pattern for table boundaries
         }
 
-        for cell in row_cells:
+        # Track if this might be a table boundary row
+        is_first_cell = True
+        is_last_cell = False
+
+        for i, cell in enumerate(row_cells):
+            is_last_cell = i == len(row_cells) - 1
+
             has_top = cell.border_top is not None and cell.border_top != "none"
             has_bottom = cell.border_bottom is not None and cell.border_bottom != "none"
             has_left = cell.border_left is not None and cell.border_left != "none"
@@ -1199,6 +1775,12 @@ class IslandDetector:
                 border_patterns["none"] += 1
             elif border_count == 4:
                 border_patterns["all"] += 1
+            elif is_first_cell and has_left and (has_top or has_bottom):
+                # First cell with left border - might be table start
+                border_patterns["outer"] += 1
+            elif is_last_cell and has_right and (has_top or has_bottom):
+                # Last cell with right border - might be table end
+                border_patterns["outer"] += 1
             elif has_top or has_bottom:
                 if not has_left and not has_right:
                     border_patterns["horizontal"] += 1
@@ -1212,6 +1794,8 @@ class IslandDetector:
             else:
                 border_patterns["mixed"] += 1
 
+            is_first_cell = False
+
         # Find most common pattern
         max_count = max(border_patterns.values())
         if max_count == 0:
@@ -1224,6 +1808,7 @@ class IslandDetector:
             "horizontal": FORMATTING_DETECTION.HORIZONTAL_ONLY,
             "vertical": FORMATTING_DETECTION.VERTICAL_ONLY,
             "mixed": FORMATTING_DETECTION.MIXED_BORDERS,
+            "outer": FORMATTING_DETECTION.OUTER_ONLY,
         }
 
         for pattern, count in border_patterns.items():
@@ -1252,19 +1837,25 @@ class IslandDetector:
             (FORMATTING_DETECTION.HORIZONTAL_ONLY, FORMATTING_DETECTION.HORIZONTAL_ONLY): 1.0,
             (FORMATTING_DETECTION.VERTICAL_ONLY, FORMATTING_DETECTION.VERTICAL_ONLY): 1.0,
             (FORMATTING_DETECTION.MIXED_BORDERS, FORMATTING_DETECTION.MIXED_BORDERS): 1.0,
+            (FORMATTING_DETECTION.OUTER_ONLY, FORMATTING_DETECTION.OUTER_ONLY): 1.0,
             # Similar patterns have moderate similarity
             (FORMATTING_DETECTION.HORIZONTAL_ONLY, FORMATTING_DETECTION.ALL_BORDERS): 0.7,
             (FORMATTING_DETECTION.VERTICAL_ONLY, FORMATTING_DETECTION.ALL_BORDERS): 0.7,
             (FORMATTING_DETECTION.HORIZONTAL_ONLY, FORMATTING_DETECTION.MIXED_BORDERS): 0.6,
             (FORMATTING_DETECTION.VERTICAL_ONLY, FORMATTING_DETECTION.MIXED_BORDERS): 0.6,
             (FORMATTING_DETECTION.ALL_BORDERS, FORMATTING_DETECTION.MIXED_BORDERS): 0.8,
+            (FORMATTING_DETECTION.OUTER_ONLY, FORMATTING_DETECTION.ALL_BORDERS): 0.8,
+            (FORMATTING_DETECTION.OUTER_ONLY, FORMATTING_DETECTION.MIXED_BORDERS): 0.7,
             # No borders vs any borders has low similarity
             (FORMATTING_DETECTION.NO_BORDERS, FORMATTING_DETECTION.ALL_BORDERS): 0.2,
             (FORMATTING_DETECTION.NO_BORDERS, FORMATTING_DETECTION.HORIZONTAL_ONLY): 0.3,
             (FORMATTING_DETECTION.NO_BORDERS, FORMATTING_DETECTION.VERTICAL_ONLY): 0.3,
             (FORMATTING_DETECTION.NO_BORDERS, FORMATTING_DETECTION.MIXED_BORDERS): 0.2,
+            (FORMATTING_DETECTION.NO_BORDERS, FORMATTING_DETECTION.OUTER_ONLY): 0.2,
             # Different directional borders have moderate similarity
             (FORMATTING_DETECTION.HORIZONTAL_ONLY, FORMATTING_DETECTION.VERTICAL_ONLY): 0.5,
+            (FORMATTING_DETECTION.HORIZONTAL_ONLY, FORMATTING_DETECTION.OUTER_ONLY): 0.6,
+            (FORMATTING_DETECTION.VERTICAL_ONLY, FORMATTING_DETECTION.OUTER_ONLY): 0.6,
         }
 
         # Check both directions
@@ -1373,3 +1964,139 @@ class IslandDetector:
 
         # If no valid splits were created, return original island
         return new_islands if new_islands else [island]
+
+    def _reconnect_gap_separated_islands(
+        self, islands: list[DataIsland], sheet_data: "SheetData"
+    ) -> list[DataIsland]:
+        """Reconnect islands that were separated by tolerable empty rows.
+
+        This handles cases where tables have empty rows in the middle but
+        maintain column alignment and should be treated as a single table.
+
+        Args:
+            islands: List of detected islands
+            sheet_data: Sheet data
+
+        Returns:
+            List of islands after reconnection
+        """
+        if len(islands) <= 1:
+            return islands
+
+        # Sort islands by position for easier comparison
+        sorted_islands = sorted(islands, key=lambda i: (i.min_row or 0, i.min_col or 0))
+        reconnected = []
+        skip_indices = set()
+
+        for i, island1 in enumerate(sorted_islands):
+            if i in skip_indices:
+                continue
+
+            # Start with current island
+            merged_island = DataIsland()
+            merged_island.cells = island1.cells.copy()
+            merged_island.min_row = island1.min_row
+            merged_island.max_row = island1.max_row
+            merged_island.min_col = island1.min_col
+            merged_island.max_col = island1.max_col
+            merged_island.total_sheet_cells = island1.total_sheet_cells
+
+            # Look for islands to reconnect
+            for j in range(i + 1, len(sorted_islands)):
+                if j in skip_indices:
+                    continue
+
+                island2 = sorted_islands[j]
+
+                # Check if islands can be reconnected
+                if self._should_reconnect_islands(merged_island, island2, sheet_data):
+                    # Merge the islands
+                    merged_island.cells.update(island2.cells)
+                    if island2.min_row is not None and merged_island.min_row is not None:
+                        merged_island.min_row = min(merged_island.min_row, island2.min_row)
+                    if island2.max_row is not None and merged_island.max_row is not None:
+                        merged_island.max_row = max(merged_island.max_row, island2.max_row)
+                    if island2.min_col is not None and merged_island.min_col is not None:
+                        merged_island.min_col = min(merged_island.min_col, island2.min_col)
+                    if island2.max_col is not None and merged_island.max_col is not None:
+                        merged_island.max_col = max(merged_island.max_col, island2.max_col)
+                    skip_indices.add(j)
+
+                    self.logger.debug(
+                        f"Reconnected islands {island1.to_range()} and {island2.to_range()} "
+                        f"separated by empty rows"
+                    )
+
+            # Recalculate metrics for reconnected island
+            merged_island.calculate_metrics(sheet_data)
+            reconnected.append(merged_island)
+
+        return reconnected
+
+    def _should_reconnect_islands(
+        self, island1: DataIsland, island2: DataIsland, sheet_data: "SheetData"
+    ) -> bool:
+        """Check if two islands should be reconnected across empty rows.
+
+        Islands are reconnected if:
+        1. They are vertically separated by <= empty_row_tolerance rows
+        2. They have significant column overlap (>= 50%)
+        3. The gap between them is mostly empty
+        4. They have similar column patterns
+
+        Args:
+            island1: First island (typically above)
+            island2: Second island (typically below)
+            sheet_data: Sheet data
+
+        Returns:
+            True if islands should be reconnected
+        """
+        if (
+            island1.min_row is None
+            or island1.max_row is None
+            or island1.min_col is None
+            or island1.max_col is None
+            or island2.min_row is None
+            or island2.max_row is None
+            or island2.min_col is None
+            or island2.max_col is None
+        ):
+            return False
+
+        # Check if islands are vertically aligned (one above the other)
+        if island2.min_row <= island1.max_row:
+            return False  # Islands overlap or wrong order
+
+        # Check vertical gap
+        v_gap = island2.min_row - island1.max_row - 1
+        if v_gap > self.empty_row_tolerance or v_gap < 1:
+            return False  # Gap too large or no gap
+
+        # Check column overlap
+        col_start = max(island1.min_col, island2.min_col)
+        col_end = min(island1.max_col, island2.max_col)
+
+        if col_start > col_end:
+            return False  # No column overlap
+
+        overlap_cols = col_end - col_start + 1
+        island1_cols = island1.max_col - island1.min_col + 1
+        island2_cols = island2.max_col - island2.min_col + 1
+        min_cols = min(island1_cols, island2_cols)
+
+        overlap_ratio = overlap_cols / min_cols if min_cols > 0 else 0
+        if overlap_ratio < 0.5:
+            return False  # Insufficient column overlap
+
+        # Check if gap is mostly empty
+        gap_cells = 0
+        for row in range(island1.max_row + 1, island2.min_row):
+            for col in range(col_start, col_end + 1):
+                cell = sheet_data.get_cell(row, col)
+                if cell and not cell.is_empty:
+                    gap_cells += 1
+
+        # Allow some cells in gap (e.g., section headers) but not too many
+        max_gap_cells = overlap_cols * 0.2  # Max 20% of columns can have data in gap
+        return gap_cells <= max_gap_cells

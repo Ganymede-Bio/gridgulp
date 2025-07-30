@@ -51,6 +51,7 @@ class FileFormatDetector:
         "tsv": FileType.TSV,
         "xlsx": FileType.XLSX,  # Note: Magika can't distinguish XLSM, they appear as xlsx
         "xls": FileType.XLS,
+        "xlsb": FileType.XLSB,
         # Note: XLSM detection requires ZIP content analysis, not available via Magika
         # Text formats that might be delimited
         "txt": FileType.TXT,  # Will use content analysis for tabular detection
@@ -406,7 +407,7 @@ class FileFormatDetector:
                     # Determine specific Excel format
                     if any("vbaProject" in f for f in file_list):
                         return FileType.XLSM, 0.95  # Macro-enabled
-                    elif any(f.endswith(".bin") for f in file_list):
+                    elif self._is_xlsb_format(file_list):
                         return FileType.XLSB, 0.95  # Binary format
                     else:
                         return FileType.XLSX, 0.95  # Standard Excel
@@ -418,6 +419,30 @@ class FileFormatDetector:
             logger.debug(f"ZIP analysis failed: {e}")
 
         return None, 0.0
+
+    def _is_xlsb_format(self, file_list: list[str]) -> bool:
+        """More accurate XLSB detection based on file structure.
+
+        XLSB files have specific characteristics:
+        - xl/workbook.bin (not workbook.xml)
+        - xl/worksheets/sheet*.bin (not sheet*.xml)
+        - No xml worksheet files
+        """
+        # Check for binary workbook file
+        has_workbook_bin = any("xl/workbook.bin" in f for f in file_list)
+
+        # Check for binary worksheet files
+        has_sheet_bin = any(
+            f.startswith("xl/worksheets/sheet") and f.endswith(".bin") for f in file_list
+        )
+
+        # Check for absence of XML worksheet files (XLSB won't have these)
+        has_sheet_xml = any(
+            f.startswith("xl/worksheets/sheet") and f.endswith(".xml") for f in file_list
+        )
+
+        # XLSB should have binary workbook AND sheets, but NO XML sheets
+        return has_workbook_bin and has_sheet_bin and not has_sheet_xml
 
     def _analyze_text_content(
         self, file_path: Path, header_bytes: bytes
@@ -568,7 +593,10 @@ class FileFormatDetector:
                     # Magika detected XLSX, but it might be XLSM or XLSB
                     # Do additional ZIP analysis to distinguish
                     zip_result = self._analyze_zip_content(file_path)
-                    if zip_result[0] and zip_result[0] in [FileType.XLSM, FileType.XLSB]:
+                    if zip_result[0] and zip_result[0] in [
+                        FileType.XLSM,
+                        FileType.XLSB,
+                    ]:
                         # More specific Excel format detected
                         return zip_result[0], min(confidence_score, zip_result[1])
                     else:
