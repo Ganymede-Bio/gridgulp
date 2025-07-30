@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2025-07-29
+
 ### Added
 - **Smart Table Boundary Detection**: Enhanced formatting-based table separation
   - Headers now correctly included with their data sections
@@ -14,12 +16,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Adaptive merge distance based on formatting patterns and empty row separation
   - Formatting boundary detection using cell styling (bold, background colors)
 
-### Removed
-- **XLSB File Support**: Excel Binary format is no longer supported
-  - XLSB files are detected but will return a clear error message
-  - Removed python-calamine dependency
-  - Users must save XLSB files as XLSX format in Excel before processing
+- **Comprehensive Test Coverage**: Added extensive test coverage for key components
+  - Enhanced test coverage for island detection, file reading, and core functionality
+  - Better test reliability and API compliance
 
+### Changed
+- **Test Suite Cleanup**: Removed all skipped tests and updated implementations
+  - All tests now pass with proper API implementations
+  - Cleaner, more maintainable test suite
+
+### Improved
 - **Island Detection Algorithm**: Smarter merging logic
   - Detects well-separated tables and skips aggressive merging
   - Preserves formatting-based table boundaries
@@ -31,25 +37,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Headers stay with their respective data sections
   - Better handling of multi-table sheets with different formatting
 
+### Removed
+- **XLSB File Support**: Excel Binary format is no longer supported
+  - XLSB files are detected but will return a clear error message
+  - Removed python-calamine dependency
+  - Users must save XLSB files as XLSX format in Excel before processing
+
 ### Fixed
 - Fixed header exclusion issue where headers were separated from data
 - Fixed confidence calculation bug with order of operations
 - Fixed empty cell detection treating empty strings as data
 - Fixed file format detection to properly identify XLSB files and provide clear error messages
-
-## [0.3.3] - 2025-07-29
-
-### Added
-- **Comprehensive Test Coverage**: Added extensive test coverage for key components
-  - Enhanced test coverage for island detection, file reading, and core functionality
-  - Better test reliability and API compliance
-
-### Changed
-- **Test Suite Cleanup**: Removed all skipped tests and updated implementations
-  - All tests now pass with proper API implementations
-  - Cleaner, more maintainable test suite
-
-### Fixed
 - Fixed GitHub release action configuration with proper tag handling
 - Updated all tests to match actual API implementations
 - Resolved test failures and inconsistencies
