@@ -5,24 +5,105 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
 ## [0.3.4] - 2025-07-29
 
 ### Added
-- BoxTableDetector for high-confidence detection of tables with complete borders (95% confidence)
-- Headers are now always extracted from the first row of detected tables
-- Header extraction support for all detection methods (SimpleCaseDetector, IslandDetector, BoxTableDetector)
+- **Enhanced Table Detection Algorithms**: Major improvements to table detection accuracy
+  - **Column Gap Detection**: Prevents merging of side-by-side tables separated by empty columns
+  - **Empty Row Tolerance**: Configurable tolerance (0-5 rows) prevents splitting tables with section breaks
+  - **Border-Based Detection**: Uses Excel cell borders for precise table boundary detection
+  - **Weighted Scoring System**: Comprehensive confidence scoring using 7 weighted factors
+
+- **New Configuration Options**: Fine-tune detection behavior
+  - `empty_row_tolerance`: Number of empty rows to tolerate within tables (default: 1)
+  - `column_gap_prevents_merge`: Prevent merging across empty columns (default: True)
+  - `use_border_detection`: Enable border-based boundaries (default: True)
+  - `min_column_overlap_for_merge`: Required column overlap ratio (default: 0.5)
+
+### Improved
+- **Detection Accuracy**: Addresses specific issues with complex layouts
+  - Side-by-side tables (like dashboards) now correctly detected as separate
+  - Tables with subtotals or section breaks stay intact
+  - Border patterns provide precise table edges
+  - Better confidence scores reflect actual table quality
+
+- **Scoring Components**: Enhanced confidence calculation
+  - Size Score (20%): Relative and absolute table size
+  - Density Score (15%): Data density within region
+  - Shape Score (10%): Preference for rectangular tables
+  - Header Score (15%): Detection of header rows
+  - Border Score (15%): Clean border patterns
+  - Formatting Score (15%): Consistency analysis
+  - Isolation Score (10%): Independence from other tables
+
+## [0.3.3] - 2025-07-29
+
+### Added
+- **Smart Table Boundary Detection**: Enhanced formatting-based table separation
+  - Headers now correctly included with their data sections
+  - Well-separated table detection preserves natural boundaries
+  - Adaptive merge distance based on formatting patterns and empty row separation
+  - Formatting boundary detection using cell styling (bold, background colors)
+
+- **Comprehensive Test Coverage**: Added extensive test coverage for key components
+  - Enhanced test coverage for island detection, file reading, and core functionality
+  - Better test reliability and API compliance
 
 ### Changed
-- Improved header detection to focus on bold text and data type differences
-- Reduced emphasis on background color for header detection (based on user feedback)
-- Updated detection pipeline to include box table detection as a fast path
+- **Test Suite Cleanup**: Removed all skipped tests and updated implementations
+  - All tests now pass with proper API implementations
+  - Cleaner, more maintainable test suite
+
+### Improved
+- **Island Detection Algorithm**: Smarter merging logic
+  - Detects well-separated tables and skips aggressive merging
+  - Preserves formatting-based table boundaries
+  - Improved confidence calculation with proper order of operations
+  - Better empty cell detection using `is_empty` property
+
+- **Table Detection Accuracy**: Reduced false merging of separate tables
+  - Tables separated by empty rows are no longer incorrectly merged
+  - Headers stay with their respective data sections
+  - Better handling of multi-table sheets with different formatting
+
+### Removed
+- **XLSB File Support**: Excel Binary format is no longer supported
+  - XLSB files are detected but will return a clear error message
+  - Users must save XLSB files as XLSX format in Excel before processing
 
 ### Fixed
-- Fixed header extraction in island detection - headers were not being returned
-- Fixed sheet_data parameter bug in SimpleCaseDetector.convert_to_table_info
-- Fixed has_headers property to correctly transfer from islands to TableInfo objects
+- Fixed header exclusion issue where headers were separated from data
+- Fixed confidence calculation bug with order of operations
+- Fixed empty cell detection treating empty strings as data
+- Fixed file format detection to properly identify XLSB files and provide clear error messages
+- Fixed GitHub release action configuration with proper tag handling
+- Updated all tests to match actual API implementations
+- Resolved test failures and inconsistencies
+
+## [0.3.2] - 2025-07-29
+
+### Added
+- **MkDocs Documentation Site**: Professional documentation with Material theme
+  - Comprehensive API documentation
+  - Usage examples and guides
+  - GitHub Pages integration
+
+- **MyPy Type Checking**: Full static type checking support
+  - Complete type annotations throughout codebase
+  - MyPy configuration for strict type checking
+  - Improved code quality and developer experience
+
+### Improved
+- **Enhanced README**: Better examples and documentation
+  - Jupyter notebook examples
+  - DataFrame output demonstrations
+  - Clearer usage instructions
+
+### Fixed
+- Resolved all mypy type annotation errors
+- Fixed documentation build and rendering issues
+- Improved MkDocs configuration and theme setup
+- Fixed various CI/CD pipeline issues
 
 ## [0.3.1] - 2025-07-29
 
