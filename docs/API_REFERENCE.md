@@ -54,7 +54,6 @@ class Config(BaseModel):
     max_sheets: int = 10               # Max sheets to process
 
     # Performance
-    excel_reader: str = "calamine"     # "calamine" or "openpyxl"
     max_memory_mb: int = 1000          # Max memory usage
     chunk_size: int = 10000            # Streaming chunk size
 

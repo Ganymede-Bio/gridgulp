@@ -69,7 +69,6 @@ class TableInfo(BaseModel):
 - Use xlrd for legacy .xls files
 - Preserve formatting metadata for detection
 - Handle multiple sheets independently
-- Support for python-calamine for fast parsing
 
 #### CSV/Text Files
 - Auto-detect delimiter using csv.Sniffer

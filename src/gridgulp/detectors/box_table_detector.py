@@ -100,7 +100,26 @@ class BoxTableDetector:
         return tables
 
     def _has_top_left_corner(self, cell: Any) -> bool:
-        """Check if cell has borders suggesting top-left corner of a table."""
+        """Check if cell has borders suggesting top-left corner of a table.
+
+        Args
+        ----
+        cell : Any
+            Cell object with border properties (border_top, border_left).
+
+        Returns
+        -------
+        bool
+            True if the cell has both top and left borders (non-None and
+            not "none"), indicating it could be the top-left corner of a
+            bordered table.
+
+        Notes
+        -----
+        This method identifies potential starting points for box tables by
+        looking for cells with L-shaped border patterns. Such cells typically
+        mark the top-left corner of tables with complete borders.
+        """
         has_top = cell.border_top is not None and cell.border_top != "none"
         has_left = cell.border_left is not None and cell.border_left != "none"
         return has_top and has_left
@@ -110,13 +129,34 @@ class BoxTableDetector:
     ) -> TableRange | None:
         """Find the extent of a potential box table.
 
-        Args:
-            sheet_data: Sheet data
-            start_row: Starting row
-            start_col: Starting column
+        Args
+        ----
+        sheet_data : SheetData
+            Sheet data containing cells with border information.
+        start_row : int
+            Row index of the top-left corner cell (0-based).
+        start_col : int
+            Column index of the top-left corner cell (0-based).
 
-        Returns:
-            TableRange if a valid box is found, None otherwise
+        Returns
+        -------
+        TableRange | None
+            TableRange defining the box boundaries if a valid box is found,
+            None if the box is too small or borders are incomplete.
+
+        Notes
+        -----
+        This method traces the borders from a top-left corner cell to find
+        the full extent of a bordered table:
+
+        1. Traces right along the top border until it ends
+        2. Traces down along the left border until it ends
+        3. Validates the resulting rectangle meets minimum size requirements
+
+        The method assumes that a valid box table has continuous borders
+        along its top edge and left edge from the starting corner. Tables
+        smaller than min_rows x min_cols are rejected to avoid false positives
+        from small bordered cells or headers.
         """
         # Find right edge - cells should have top border
         end_col = start_col
@@ -145,12 +185,32 @@ class BoxTableDetector:
     def _verify_complete_box(self, sheet_data: "SheetData", box_range: TableRange) -> bool:
         """Verify that the range has complete borders on all sides.
 
-        Args:
-            sheet_data: Sheet data
-            box_range: Range to verify
+        Args
+        ----
+        sheet_data : SheetData
+            Sheet data containing cells with border and value information.
+        box_range : TableRange
+            Range to verify for complete box borders.
 
-        Returns:
-            True if all borders are present
+        Returns
+        -------
+        bool
+            True if all four sides have complete borders and the table
+            contains sufficient data (>30% non-empty cells).
+
+        Notes
+        -----
+        This method performs comprehensive validation to ensure the detected
+        range is truly a box table:
+
+        1. **Top Border**: All cells in the first row must have top borders
+        2. **Bottom Border**: All cells in the last row must have bottom borders
+        3. **Left Border**: All cells in the first column must have left borders
+        4. **Right Border**: All cells in the last column must have right borders
+        5. **Data Density**: At least 30% of cells must contain data
+
+        The data density check prevents false positives from empty bordered
+        regions or decorative borders without actual table content.
         """
         # Check top row - all cells should have top border
         for col in range(box_range.start_col, box_range.end_col + 1):
@@ -192,12 +252,30 @@ class BoxTableDetector:
     def _detect_headers(self, sheet_data: "SheetData", table_range: TableRange) -> bool:
         """Detect if the first row contains headers.
 
-        Args:
-            sheet_data: Sheet data
-            table_range: Table range
+        Args
+        ----
+        sheet_data : SheetData
+            Sheet data containing cells to analyze.
+        table_range : TableRange
+            Range of the table to check for headers.
 
-        Returns:
-            True if headers are detected
+        Returns
+        -------
+        bool
+            True if the first row likely contains headers, False otherwise.
+
+        Notes
+        -----
+        Headers are detected using the same heuristics as SimpleCaseDetector:
+
+        1. All cells in the first row are string/text type
+        2. At least one of:
+           - Cells in the first row have bold formatting
+           - The second row contains different data types (numbers, dates)
+
+        This approach works well for typical spreadsheets where headers are
+        text labels and data rows contain mixed types. The method is conservative
+        and may miss headers in unusual formats, but avoids false positives.
         """
         first_row_cells = []
         for col in range(table_range.start_col, table_range.end_col + 1):
@@ -229,12 +307,33 @@ class BoxTableDetector:
     def _extract_headers(self, sheet_data: "SheetData", table_range: TableRange) -> list[str]:
         """Extract header values from the first row.
 
-        Args:
-            sheet_data: Sheet data
-            table_range: Table range
+        Args
+        ----
+        sheet_data : SheetData
+            Sheet data containing the cells to extract headers from.
+        table_range : TableRange
+            Range of the table. Headers are extracted from the first row
+            (start_row) within the column range.
 
-        Returns:
-            List of header strings
+        Returns
+        -------
+        list[str]
+            List of header strings, one for each column. Empty cells get
+            their column letter as a fallback (e.g., "A", "B", "C").
+
+        Examples
+        --------
+        >>> headers = detector._extract_headers(sheet_data, table_range)
+        >>> print(headers)
+        ['Date', 'Product', 'Quantity', 'Price', 'Total']
+
+        Notes
+        -----
+        This method extracts headers regardless of whether they were detected
+        by _detect_headers(). All values are converted to strings and stripped
+        of whitespace. Empty header cells receive their Excel column letter
+        to ensure every column has an identifier, which is useful for
+        downstream processing.
         """
         headers = []
 

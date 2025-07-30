@@ -48,14 +48,52 @@ except ImportError:
 
 
 class ExcelReader(SyncBaseReader):
-    """Reader for Excel files (.xlsx, .xlsm, .xls)."""
+    """Reader for Excel files (.xlsx, .xlsm, .xls).
+
+    This reader handles both modern Excel formats (XLSX/XLSM) using openpyxl
+    and legacy formats (XLS) using xlrd. It automatically selects the appropriate
+    backend based on file type and extracts cell data, formatting, and metadata.
+
+    Examples
+    --------
+    Basic usage::
+
+        >>> from gridgulp.readers import get_reader
+        >>> reader = get_reader("sales_report.xlsx")
+        >>> file_data = reader.read_sync()
+        >>> print(f"Sheets: {len(file_data.sheets)}")
+
+    With context manager::
+
+        >>> with ExcelReader(path, file_info) as reader:
+        ...     file_data = reader.read_sync()
+        ...     # Workbook is automatically closed
+
+    Notes
+    -----
+    The reader preserves formatting information including borders, bold/italic
+    text, and cell alignment. Excel metadata such as ListObjects (tables) and
+    named ranges are also extracted when available.
+
+    Password-protected files are detected and raise appropriate errors. XLSB
+    format is detected but not supported and will raise UnsupportedFormatError.
+    """
 
     def __init__(self, file_path: Path, file_info: FileInfo):
         """Initialize Excel reader.
 
-        Args:
-            file_path: Path to Excel file
-            file_info: File information
+        Args
+        ----
+        file_path : Path
+            Path to the Excel file to read.
+        file_info : FileInfo
+            Pre-analyzed file information including detected type.
+
+        Notes
+        -----
+        The appropriate backend (openpyxl or xlrd) is selected based on file type:
+        - XLSX/XLSM: Uses openpyxl for full feature support
+        - XLS: Uses xlrd for legacy format compatibility
         """
         super().__init__(file_path, file_info)
         self._workbook: Any = None  # Type varies by backend
@@ -67,7 +105,18 @@ class ExcelReader(SyncBaseReader):
         self._excel_metadata: ExcelMetadata | None = None
 
     def can_read(self) -> bool:
-        """Check if can read Excel files."""
+        """Check if can read Excel files.
+
+        Returns
+        -------
+        bool
+            True if the file type is XLSX, XLS, or XLSM; False otherwise.
+
+        Notes
+        -----
+        XLSB format is explicitly not supported even though it's an Excel format.
+        This method is used by the factory to validate reader compatibility.
+        """
         return self.file_info.type in {
             FileType.XLSX,
             FileType.XLS,
@@ -75,19 +124,60 @@ class ExcelReader(SyncBaseReader):
         }
 
     def get_supported_formats(self) -> list[str]:
-        """Get supported Excel formats."""
+        """Get supported Excel formats.
+
+        Returns
+        -------
+        list[str]
+            List of supported file extensions: ["xlsx", "xls", "xlsm"].
+
+        Notes
+        -----
+        This is a static list of formats this reader can handle. XLSB is
+        intentionally excluded as it requires specialized parsing not
+        currently implemented.
+        """
         return ["xlsx", "xls", "xlsm"]
 
     def __enter__(self) -> "ExcelReader":
-        """Context manager entry."""
+        """Context manager entry.
+
+        Returns
+        -------
+        ExcelReader
+            Returns self for use in with statements.
+        """
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        """Context manager exit - cleanup resources."""
+        """Context manager exit - cleanup resources.
+
+        Args
+        ----
+        exc_type : Any
+            Exception type if an exception occurred.
+        exc_val : Any
+            Exception value if an exception occurred.
+        exc_tb : Any
+            Exception traceback if an exception occurred.
+
+        Notes
+        -----
+        Always closes the workbook regardless of whether an exception occurred.
+        This ensures Excel file handles are properly released.
+        """
         self.close()
 
     def close(self) -> None:
-        """Close workbook and free resources."""
+        """Close workbook and free resources.
+
+        Notes
+        -----
+        This method safely closes the Excel workbook and releases file handles.
+        It's automatically called when using the reader as a context manager,
+        but can also be called manually. Multiple calls are safe - subsequent
+        calls have no effect.
+        """
         if self._workbook is not None:
             try:
                 if hasattr(self._workbook, "close"):

@@ -32,13 +32,13 @@ def visualize_detection(
     sheet = result.sheets[sheet_index]
 
     # Placeholder visualization logic
-    print(f"Visualization for sheet: {sheet.name}")
-    print(f"Number of tables: {len(sheet.tables)}")
+    logger.info(f"Visualization for sheet: {sheet.name}")
+    logger.info(f"Number of tables: {len(sheet.tables)}")
 
     for i, table in enumerate(sheet.tables):
-        print(f"  Table {i+1}: {table.range.excel_range}")
-        print(f"    Confidence: {table.confidence:.2%}")
-        print(f"    Method: {table.detection_method}")
+        logger.info(f"  Table {i + 1}: {table.range.excel_range}")
+        logger.info(f"    Confidence: {table.confidence:.2%}")
+        logger.info(f"    Method: {table.detection_method}")
 
     if output_path:
         logger.info(f"Would save visualization to: {output_path}")

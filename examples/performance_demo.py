@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Demonstration of GridGulp performance improvements."""
+"""Demonstration of GridGulp performance."""
 
 import asyncio
 import sys
@@ -11,12 +11,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from gridgulp.config import GridGulpConfig  # noqa: E402
 from gridgulp.models import FileInfo, FileType  # noqa: E402
-from gridgulp.readers import CalamineReader, ExcelReader, ReaderAdapter  # noqa: E402
+from gridgulp.readers import ExcelReader, ReaderAdapter  # noqa: E402
 
 
 async def benchmark_readers(file_path: Path):
-    """Benchmark different Excel readers."""
-    print(f"\nBenchmarking readers for: {file_path.name}")
+    """Benchmark Excel reader performance."""
+    print(f"\nBenchmarking reader for: {file_path.name}")
     print("=" * 50)
 
     # Create file info
@@ -26,39 +26,19 @@ async def benchmark_readers(file_path: Path):
         size_mb=file_path.stat().st_size / (1024 * 1024),
     )
 
-    # Test 1: Calamine reader (fast)
-    print("\n1. Calamine Reader (Rust-based):")
-    start = time.time()
-    calamine_reader = CalamineReader(file_path, file_info)
-    file_data = await calamine_reader.read()
-    calamine_time = time.time() - start
-    print(f"   Time: {calamine_time:.2f}s")
-    print(f"   Sheets: {len(file_data.sheets)}")
-    print(f"   Total cells: {sum(len(sheet.get_non_empty_cells()) for sheet in file_data.sheets)}")
-
-    # Test 2: Calamine to Polars
-    print("\n2. Calamine Reader → Polars DataFrames:")
-    start = time.time()
-    dfs = calamine_reader.read_to_polars()
-    polars_time = time.time() - start
-    print(f"   Time: {polars_time:.2f}s")
-    print(f"   DataFrames: {len(dfs)}")
-    for i, df in enumerate(dfs):
-        print(f"   Sheet {i}: {df.shape} (rows × cols)")
-
-    # Test 3: Traditional openpyxl reader
-    print("\n3. Openpyxl Reader (traditional):")
+    # Test: Openpyxl reader
+    print("\nOpenpyxl Reader:")
     start = time.time()
     excel_reader = ExcelReader(file_path, file_info)
     file_data = await excel_reader.read()
     openpyxl_time = time.time() - start
     print(f"   Time: {openpyxl_time:.2f}s")
     print(f"   Sheets: {len(file_data.sheets)}")
+    print(f"   Total cells: {sum(len(sheet.cells) for sheet in file_data.sheets)}")
 
-    # Show speedup
+    # Show results
     print("\n📊 Performance Summary:")
-    print(f"   Calamine is {openpyxl_time/calamine_time:.1f}x faster than openpyxl")
-    print(f"   Calamine→Polars is {openpyxl_time/polars_time:.1f}x faster than openpyxl")
+    print(f"   Processed {file_path.name} in {openpyxl_time:.2f}s")
 
 
 async def demonstrate_adapter():
@@ -66,25 +46,15 @@ async def demonstrate_adapter():
     print("\n\nDemonstrating Reader Adapter")
     print("=" * 50)
 
-    # Configuration 1: Use Calamine for speed
-    config1 = GridGulpConfig(excel_reader="calamine", use_polars=True)
-    ReaderAdapter(config1)
-    print(f"Config 1: excel_reader={config1.excel_reader}, use_polars={config1.use_polars}")
-
-    # Configuration 2: Use openpyxl for features
-    config2 = GridGulpConfig(excel_reader="openpyxl", use_polars=False)
-    ReaderAdapter(config2)
-    print(f"Config 2: excel_reader={config2.excel_reader}, use_polars={config2.use_polars}")
-
-    # Configuration 3: Auto-select
-    config3 = GridGulpConfig(excel_reader="auto", use_polars=True)
-    ReaderAdapter(config3)
-    print(f"Config 3: excel_reader={config3.excel_reader}, use_polars={config3.use_polars}")
+    # Configuration examples
+    config = GridGulpConfig()
+    ReaderAdapter(config)
+    print("Default config loaded successfully")
 
 
 async def main():
     """Run all demonstrations."""
-    print("GridGulp Performance Improvements Demo")
+    print("GridGulp Performance Demo")
     print("=" * 50)
 
     # Find a sample Excel file

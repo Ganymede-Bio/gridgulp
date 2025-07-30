@@ -130,9 +130,6 @@ config = Config(
 
 ```python
 config = Config(
-    # Excel reader preference
-    prefer_calamine=True,         # Use fast Rust-based reader
-
     # Streaming options
     enable_streaming=True,        # Stream large files
     chunk_size=1000,             # Rows per chunk for streaming
@@ -303,7 +300,6 @@ config = Config(
     enable_island_detection=False,
     enable_multi_header_detection=False,
     enable_semantic_analysis=False,
-    prefer_calamine=True,
     max_tables_per_sheet=1
 )
 ```

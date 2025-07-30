@@ -24,7 +24,32 @@ logger = get_contextual_logger(__name__)
 
 
 class GridGulp:
-    """Main class for intelligent spreadsheet table detection - simplified architecture."""
+    """Main class for intelligent spreadsheet table detection - simplified architecture.
+
+    GridGulp automatically detects and extracts tables from spreadsheets with zero
+    external dependencies. It handles Excel (xlsx, xls, xlsm), CSV, TSV, and text files,
+    detecting tables even when they don't start at A1 or when multiple tables exist
+    on a single sheet.
+
+    Examples
+    --------
+    Basic usage::
+
+        >>> from gridgulp import GridGulp
+        >>> gg = GridGulp()
+        >>> result = await gg.detect_tables("sales_report.xlsx")
+        >>> print(f"Found {result.total_tables} tables")
+
+    With custom configuration::
+
+        >>> config = Config(confidence_threshold=0.8)
+        >>> gg = GridGulp(config=config)
+
+    Notes
+    -----
+    The simplified architecture focuses on algorithmic detection methods that handle
+    ~97% of real-world spreadsheets without requiring external services or AI APIs.
+    """
 
     def __init__(
         self,
@@ -34,10 +59,39 @@ class GridGulp:
     ):
         """Initialize GridGulp with simplified architecture.
 
-        Args:
-            config: Configuration object. If None, uses minimal config.
-            confidence_threshold: Override for confidence threshold
-            **kwargs: Additional config overrides
+        Args
+        ----
+        config : Config, optional
+            Configuration object. If None, loads from environment or uses defaults.
+        confidence_threshold : float, optional
+            Override for confidence threshold (0.0-1.0). Tables with confidence
+            scores below this threshold are filtered out.
+        **kwargs : Any
+            Additional config overrides. Any attribute of the Config class can
+            be overridden by passing it as a keyword argument.
+
+        Examples
+        --------
+        Default initialization::
+
+            >>> gg = GridGulp()
+
+        With custom confidence threshold::
+
+            >>> gg = GridGulp(confidence_threshold=0.9)
+
+        With multiple overrides::
+
+            >>> gg = GridGulp(
+            ...     confidence_threshold=0.8,
+            ...     max_tables_per_sheet=100,
+            ...     timeout_seconds=600
+            ... )
+
+        Notes
+        -----
+        Configuration can also be set via environment variables. See Config.from_env()
+        for details on supported environment variables.
         """
         # Load base config
         if config is None:
@@ -58,7 +112,14 @@ class GridGulp:
         logger.info("GridGulp initialized with simplified architecture")
 
     def _setup_logging(self) -> None:
-        """Setup logging configuration."""
+        """Setup logging configuration based on config settings.
+
+        Notes
+        -----
+        This method configures Python's logging module with the level and format
+        specified in the configuration. If a log file is specified, logs will be
+        written to that file instead of stderr.
+        """
         logging.basicConfig(
             level=getattr(logging, self.config.log_level.upper()),
             format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -426,7 +487,26 @@ class GridGulp:
         return self.detect_tables_sync(file_path)
 
     def _validate_file(self, file_path: Path) -> None:
-        """Validate that file exists and is within size limits."""
+        """Validate that file exists and is within size limits.
+
+        Args
+        ----
+        file_path : Path
+            Path to the file to validate.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the file does not exist at the specified path.
+        ValueError
+            If the file size exceeds the configured maximum (max_file_size_mb).
+
+        Notes
+        -----
+        This method is called before processing any file to ensure it meets
+        basic requirements. The size limit prevents memory exhaustion when
+        processing extremely large files.
+        """
         if not file_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
 
@@ -437,7 +517,29 @@ class GridGulp:
             )
 
     async def _analyze_file(self, file_path: Path) -> FileInfo:
-        """Analyze file and create FileInfo object with comprehensive detection."""
+        """Analyze file and create FileInfo object with comprehensive detection.
+
+        Args
+        ----
+        file_path : Path
+            Path to the file to analyze.
+
+        Returns
+        -------
+        FileInfo
+            Detailed file information including detected type, encoding, and metadata.
+
+        Notes
+        -----
+        This method uses multiple detection strategies including:
+        - File extension analysis
+        - Magic byte signatures
+        - Content sampling and analysis
+        - Optional AI-based detection (Magika) if enabled
+
+        Format mismatches (where file extension doesn't match content) are logged
+        as warnings but processing continues with the detected content type.
+        """
         # Use enhanced file detection
         detection_result = detect_file_info(file_path)
 
@@ -463,13 +565,33 @@ class GridGulp:
         )
 
     async def batch_detect(self, file_paths: list[str | Path]) -> list[DetectionResult]:
-        """Detect tables in multiple files.
+        """Detect tables in multiple files concurrently.
 
-        Args:
-            file_paths: List of file paths
+        Args
+        ----
+        file_paths : list[str | Path]
+            List of file paths to process. Can be strings or Path objects.
 
-        Returns:
-            List of DetectionResult objects
+        Returns
+        -------
+        list[DetectionResult]
+            List of DetectionResult objects for successfully processed files.
+            Failed files are logged but excluded from the results.
+
+        Examples
+        --------
+        Process multiple files::
+
+            >>> files = ["report1.xlsx", "report2.csv", "data.txt"]
+            >>> results = await gg.batch_detect(files)
+            >>> for result in results:
+            ...     print(f"{result.file_info.path.name}: {result.total_tables} tables")
+
+        Notes
+        -----
+        Files are processed concurrently for better performance. Errors in individual
+        files don't stop processing of other files. Check logs for details about
+        failed files.
         """
         import asyncio
 
@@ -523,5 +645,25 @@ class GridGulp:
             return asyncio.run(self.batch_detect(file_paths))
 
     def get_supported_formats(self) -> list[str]:
-        """Get list of supported file formats."""
+        """Get list of supported file formats.
+
+        Returns
+        -------
+        list[str]
+            List of supported file extensions without dots (e.g., ["xlsx", "csv"]).
+
+        Examples
+        --------
+        Check supported formats::
+
+            >>> gg = GridGulp()
+            >>> formats = gg.get_supported_formats()
+            >>> print(formats)
+            ['xlsx', 'xls', 'xlsm', 'csv', 'tsv', 'txt']
+
+        Notes
+        -----
+        XLSB format is detected but not supported for reading. Files with XLSB
+        format will raise an UnsupportedFormatError.
+        """
         return [ft.value for ft in FileType if ft != FileType.UNKNOWN]

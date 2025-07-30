@@ -248,12 +248,11 @@ config = Config(
 )
 ```
 
-### 3. Use Fast Reader When Available
+### 3. Configure for Your Use Case
 
 ```python
-# Calamine reader is used automatically for Excel files
-# It's 10-100x faster than openpyxl
-config = Config(prefer_calamine=True)  # Default
+# Use appropriate settings for your files
+config = Config()  # Default configuration works well for most files
 ```
 
 ## Logging and Debugging

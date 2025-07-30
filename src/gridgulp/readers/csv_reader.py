@@ -27,11 +27,35 @@ class CSVReader(SyncBaseReader):
         self._dialect: csv.Dialect | None = None
 
     def can_read(self) -> bool:
-        """Check if can read CSV files."""
+        """Check if can read CSV files.
+
+        Returns
+        -------
+        bool
+            True if the file type is CSV or TSV; False otherwise.
+
+        Notes
+        -----
+        This method validates that the CSVReader can handle the given file type.
+        Text files (.txt) are handled by TextReader instead, even if they
+        contain delimited data.
+        """
         return self.file_info.type in {FileType.CSV, FileType.TSV}
 
     def get_supported_formats(self) -> list[str]:
-        """Get supported CSV formats."""
+        """Get supported CSV formats.
+
+        Returns
+        -------
+        list[str]
+            List of supported file extensions: ["csv", "tsv", "txt"].
+
+        Notes
+        -----
+        While this method returns "txt" as supported, the actual can_read()
+        method only accepts CSV and TSV file types. Text files are included
+        here for completeness but are typically handled by TextReader.
+        """
         return ["csv", "tsv", "txt"]
 
     def read_sync(self) -> FileData:
@@ -80,7 +104,21 @@ class CSVReader(SyncBaseReader):
             raise ReaderError(f"Failed to read CSV file: {e}") from e
 
     def _detect_format(self) -> None:
-        """Detect encoding and CSV dialect."""
+        """Detect encoding and CSV dialect.
+
+        Notes
+        -----
+        This method performs two critical detection steps:
+
+        1. **Encoding Detection**: Uses multiple strategies including BOM detection,
+           chardet analysis, and pattern matching to identify the file encoding.
+        2. **Dialect Detection**: Uses csv.Sniffer and manual analysis to determine
+           the delimiter, quote character, and other CSV formatting rules.
+
+        The detected encoding and dialect are stored as instance attributes for
+        use during the actual file reading phase. Detection uses only the first
+        8KB of the file for efficiency.
+        """
         # Read sample for detection
         with open(self.file_path, "rb") as f:
             sample_bytes = f.read(8192)  # Read up to 8KB for detection

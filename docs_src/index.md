@@ -93,7 +93,7 @@ for sheet in result.sheets:
 - Process most files in under 1 second
 - Memory-efficient streaming for large files
 - Configurable performance/accuracy trade-offs
-- Optional fast parsing with `python-calamine`
+- Optimized parsing for Excel and CSV files
 
 ### 🔧 Flexible Configuration
 

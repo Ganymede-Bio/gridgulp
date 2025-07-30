@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4] - 2025-07-29
+
 ### Added
 - BoxTableDetector for high-confidence detection of tables with complete borders (95% confidence)
 - Headers are now always extracted from the first row of detected tables

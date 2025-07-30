@@ -8,9 +8,9 @@ GridGulp supports a wide range of spreadsheet and text file formats, with automa
 
 | Format | Extension | Description | Reader Options |
 |--------|-----------|-------------|----------------|
-| Excel 2007+ | .xlsx | Modern Excel (Office Open XML) | openpyxl, calamine |
-| Excel 97-2003 | .xls | Legacy Excel (BIFF) | xlrd, calamine |
-| Excel Macro | .xlsm | Excel with macros | openpyxl, calamine |
+| Excel 2007+ | .xlsx | Modern Excel (Office Open XML) | openpyxl |
+| Excel 97-2003 | .xls | Legacy Excel (BIFF) | xlrd |
+| Excel Macro | .xlsm | Excel with macros | openpyxl |
 
 ### Text Formats
 
@@ -68,12 +68,10 @@ For text files, GridGulp analyzes content:
 - Hidden sheets/cells
 - Formulas (as values)
 
-**Reader selection**:
+**Reader configuration**:
 ```python
-config = Config(
-    prefer_calamine=True  # 10-100x faster (Rust-based)
-    # Falls back to openpyxl if calamine unavailable
-)
+# GridGulp uses openpyxl for Excel files
+config = Config()  # Default settings work well
 ```
 
 ### Legacy Excel (.xls)
@@ -102,10 +100,6 @@ If you have .xlsb files, you must:
 - Limited Python library support
 - Complexity of binary format
 - Most features available in .xlsx format
-```python
-# Requires calamine reader
-# Install: pip install python-calamine
-```
 
 ### Working with Excel Tables
 
@@ -220,8 +214,7 @@ config = Config(
 
 | Format | Speed | Memory Usage | Notes |
 |--------|-------|--------------|-------|
-| .xlsx (calamine) | Very Fast | Low | Best overall performance |
-| .xlsx (openpyxl) | Slow | High | Feature-complete |
+| .xlsx | Medium | Medium | Full feature support |
 | .xls | Medium | Medium | Limited by xlrd |
 | .csv/.tsv | Fast | Very Low | Streaming capable |
 | .txt | Fast | Very Low | Depends on content |
@@ -332,10 +325,9 @@ except ReaderError as e:
 ## Best Practices
 
 1. **Let GridGulp detect formats**: Don't rely on file extensions
-2. **Use calamine for Excel**: Much faster for large files
-3. **Set appropriate limits**: Prevent memory issues with large files
-4. **Handle encoding errors**: Always have a fallback plan
-5. **Test with sample files**: Each format source may have quirks
+2. **Configure appropriate limits**: Prevent memory issues with large files
+3. **Handle encoding errors**: Always have a fallback plan
+4. **Test with sample files**: Each format source may have quirks
 
 ## Next Steps
 

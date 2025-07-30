@@ -5,7 +5,7 @@ All notable changes to GridGulp will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.4] - 2025-07-29
 
 ### Added
 - **Enhanced Table Detection Algorithms**: Major improvements to table detection accuracy
@@ -69,7 +69,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - **XLSB File Support**: Excel Binary format is no longer supported
   - XLSB files are detected but will return a clear error message
-  - Removed python-calamine dependency
   - Users must save XLSB files as XLSX format in Excel before processing
 
 ### Fixed

@@ -43,8 +43,6 @@ Detects complex multi-row headers with merged cells.
 ### [ExcelReader](gridgulp/readers/excel_reader.md)
 Reader for Excel files using openpyxl.
 
-### [CalamineReader](gridgulp/readers/calamine_reader.md)
-Fast Excel/ODS reader using Rust-based backend.
 
 ### [CSVReader](gridgulp/readers/csv_reader.md)
 Reader for CSV and delimited text files.

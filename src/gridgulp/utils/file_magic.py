@@ -176,7 +176,19 @@ class FileFormatDetector:
         self.enable_magika = enable_magika
 
     def _check_magic_availability(self) -> bool:
-        """Check if python-magic is available."""
+        """Check if python-magic is available.
+
+        Returns
+        -------
+        bool
+            True if python-magic is installed and functional; False otherwise.
+
+        Notes
+        -----
+        This method not only checks if the module can be imported but also
+        verifies it can actually detect MIME types. Some installations may
+        have import issues or missing dependencies (like libmagic).
+        """
         try:
             import magic
 
@@ -188,7 +200,19 @@ class FileFormatDetector:
             return False
 
     def _check_filetype_availability(self) -> bool:
-        """Check if filetype library is available."""
+        """Check if filetype library is available.
+
+        Returns
+        -------
+        bool
+            True if the filetype library is installed; False otherwise.
+
+        Notes
+        -----
+        The filetype library provides pure-Python file type detection based on
+        file signatures. It's used as a fallback when python-magic is unavailable
+        or for additional validation.
+        """
         try:
             import filetype  # noqa: F401
 
@@ -198,7 +222,20 @@ class FileFormatDetector:
             return False
 
     def _check_magika_availability(self) -> bool:
-        """Check if Magika library is available."""
+        """Check if Magika library is available.
+
+        Returns
+        -------
+        bool
+            True if Google's Magika AI-based file detection is available; False otherwise.
+
+        Notes
+        -----
+        Magika is Google's AI-powered file type detection library that provides
+        high accuracy for file format identification. It's optional but recommended
+        for improved detection accuracy, especially for files with misleading
+        extensions or corrupted headers.
+        """
         try:
             from magika import Magika  # noqa: F401
 

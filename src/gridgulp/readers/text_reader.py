@@ -25,7 +25,21 @@ class TextReader(SyncBaseReader):
         self._detector = FileFormatDetector()  # For sophisticated encoding detection
 
     def can_read(self) -> bool:
-        """Check if the text file can be read as tabular data."""
+        """Check if the text file can be read as tabular data.
+
+        Returns
+        -------
+        bool
+            True if the file contains tabular data (delimited format);
+            False if it's plain text without structure.
+
+        Notes
+        -----
+        This method performs preliminary analysis to determine if the text file
+        contains structured tabular data. It detects encoding and checks for
+        consistent delimiter patterns. Files without clear tabular structure
+        are rejected to avoid processing non-data text files.
+        """
         try:
             # Try to detect encoding and format
             self._detect_encoding_internal()
@@ -36,11 +50,39 @@ class TextReader(SyncBaseReader):
             return False
 
     def get_supported_formats(self) -> list[str]:
-        """Get supported formats."""
+        """Get supported formats.
+
+        Returns
+        -------
+        list[str]
+            List containing ["txt"] as the only supported extension.
+
+        Notes
+        -----
+        TextReader specifically handles .txt files that contain tabular data.
+        CSV and TSV files with proper extensions are handled by CSVReader instead.
+        """
         return ["txt"]
 
     def read_sheets(self) -> Iterator[SheetData]:
-        """Read text file as a single sheet."""
+        """Read text file as a single sheet.
+
+        Yields
+        ------
+        SheetData
+            A single sheet containing the parsed tabular data from the text file.
+
+        Raises
+        ------
+        ReaderError
+            If the file cannot be read, contains no tabular data, or parsing fails.
+
+        Notes
+        -----
+        Text files are always treated as containing a single "sheet" of data.
+        The method automatically detects the delimiter (comma, tab, pipe, etc.)
+        and parses the content accordingly. Empty rows are skipped during parsing.
+        """
         if not self.can_read():
             raise ReaderError(f"Cannot read text file: {self.file_path}")
 

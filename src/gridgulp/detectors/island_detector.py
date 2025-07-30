@@ -739,13 +739,37 @@ class IslandDetector:
     ) -> DataIsland:
         """Perform flood-fill to find connected component.
 
-        Args:
-            start: Starting cell position (row, col)
-            data_cells: Set of all cells with data
-            visited: Set of already visited cells
+        Args
+        ----
+        start : tuple[int, int]
+            Starting cell position as (row, col) tuple. Must be a cell
+            that contains data and hasn't been visited yet.
+        data_cells : set[tuple[int, int]]
+            Set of all cell positions that contain data. This is the
+            universe of cells to explore.
+        visited : set[tuple[int, int]]
+            Set of already visited cell positions. This set is modified
+            in-place to track progress across multiple flood-fill calls.
 
-        Returns:
-            DataIsland containing all connected cells
+        Returns
+        -------
+        DataIsland
+            Island containing all cells connected to the starting position.
+            Connection is determined by the max_gap parameter.
+
+        Notes
+        -----
+        This implements a breadth-first search (BFS) flood-fill algorithm
+        to find all cells that form a connected component. Cells are considered
+        connected based on the max_gap setting:
+
+        - max_gap=0: Only directly adjacent cells
+        - max_gap=1: Cells within 1 position (allows single empty cell gaps)
+        - max_gap=2: Cells within 2 positions (allows small formatting gaps)
+
+        The include_diagonal setting determines whether diagonal connections
+        are allowed. The algorithm is efficient with O(n) time complexity
+        where n is the number of cells in the island.
         """
         island = DataIsland()
         queue = deque([start])
@@ -767,12 +791,40 @@ class IslandDetector:
     def _get_neighbors(self, row: int, col: int) -> list[tuple[int, int]]:
         """Get neighboring cell positions based on max_gap setting.
 
-        Args:
-            row: Current row
-            col: Current column
+        Args
+        ----
+        row : int
+            Current row index (0-based).
+        col : int
+            Current column index (0-based).
 
-        Returns:
-            List of neighboring cell positions
+        Returns
+        -------
+        list[tuple[int, int]]
+            List of neighboring cell positions as (row, col) tuples.
+            The number of neighbors depends on max_gap and include_diagonal settings.
+
+        Examples
+        --------
+        With max_gap=1 and include_diagonal=True::
+
+            >>> detector._get_neighbors(5, 5)
+            [(4, 4), (4, 5), (4, 6), (5, 4), (5, 6), (6, 4), (6, 5), (6, 6)]
+
+        With max_gap=1 and include_diagonal=False::
+
+            >>> detector._get_neighbors(5, 5)
+            [(4, 5), (5, 4), (5, 6), (6, 5)]
+
+        Notes
+        -----
+        The neighborhood pattern is controlled by two parameters:
+
+        - max_gap: Determines the maximum distance for connections (Manhattan distance)
+        - include_diagonal: Whether to include diagonal neighbors
+
+        This method doesn't check bounds or validate positions; it returns all
+        theoretical neighbors which are then filtered by the calling method.
         """
         neighbors = []
 
@@ -927,16 +979,39 @@ class IslandDetector:
     def _should_merge(self, island1: DataIsland, island2: DataIsland, max_distance: int) -> bool:
         """Check if two islands should be merged based on proximity.
 
-        Enhanced to prevent merging tables separated by empty columns,
-        which is a strong indicator of separate tables.
+        Args
+        ----
+        island1 : DataIsland
+            First island to check for merging.
+        island2 : DataIsland
+            Second island to check for merging.
+        max_distance : int
+            Maximum distance (in cells) for considering islands as mergeable.
 
-        Args:
-            island1: First island
-            island2: Second island
-            max_distance: Maximum distance for merging
+        Returns
+        -------
+        bool
+            True if islands should be merged, False otherwise.
 
-        Returns:
-            True if islands should be merged
+        Notes
+        -----
+        This method implements sophisticated heuristics to prevent incorrect
+        merging of separate tables:
+
+        1. **Column Gap Rule**: Islands separated by 2+ empty columns are never
+           merged, as this strongly indicates separate tables.
+
+        2. **Single Column Gap**: For islands separated by exactly 1 column,
+           they're only merged if they have >50% row overlap, indicating they
+           might be parts of the same table with a formatting gap.
+
+        3. **Proximity Rules**: Islands are merged if they're:
+           - Adjacent or overlapping in one dimension and within max_distance
+             in the other dimension
+           - Within max_distance in both dimensions (diagonal proximity)
+
+        The method prevents common errors like merging side-by-side tables
+        or vertically stacked tables with clear separation.
         """
         # Check if islands have valid bounds
         if (
@@ -1011,16 +1086,37 @@ class IslandDetector:
     ) -> bool:
         """Check if the gap between two islands is empty.
 
-        This prevents merging tables that have data between them,
-        even if they're otherwise close enough to merge.
+        Args
+        ----
+        island1 : DataIsland
+            First island in the pair to check.
+        island2 : DataIsland
+            Second island in the pair to check.
+        sheet_data : SheetData
+            Sheet data to check for cells in the gap region.
 
-        Args:
-            island1: First island
-            island2: Second island
-            sheet_data: Sheet data to check for cells in gap
+        Returns
+        -------
+        bool
+            True if gap is empty (safe to merge), False if data exists in gap.
 
-        Returns:
-            True if gap is empty (safe to merge), False if data exists in gap
+        Notes
+        -----
+        This method prevents incorrect merging of tables that have scattered
+        data between them. It carefully calculates the exact gap region based
+        on island positions:
+
+        - For horizontal gaps: Checks columns between islands within their
+          overlapping row range
+        - For vertical gaps: Checks rows between islands within their
+          overlapping column range
+
+        Even a single non-empty cell in the gap prevents merging, as it likely
+        indicates the islands are separate tables with unrelated data between them.
+
+        The method returns True (safe to merge) if islands have invalid bounds,
+        following a conservative approach that avoids breaking valid merges due
+        to data issues.
         """
         if (
             island1.min_row is None
@@ -1210,12 +1306,36 @@ class IslandDetector:
     def _extract_headers(self, sheet_data: "SheetData", table_range: TableRange) -> list[str]:
         """Extract header values from the first row of a table.
 
-        Args:
-            sheet_data: Sheet data containing cells
-            table_range: Range of the table
+        Args
+        ----
+        sheet_data : SheetData
+            Sheet data containing the cells to extract headers from.
+        table_range : TableRange
+            Range defining the table boundaries. Headers are extracted from
+            the first row (start_row) of this range.
 
-        Returns:
-            List of header strings
+        Returns
+        -------
+        list[str]
+            List of header strings, one for each column in the table range.
+            Empty cells get their column letter as a fallback (e.g., "A", "B").
+
+        Examples
+        --------
+        >>> headers = detector._extract_headers(sheet_data, table_range)
+        >>> print(headers)
+        ['Date', 'Product', 'Quantity', 'Price', 'Total']
+
+        Notes
+        -----
+        This method always extracts from the first row of the table range,
+        regardless of whether headers were detected. The assumption is that
+        most tables have headers in the first row, and it's better to extract
+        potential headers than to miss them.
+
+        All values are converted to strings and stripped of whitespace. Empty
+        cells receive their Excel column letter as a placeholder to ensure
+        all columns have identifiers.
         """
         headers = []
 

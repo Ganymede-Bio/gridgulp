@@ -9,7 +9,7 @@ Automatically detect and extract tables from Excel, CSV, and text files.
 
 ## What is GridGulp?
 
-GridGulp finds tables in your spreadsheets - even when
+GridGulp finds tables in your spreadsheets, even when
 
 - there are multiple tables on one sheet
 - tables don't start at cell A1
@@ -47,18 +47,17 @@ You will receive output that looks like, representing identified ranges:
 
 GridGulp provides two ways to work with detected tables:
 
-1. **Table Ranges** - Lightweight metadata about where tables are located (e.g., "A1:E100")
+1. **Table Ranges** - JSON metadata about where tables are located (e.g., "A1:E100")
    - Fast and memory-efficient
-   - Perfect for mapping table locations or visualizing spreadsheet structure
+   - Perfect for agent use as tools - mapping table locations or visualizing spreadsheet structure
    - No actual data is loaded into memory
 
 2. **DataFrames** - The actual data extracted from those ranges as pandas DataFrames
    - Contains the full data with proper types
    - Ready for analysis, transformation, or export
-   - Requires more memory but provides full data access
 
 Choose based on your needs:
-- Use **ranges only** when you need to know where tables are or want to process them later
+- Use **ranges only** when you need to know where tables are and want to submit to other tasks - for example, a downstream process to infer purpose / intent based on data content
 - Use **DataFrames** when you need to analyze or transform the actual data
 
 ### Getting Table Ranges Only
@@ -219,7 +218,7 @@ if all_dataframes:
 - [Full Usage Guide](docs/USAGE_GUIDE.md) - Detailed examples and configuration
 - [API Reference](docs/API_REFERENCE.md) - Complete API documentation
 - [Architecture](docs/ARCHITECTURE.md) - How GridGulp works internally
-- [Testing Guide](docs/TESTING_WITH_SCRIPT.md) - Test spreadsheets in bulk with the unified test script
+- [Testing Guide](docs/TESTING_GUIDE.md) - Test spreadsheets in bulk with the unified test script
 
 ## License
 
