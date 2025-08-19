@@ -86,9 +86,9 @@ async def test_format_detection():
             print(f"❌ Error processing {file_path}: {e}")
 
     # Summary
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print("DETECTION SUMMARY")
-    print(f"{'='*50}")
+    print(f"{'=' * 50}")
 
     if results:
         print(
@@ -116,7 +116,7 @@ async def test_format_detection():
         for method, count in detection_methods.items():
             print(f"  - {method}: {count}")
 
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print("✅ Format detection test completed!")
 
     if any(r["mismatch"] for r in results):

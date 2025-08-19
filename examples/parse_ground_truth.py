@@ -72,9 +72,9 @@ def display_ground_truth(ground_truth):
             print(f"  Tab: {tab_name}")
             print(f"  Expected tables: {len(ranges)}")
             for i, range_str in enumerate(ranges):
-                print(f"    {i+1}. {range_str}")
+                print(f"    {i + 1}. {range_str}")
 
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print(f"Total files: {total_files}")
     print(f"Total expected tables: {total_tables}")
     print("=" * 80)

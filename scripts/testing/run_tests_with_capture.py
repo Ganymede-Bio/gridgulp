@@ -250,10 +250,10 @@ class TestRunner:
                     elapsed = time.time() - start
                     times.append(elapsed)
 
-                    print(f"    Run {i+1}: {elapsed:.3f}s")
+                    print(f"    Run {i + 1}: {elapsed:.3f}s")
 
                 except Exception as e:
-                    print(f"    Run {i+1}: Failed - {e}")
+                    print(f"    Run {i + 1}: Failed - {e}")
 
             if times:
                 avg_time = sum(times) / len(times)

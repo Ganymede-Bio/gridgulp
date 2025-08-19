@@ -69,7 +69,7 @@ def save_dataframes_as_csv():
                     # Convert to Excel-style range
                     start_col_letter = chr(ord("A") + start_col)
                     end_col_letter = chr(ord("A") + end_col)
-                    range_str = f"{start_col_letter}{start_row+1}_{end_col_letter}{end_row+1}"
+                    range_str = f"{start_col_letter}{start_row + 1}_{end_col_letter}{end_row + 1}"
 
                     quality_score = table.get("quality_score", 0)
                     csv_filename = f"{file_name}_{sheet_name}_{range_str}_q{quality_score:.2f}.csv"
