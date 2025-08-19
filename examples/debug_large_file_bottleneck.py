@@ -41,7 +41,7 @@ def test_file_reading():
         print(f"Read time: {read_time:.3f}s")
         print(f"Dimensions: {sheet_data.max_row + 1} x {sheet_data.max_column + 1}")
         print(f"Total cells: {cells:,}")
-        print(f"Read rate: {cells/read_time:,.0f} cells/sec")
+        print(f"Read rate: {cells / read_time:,.0f} cells/sec")
 
         return sheet_data
 
@@ -64,7 +64,7 @@ def test_simple_detection(sheet_data):
     cells = (sheet_data.max_row + 1) * (sheet_data.max_column + 1)
 
     print(f"Detection time: {detection_time:.3f}s")
-    print(f"Detection rate: {cells/detection_time:,.0f} cells/sec")
+    print(f"Detection rate: {cells / detection_time:,.0f} cells/sec")
     print(f"Is simple table: {result.is_simple_table}")
     print(f"Confidence: {result.confidence}")
     print(f"Range: {result.table_range}")

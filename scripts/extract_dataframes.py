@@ -237,7 +237,7 @@ class DataFrameExtractionPipeline:
                 f.write(f"- Tables detected: {total_detected}\n")
                 f.write(f"- Tables extracted: {total_extracted}\n")
                 f.write(f"- High quality tables (score > 0.7): {total_high_quality}\n")
-                f.write(f"- Overall success rate: {total_extracted/total_detected:.1%}\n\n")
+                f.write(f"- Overall success rate: {total_extracted / total_detected:.1%}\n\n")
 
                 # File details
                 f.write("## File Details\n\n")
@@ -256,7 +256,7 @@ class DataFrameExtractionPipeline:
                             f.write(f"- Tables detected: {sheet.total_tables_detected}\n")
                             f.write(f"- Tables extracted: {sheet.tables_extracted}\n")
                             f.write(
-                                f"- Success rate: {sheet.tables_extracted/sheet.total_tables_detected:.1%}\n\n"
+                                f"- Success rate: {sheet.tables_extracted / sheet.total_tables_detected:.1%}\n\n"
                             )
 
                             # High quality tables for this sheet
@@ -370,7 +370,7 @@ async def main():
     print(f"Tables extracted: {total_extracted}")
     print(f"High quality tables: {total_high_quality}")
     if total_detected > 0:
-        print(f"Overall success rate: {total_extracted/total_detected:.1%}")
+        print(f"Overall success rate: {total_extracted / total_detected:.1%}")
 
 
 if __name__ == "__main__":
