@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gridgulp"
-version = "0.3.5"
-description = "Simplified intelligent spreadsheet ingestion framework with automatic table detection"
+version = "0.5.0"
+description = "Gemma-first spreadsheet schematization framework for unstructured workbooks"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
     {name = "GridGulp Contributors"},
@@ -18,7 +18,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -40,7 +39,8 @@ dependencies = [
     "chardet",
     "aiofiles",
     "rich", # For nice CLI output
-    "polars"
+    "polars",
+    "Pillow"
 ]
 
 [project.optional-dependencies]
@@ -81,7 +81,7 @@ sources = ["src"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 lint.select = [
     "E",    # pycodestyle errors
     "W",    # pycodestyle warnings
@@ -161,7 +161,7 @@ dev = [
 ]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -188,6 +188,7 @@ module = [
     "magika.*",
     "olefile.*",
     "openpyxl.*",
+    "PIL.*",
     "polars.*",
     "python_magic.*",
     "rich.*",

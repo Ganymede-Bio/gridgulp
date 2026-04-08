@@ -1,4 +1,4 @@
-.PHONY: help install install-dev test test-cov lint format type-check clean build publish bump-patch bump-minor bump-major
+.PHONY: help install install-dev hooks-install hooks test test-cov lint format type-check clean build publish bump-patch bump-minor bump-major doctor
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -7,19 +7,28 @@ install: ## Install the package with uv
 	uv pip install -e .
 
 install-dev: ## Install the package with development dependencies using uv
-	uv pip install -e ".[dev]"
+	uv sync --extra dev
+
+hooks-install: ## Install git pre-commit hooks
+	uv run --extra dev pre-commit install
+
+hooks: ## Run pre-commit hooks across the repository
+	uv run --extra dev pre-commit run --all-files
 
 test: ## Run tests
-	pytest
+	uv run --extra dev pytest
+
+doctor: ## Validate GridGulp Gemma configuration
+	uv run --extra dev gridgulp doctor
 
 test-cov: ## Run tests with coverage
-	pytest --cov=gridgulp --cov-report=html --cov-report=term
+	uv run --extra dev pytest --cov=gridgulp --cov-report=html --cov-report=term
 
 lint: ## Run linting with ruff
-	ruff check src/ tests/
+	uv run --extra dev ruff check src/ tests/
 
 format: ## Format code with black
-	black src/ tests/
+	uv run --extra dev ruff format src/ tests/
 
 clean: ## Clean build artifacts
 	rm -rf build/
@@ -52,6 +61,6 @@ bump-major: ## Bump major version
 	python scripts/bump_version.py major
 
 dev: install-dev ## Set up development environment
-	pre-commit install
+	uv run --extra dev pre-commit install
 
 check: lint type-check test ## Run all checks (lint, type-check, test)

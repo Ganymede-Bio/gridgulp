@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -14,7 +14,7 @@ from ..models.table import TableRange
 logger = logging.getLogger(__name__)
 
 
-class RowType(str, Enum):
+class RowType(StrEnum):
     """Types of rows in a table."""
 
     HEADER = "header"

@@ -6,44 +6,44 @@ repos:
       - id: end-of-file-fixer
       - id: check-yaml
         exclude: mkdocs.yml
+      - id: check-case-conflict
       - id: check-added-large-files
         args: ['--maxkb=1000']
       - id: check-json
       - id: check-toml
       - id: check-merge-conflict
+      - id: detect-private-key
+      - id: check-executables-have-shebangs
       - id: debug-statements
       - id: mixed-line-ending
         args: ['--fix=lf']
       - id: name-tests-test
         args: ['--pytest-test-first']
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.7
-    hooks:
-      - id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
-      - id: ruff-format
-
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.17.0
-    hooks:
-      - id: mypy
-        args: [--config-file=pyproject.toml]
-        additional_dependencies: [
-          "types-aiofiles",
-          "pandas-stubs>=2.0.0",
-          "pydantic>=2.0,<3.0",
-          "python-magic"
-        ]
-        files: ^src/
-
   - repo: local
     hooks:
-      - id: pytest
-        name: pytest
-        entry: pytest
+      - id: ruff
+        name: ruff
+        entry: uv run --extra dev ruff check --fix --exit-non-zero-on-fix src/ tests/
         language: system
-        types: [python]
         pass_filenames: false
         always_run: true
-        args: [--tb=short, -q]
+      - id: ruff-format
+        name: ruff-format
+        entry: uv run --extra dev ruff format src/ tests/
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: mypy
+        name: mypy
+        entry: uv run --extra dev mypy src/
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: pytest
+        name: pytest
+        entry: uv run --extra dev pytest
+        language: system
+        pass_filenames: false
+        always_run: true
+        args: [tests/, --tb=short, -q]

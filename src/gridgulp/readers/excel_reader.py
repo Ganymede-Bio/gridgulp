@@ -525,7 +525,7 @@ class ExcelReader(SyncBaseReader):
                             if hasattr(align_obj, "hor_align"):
                                 # Map xlrd alignment constants to strings
                                 align_map = {0: "left", 1: "center", 2: "right"}
-                                alignment = align_map.get(align_obj.hor_align, None)
+                                alignment = align_map.get(align_obj.hor_align)
             except Exception:
                 pass  # Formatting extraction failed, continue without it
 

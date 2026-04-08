@@ -1,0 +1,19 @@
+detection_strategy = "gemma_first"
+confidence_threshold = 0.7
+enable_simple_case_detection = true
+enable_island_detection = true
+use_excel_metadata = true
+
+[gemma]
+enabled = true
+base_url = "http://localhost:11434/v1"
+model_id = "gemma4:26b"
+timeout_seconds = 60
+max_retries = 2
+max_tokens = 1200
+
+[vision]
+enabled = true
+mode = "fallback_only"
+max_proposal_crops = 4
+crop_margin_cells = 1
