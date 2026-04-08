@@ -7,28 +7,28 @@ install: ## Install the package with uv
 	uv pip install -e .
 
 install-dev: ## Install the package with development dependencies using uv
-	uv pip install -e ".[dev]"
+	uv sync --extra dev
 
 hooks-install: ## Install git pre-commit hooks
-	uv run pre-commit install
+	uv run --extra dev pre-commit install
 
 hooks: ## Run pre-commit hooks across the repository
-	uv run pre-commit run --all-files
+	uv run --extra dev pre-commit run --all-files
 
 test: ## Run tests
-	pytest
+	uv run --extra dev pytest
 
 doctor: ## Validate GridGulp Gemma configuration
-	gridgulp doctor
+	uv run --extra dev gridgulp doctor
 
 test-cov: ## Run tests with coverage
-	pytest --cov=gridgulp --cov-report=html --cov-report=term
+	uv run --extra dev pytest --cov=gridgulp --cov-report=html --cov-report=term
 
 lint: ## Run linting with ruff
-	ruff check src/ tests/
+	uv run --extra dev ruff check src/ tests/
 
 format: ## Format code with black
-	black src/ tests/
+	uv run --extra dev ruff format src/ tests/
 
 clean: ## Clean build artifacts
 	rm -rf build/
@@ -61,6 +61,6 @@ bump-major: ## Bump major version
 	python scripts/bump_version.py major
 
 dev: install-dev ## Set up development environment
-	uv run pre-commit install
+	uv run --extra dev pre-commit install
 
 check: lint type-check test ## Run all checks (lint, type-check, test)
