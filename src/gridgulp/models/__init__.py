@@ -7,6 +7,19 @@ from .extraction_result import (
     SheetExtractionResult,
 )
 from .file_info import FileInfo, FileType
+from .schema import (
+    EntitySchema,
+    ExtractionOrientation,
+    FieldSchema,
+    ProvenanceRef,
+    RecordGroup,
+    RegionRole,
+    RegionSchema,
+    RelationshipEdge,
+    RelationshipType,
+    SheetSchemaResult,
+    WorkbookSchemaResult,
+)
 from .sheet_data import CellData, FileData, SheetData
 from .table import TableInfo, TableRange
 
@@ -23,4 +36,15 @@ __all__ = [
     "ExtractedTable",
     "FileExtractionResult",
     "SheetExtractionResult",
+    "WorkbookSchemaResult",
+    "SheetSchemaResult",
+    "RegionSchema",
+    "RegionRole",
+    "EntitySchema",
+    "FieldSchema",
+    "RecordGroup",
+    "RelationshipEdge",
+    "RelationshipType",
+    "ExtractionOrientation",
+    "ProvenanceRef",
 ]

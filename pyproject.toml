@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gridgulp"
-version = "0.3.5"
-description = "Simplified intelligent spreadsheet ingestion framework with automatic table detection"
+version = "0.5.0"
+description = "Gemma-first spreadsheet schematization framework for unstructured workbooks"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
@@ -40,7 +40,9 @@ dependencies = [
     "chardet",
     "aiofiles",
     "rich", # For nice CLI output
-    "polars"
+    "polars",
+    "Pillow",
+    "tomli>=2.0.1; python_version < '3.11'"
 ]
 
 [project.optional-dependencies]
@@ -188,6 +190,7 @@ module = [
     "magika.*",
     "olefile.*",
     "openpyxl.*",
+    "PIL.*",
     "polars.*",
     "python_magic.*",
     "rich.*",

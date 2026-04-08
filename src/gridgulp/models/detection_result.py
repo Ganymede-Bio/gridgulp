@@ -22,6 +22,7 @@ class SheetResult(BaseModel):
         ..., ge=0.0, description="Time taken to process this sheet (seconds)"
     )
     errors: list[str] = Field(default_factory=list, description="Any errors encountered")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Sheet-level metadata")
 
 
 class DetectionResult(BaseModel):

@@ -1,4 +1,4 @@
-.PHONY: help install install-dev test test-cov lint format type-check clean build publish bump-patch bump-minor bump-major
+.PHONY: help install install-dev test test-cov lint format type-check clean build publish bump-patch bump-minor bump-major doctor
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -11,6 +11,9 @@ install-dev: ## Install the package with development dependencies using uv
 
 test: ## Run tests
 	pytest
+
+doctor: ## Validate GridGulp Gemma configuration
+	gridgulp doctor
 
 test-cov: ## Run tests with coverage
 	pytest --cov=gridgulp --cov-report=html --cov-report=term

@@ -1,14 +1,16 @@
-"""Main GridGulp class - simplified for Option 3 (Hybrid Approach)."""
+"""Main GridGulp class."""
 
 import logging
 import time
 from pathlib import Path
 from typing import Any
 
-from gridgulp.models import DetectionResult, FileInfo, FileType
+from gridgulp.models import DetectionResult, FileInfo, FileType, SheetResult, WorkbookSchemaResult
 from gridgulp.models.file_info import UnsupportedFormatError
+from gridgulp.models.sheet_data import FileData
 from gridgulp.readers import ReaderError, create_reader
 from gridgulp.readers.base_reader import SyncBaseReader
+from gridgulp.schematizer import WorkbookSchematizer
 from gridgulp.utils.file_magic import detect_file_info
 
 from .config import Config
@@ -24,7 +26,7 @@ logger = get_contextual_logger(__name__)
 
 
 class GridGulp:
-    """Main class for intelligent spreadsheet table detection - simplified architecture.
+    """Main class for spreadsheet table detection.
 
     GridGulp automatically detects and extracts tables from spreadsheets with zero
     external dependencies. It handles Excel (xlsx, xls, xlsm), CSV, TSV, and text files,
@@ -47,8 +49,8 @@ class GridGulp:
 
     Notes
     -----
-    The simplified architecture focuses on algorithmic detection methods that handle
-    ~97% of real-world spreadsheets without requiring external services or AI APIs.
+    GridGulp supports a Gemma-first reasoning pipeline backed by an OpenAI-compatible
+    endpoint as well as an explicit heuristic-only mode for offline debugging.
     """
 
     def __init__(
@@ -57,7 +59,7 @@ class GridGulp:
         confidence_threshold: float | None = None,
         **kwargs: Any,
     ):
-        """Initialize GridGulp with simplified architecture.
+        """Initialize GridGulp.
 
         Args
         ----
@@ -93,23 +95,29 @@ class GridGulp:
         Configuration can also be set via environment variables. See Config.from_env()
         for details on supported environment variables.
         """
-        # Load base config
         if config is None:
-            config = Config.from_env()
-
-        # Apply overrides
-        if confidence_threshold is not None:
-            config.confidence_threshold = confidence_threshold
-
-        # Apply any additional kwargs
-        for key, value in kwargs.items():
-            if hasattr(config, key):
-                setattr(config, key, value)
+            overrides = dict(kwargs)
+            if confidence_threshold is not None:
+                overrides["confidence_threshold"] = confidence_threshold
+            config = Config.from_sources(overrides=overrides)
+        else:
+            overrides = dict(kwargs)
+            if confidence_threshold is not None:
+                overrides["confidence_threshold"] = confidence_threshold
+            if overrides:
+                config = config.with_overrides(**overrides)
 
         self.config = config
+        self.config.validate_runtime()
         self._setup_logging()
 
-        logger.info("GridGulp initialized with simplified architecture")
+        logger.info(
+            "GridGulp initialized",
+            extra={
+                "detection_strategy": self.config.detection_strategy.value,
+                "gemma_model_id": self.config.gemma.model_id,
+            },
+        )
 
     def _setup_logging(self) -> None:
         """Setup logging configuration based on config settings.
@@ -127,7 +135,7 @@ class GridGulp:
         )
 
     async def detect_tables(self, file_path: str | Path) -> DetectionResult:
-        """Detect tables in a spreadsheet file using simplified architecture.
+        """Detect tables in a spreadsheet file.
 
         Args:
             file_path: Path to the spreadsheet file
@@ -140,158 +148,56 @@ class GridGulp:
             UnsupportedFormatError: If file format is not supported
             FileSizeError: If file is too large
         """
-        start_time = time.time()
         file_path = Path(file_path)
 
         with FileContext(str(file_path)):
             logger.info("Starting table detection")
-
-            # Validate file
-            with OperationContext("file_validation"):
-                self._validate_file(file_path)
-
-            # Detect file type
-            with OperationContext("file_type_detection"):
-                file_info = await self._analyze_file(file_path)
-                logger.info(f"Detected file type: {file_info.type}")
-
-                # Check for unsupported XLSB format
-                if file_info.type == FileType.XLSB:
-                    # If file has .xlsx extension, it might be misdetected
-                    if file_path.suffix.lower() == ".xlsx":
-                        logger.warning(
-                            "File detected as XLSB but has .xlsx extension. "
-                            "Will attempt to read as XLSX if initial read fails."
-                        )
-                        # We'll handle this in the reader section below
-                    else:
-                        # File has .xlsb extension and detected as XLSB
-                        raise UnsupportedFormatError(
-                            "XLSB",
-                            file_path,
-                            "XLSB (Excel Binary) format is not supported. "
-                            "Please save the file as XLSX format in Excel.",
-                        )
-
-            # Read file data using appropriate reader
-            with OperationContext("file_reading"):
-                try:
-                    reader = create_reader(file_path, file_info)
-                    if isinstance(reader, SyncBaseReader):
-                        file_data = reader.read_sync()
-                    else:
-                        raise ReaderError("Expected sync reader but got async reader")
-                    sheet_count = len(list(file_data.sheets))
-                    logger.info(f"Successfully read {sheet_count} sheets")
-                except ReaderError as e:
-                    # If XLSB was detected but reading failed, and file has .xlsx extension, try as XLSX
-                    if (
-                        file_info.type == FileType.XLSB
-                        and file_path.suffix.lower() == ".xlsx"
-                        and "XLSB" not in str(e)
-                    ):  # Avoid infinite loop if XLSB error was explicit
-                        logger.warning(f"Failed to read as XLSB, retrying as XLSX: {e}")
-                        # Override the detected type and try again
-                        file_info.type = FileType.XLSX
-                        try:
-                            reader = create_reader(file_path, file_info)
-                            if isinstance(reader, SyncBaseReader):
-                                file_data = reader.read_sync()
-                            else:
-                                raise ReaderError("Expected sync reader but got async reader")
-                            sheet_count = len(list(file_data.sheets))
-                            logger.info(f"Successfully read {sheet_count} sheets as XLSX")
-                        except Exception as e2:
-                            logger.error(f"Failed to read file as XLSX too: {e2}")
-                            # Re-raise the original error
-                            raise ValueError(
-                                f"Could not read file '{file_path}': {type(e).__name__}: {e}. "
-                                f"File was detected as XLSB but could not be read. "
-                                f"Please check if the file is corrupted or in an unsupported format."
-                            ) from e
-                    else:
-                        logger.error(f"Failed to read file: {e}")
-                        raise ValueError(
-                            f"Could not read file '{file_path}': {type(e).__name__}: {e}. "
-                            f"Please check if the file exists and is in a supported format."
-                        ) from e
-
-            # Run simplified table detection
-            sheets = []
-            total_tables = 0
-
-            for sheet_data in file_data.sheets:
-                from gridgulp.models import SheetResult
-
-                with SheetContext(sheet_data.name):
-                    sheet_start_time = time.time()
-                    sheet_errors: list[str] = []
-
-                    try:
-                        # Run simplified detection
-                        with OperationContext("table_detection"):
-                            # Create a new detection agent with the file type
-                            detection_agent = TableDetectionAgent(
-                                confidence_threshold=self.config.confidence_threshold,
-                                file_type=file_info.type,
-                                config=self.config,
-                            )
-                            detection_result = await detection_agent.detect_tables(sheet_data)
-
-                        total_tables += len(detection_result.tables)
-
-                        sheet_result = SheetResult(
-                            name=sheet_data.name,
-                            tables=detection_result.tables,
-                            processing_time=time.time() - sheet_start_time,
-                            errors=sheet_errors,
-                            metadata=detection_result.processing_metadata,
-                        )
-                    except Exception as e:
-                        logger.error(f"Error processing sheet: {e}")
-                        sheet_errors.append(str(e))
-                        sheet_result = SheetResult(
-                            name=sheet_data.name,
-                            tables=[],
-                            processing_time=time.time() - sheet_start_time,
-                            errors=sheet_errors,
-                        )
-
-                    sheets.append(sheet_result)
-
-            detection_time = time.time() - start_time
-
-            # Simplified methods used
-            methods_used = ["file_reading", "simplified_detection"]
-
-            # Calculate total cells (simplified)
-            total_cells = 0
-            try:
-                for sheet in file_data.sheets:
-                    total_cells += len(sheet.cells)
-            except Exception:
-                total_cells = 0
-
-            result = DetectionResult(
+            start_time = time.time()
+            file_info, file_data = await self._load_file_data(file_path)
+            result = await self._detect_loaded_file(
+                file_path=file_path,
                 file_info=file_info,
-                sheets=sheets,
-                detection_time=detection_time,
-                methods_used=methods_used,
-                metadata={
-                    "file_data_available": True,
-                    "total_cells": total_cells,
-                    "total_tables": total_tables,
-                    "vision_enabled": False,  # Removed in simplified architecture
-                    "simplified_architecture": True,
-                },
+                file_data=file_data,
+                start_time=start_time,
             )
 
             logger.info(
-                f"Detection completed in {detection_time:.2f}s. "
-                f"Read {len(sheets)} sheets with {total_tables} tables detected."
+                f"Detection completed in {result.detection_time:.2f}s. "
+                f"Read {len(result.sheets)} sheets with {result.total_tables} tables detected."
             )
 
             return result
+
+    async def schematize(self, file_path: str | Path) -> WorkbookSchemaResult:
+        """Build a canonical workbook schema from an input spreadsheet."""
+        file_path = Path(file_path)
+
+        with FileContext(str(file_path)):
+            logger.info("Starting workbook schematization")
+            file_info, file_data = await self._load_file_data(file_path)
+            detection_result = await self._detect_loaded_file(
+                file_path=file_path,
+                file_info=file_info,
+                file_data=file_data,
+            )
+
+            with OperationContext("workbook_schematization"):
+                schematizer = WorkbookSchematizer(self.config)
+                schema_result = await schematizer.schematize(
+                    file_path=file_path,
+                    file_info=file_info,
+                    file_data=file_data,
+                    detection_result=detection_result,
+                )
+
+            logger.info(
+                "Schematization completed",
+                extra={
+                    "entity_count": schema_result.total_entities,
+                    "relationship_count": len(schema_result.relationships),
+                },
+            )
+            return schema_result
 
     def detect_tables_sync(self, file_path: str | Path) -> DetectionResult:
         """Synchronous version of detect_tables for use in Jupyter notebooks and sync code.
@@ -330,6 +236,23 @@ class GridGulp:
         except RuntimeError:
             # No running event loop, we can use asyncio.run directly
             return asyncio.run(self.detect_tables(file_path))
+
+    def schematize_sync(self, file_path: str | Path) -> WorkbookSchemaResult:
+        """Synchronous wrapper around schematize for notebooks and scripts."""
+        import asyncio
+
+        try:
+            asyncio.get_running_loop()
+            import concurrent.futures
+
+            def _run_async() -> WorkbookSchemaResult:
+                return asyncio.run(self.schematize(file_path))
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(_run_async)
+                return future.result()
+        except RuntimeError:
+            return asyncio.run(self.schematize(file_path))
 
     async def detect_tables_in_directory(
         self,
@@ -430,6 +353,65 @@ class GridGulp:
 
         return results
 
+    async def schematize_in_directory(
+        self,
+        directory: str | Path,
+        patterns: list[str] | None = None,
+        recursive: bool = True,
+        progress_callback: Any = None,
+    ) -> dict[Path, WorkbookSchemaResult]:
+        """Schematize all supported workbooks inside a directory."""
+        directory = Path(directory).expanduser().resolve()
+
+        if not directory.exists():
+            raise ValueError(f"Directory not found: {directory}")
+
+        if not directory.is_dir():
+            raise ValueError(f"Not a directory: {directory}")
+
+        if patterns is None:
+            patterns = ["*.xlsx", "*.xls", "*.xlsm", "*.csv", "*.tsv", "*.txt"]
+
+        all_files: list[Path] = []
+        for pattern in patterns:
+            if recursive:
+                all_files.extend(directory.rglob(pattern))
+            else:
+                all_files.extend(directory.glob(pattern))
+
+        all_files = sorted(set(all_files))
+        all_files = [
+            file_path
+            for file_path in all_files
+            if not file_path.name.startswith(".") and not file_path.name.startswith("~")
+        ]
+
+        results: dict[Path, WorkbookSchemaResult] = {}
+        total_files = len(all_files)
+
+        for index, file_path in enumerate(all_files, 1):
+            if progress_callback:
+                progress_callback(index, total_files)
+
+            try:
+                results[file_path] = await self.schematize(file_path)
+            except Exception as exc:
+                logger.warning(f"Failed to schematize {file_path}: {exc}")
+                results[file_path] = WorkbookSchemaResult(
+                    file_info=FileInfo(path=file_path, type=FileType.UNKNOWN, size=0),
+                    workbook_metadata={},
+                    sheet_results=[],
+                    entities=[],
+                    relationships=[],
+                    warnings=[str(exc)],
+                    provenance_summary={},
+                    schematization_time=0.0,
+                    methods_used=[],
+                    metadata={"error": str(exc)},
+                )
+
+        return results
+
     def detect_tables_in_directory_sync(
         self,
         directory: str | Path,
@@ -472,6 +454,33 @@ class GridGulp:
             # No running event loop, we can use asyncio.run directly
             return asyncio.run(
                 self.detect_tables_in_directory(directory, patterns, recursive, progress_callback)
+            )
+
+    def schematize_in_directory_sync(
+        self,
+        directory: str | Path,
+        patterns: list[str] | None = None,
+        recursive: bool = True,
+        progress_callback: Any = None,
+    ) -> dict[Path, WorkbookSchemaResult]:
+        """Synchronous wrapper around schematize_in_directory."""
+        import asyncio
+
+        try:
+            asyncio.get_running_loop()
+            import concurrent.futures
+
+            def _run_async() -> dict[Path, WorkbookSchemaResult]:
+                return asyncio.run(
+                    self.schematize_in_directory(directory, patterns, recursive, progress_callback)
+                )
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(_run_async)
+                return future.result()
+        except RuntimeError:
+            return asyncio.run(
+                self.schematize_in_directory(directory, patterns, recursive, progress_callback)
             )
 
     # Backwards compatibility alias
@@ -562,6 +571,149 @@ class GridGulp:
             detection_method=detection_result.method,
             encoding=detection_result.encoding,
             magic_bytes=detection_result.magic_bytes,
+        )
+
+    async def _load_file_data(self, file_path: Path) -> tuple[FileInfo, FileData]:
+        """Validate, analyze, and read a workbook once for downstream operations."""
+        with OperationContext("file_validation"):
+            self._validate_file(file_path)
+
+        with OperationContext("file_type_detection"):
+            file_info = await self._analyze_file(file_path)
+            logger.info(f"Detected file type: {file_info.type}")
+
+            if file_info.type == FileType.XLSB:
+                if file_path.suffix.lower() == ".xlsx":
+                    logger.warning(
+                        "File detected as XLSB but has .xlsx extension. "
+                        "Will attempt to read as XLSX if initial read fails."
+                    )
+                else:
+                    raise UnsupportedFormatError(
+                        "XLSB",
+                        file_path,
+                        "XLSB (Excel Binary) format is not supported. "
+                        "Please save the file as XLSX format in Excel.",
+                    )
+
+        with OperationContext("file_reading"):
+            try:
+                file_data = self._read_file_data(file_path, file_info)
+                logger.info(f"Successfully read {len(list(file_data.sheets))} sheets")
+            except ReaderError as exc:
+                logger.error(f"Failed to read file: {exc}")
+                raise ValueError(
+                    f"Could not read file '{file_path}': {type(exc).__name__}: {exc}. "
+                    "Please check if the file exists and is in a supported format."
+                ) from exc
+
+        return file_info, file_data
+
+    def _read_file_data(self, file_path: Path, file_info: FileInfo) -> FileData:
+        """Read workbook data using the appropriate sync reader."""
+        try:
+            reader = create_reader(file_path, file_info)
+            if isinstance(reader, SyncBaseReader):
+                return reader.read_sync()
+            raise ReaderError("Expected sync reader but got async reader")
+        except ReaderError as exc:
+            if (
+                file_info.type == FileType.XLSB
+                and file_path.suffix.lower() == ".xlsx"
+                and "XLSB" not in str(exc)
+            ):
+                logger.warning(f"Failed to read as XLSB, retrying as XLSX: {exc}")
+                file_info.type = FileType.XLSX
+                reader = create_reader(file_path, file_info)
+                if isinstance(reader, SyncBaseReader):
+                    return reader.read_sync()
+                raise ReaderError("Expected sync reader but got async reader") from exc
+            raise
+
+    async def _detect_loaded_file(
+        self,
+        *,
+        file_path: Path,
+        file_info: FileInfo,
+        file_data: FileData,
+        start_time: float | None = None,
+    ) -> DetectionResult:
+        """Run table detection against an already loaded workbook."""
+        started_at = time.time() if start_time is None else start_time
+        sheets: list[SheetResult] = []
+        total_tables = 0
+        method_names: set[str] = {"file_reading"}
+        gemma_reasoned_sheets = 0
+        multimodal_reasoned_sheets = 0
+
+        for sheet_data in file_data.sheets:
+            with SheetContext(sheet_data.name):
+                sheet_start_time = time.time()
+                sheet_errors: list[str] = []
+                sheet_data.file_path = str(file_path)
+                sheet_data.file_type = file_info.type.value
+
+                try:
+                    with OperationContext("table_detection"):
+                        detection_agent = TableDetectionAgent(
+                            confidence_threshold=self.config.confidence_threshold,
+                            file_type=file_info.type,
+                            config=self.config,
+                        )
+                        detection_result = await detection_agent.detect_tables(sheet_data)
+
+                    total_tables += len(detection_result.tables)
+                    sheet_metadata = detection_result.processing_metadata
+                    for method_name in sheet_metadata.get("methods_used", []):
+                        method_names.add(method_name)
+                    if "gemma" in sheet_metadata:
+                        gemma_reasoned_sheets += 1
+                    if sheet_metadata.get("final_reasoner") == "multimodal":
+                        multimodal_reasoned_sheets += 1
+
+                    sheet_result = SheetResult(
+                        name=sheet_data.name,
+                        tables=detection_result.tables,
+                        processing_time=time.time() - sheet_start_time,
+                        errors=sheet_errors,
+                        metadata=sheet_metadata,
+                    )
+                except Exception as exc:
+                    logger.error(f"Error processing sheet: {exc}")
+                    sheet_errors.append(str(exc))
+                    sheet_result = SheetResult(
+                        name=sheet_data.name,
+                        tables=[],
+                        processing_time=time.time() - sheet_start_time,
+                        errors=sheet_errors,
+                    )
+
+                sheets.append(sheet_result)
+
+        total_cells = 0
+        try:
+            for sheet in file_data.sheets:
+                total_cells += len(sheet.cells)
+        except Exception:
+            total_cells = 0
+
+        return DetectionResult(
+            file_info=file_info,
+            sheets=sheets,
+            detection_time=time.time() - started_at,
+            methods_used=sorted(method_names),
+            metadata={
+                "file_data_available": True,
+                "total_cells": total_cells,
+                "total_tables": total_tables,
+                "detection_strategy": self.config.detection_strategy.value,
+                "gemma": {
+                    "enabled": self.config.gemma.enabled,
+                    "model_id": self.config.gemma.model_id,
+                    "reasoned_sheets": gemma_reasoned_sheets,
+                    "multimodal_reasoned_sheets": multimodal_reasoned_sheets,
+                },
+            },
         )
 
     async def batch_detect(self, file_paths: list[str | Path]) -> list[DetectionResult]:

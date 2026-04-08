@@ -3,20 +3,17 @@
 [![PyPI version](https://badge.fury.io/py/gridgulp.svg)](https://pypi.org/project/gridgulp/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/gridgulp.svg)](https://pypi.org/project/gridgulp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://ganymede-bio.github.io/gridgulp/)
 
-Automatically detect and extract tables from Excel, CSV, and text files.
+Gemma-first spreadsheet schematization for Excel, CSV, TSV, and text files.
 
-## What is GridGulp?
+## What Changed
 
-GridGulp finds tables in your spreadsheets, even when
+GridGulp now supports two explicit execution modes:
 
-- there are multiple tables on one sheet
-- tables don't start at cell A1
-- file extensions do not reflect its file type
-- the file encoding is opaque
+- `gemma_first`: the supported primary path. Heuristics propose candidate regions, then Gemma finalizes boundaries, names, and merges/splits/additions. Structured text runs first; normalized sheet images are used only as a Gemma fallback for visually ambiguous sheets. The resulting tables are then lifted into canonical entities, fields, records, and relationships.
+- `heuristic_only`: an explicit offline/debug escape hatch. This is useful for local debugging and for legacy test coverage, but it is not the main product path.
 
-**Supported formats:** `.xlsx`, `.xls`, `.xlsm`, `.csv`, `.tsv`, `.txt`
+Only Gemma-family models are accepted for LLM execution.
 
 ## Installation
 
@@ -24,202 +21,164 @@ GridGulp finds tables in your spreadsheets, even when
 pip install gridgulp
 ```
 
-## Quick Start
-
-### Trying GridGulp Out
-
-To quickly try GridGulp on some spreadsheets, clone the repo, place example spreadsheets in the examples/ directory, and run
+For local development:
 
 ```bash
-python scripts/test_example_files.py
+uv pip install -e ".[dev]"
 ```
 
-You will receive output that looks like, representing identified ranges:
+## Configuration
 
-📁 tests/manual
-----------------------------------------------------------------------------------------------------
-✓ sample.xlsx                              | Tables: 1  | Time: 1.099s | Size: 122.6KB | Method: magika
-  📄 Sheet: Sheet
-     └─ A1:CV203        | 203×100 | Conf: 70%
+GridGulp loads config in this order:
 
+1. `gridgulp.toml`
+2. `GRIDGULP_*` environment variables
+3. CLI flags
 
-### Table Ranges vs DataFrames
+Start from [gridgulp.toml.example](/Users/bensonlee/dev/gridgulp/gridgulp.toml.example).
 
-GridGulp provides two ways to work with detected tables:
+Minimal Gemma-first config:
 
-1. **Table Ranges** - JSON metadata about where tables are located (e.g., "A1:E100")
-   - Fast and memory-efficient
-   - Perfect for agent use as tools - mapping table locations or visualizing spreadsheet structure
-   - No actual data is loaded into memory
+```toml
+detection_strategy = "gemma_first"
 
-2. **DataFrames** - The actual data extracted from those ranges as pandas DataFrames
-   - Contains the full data with proper types
-   - Ready for analysis, transformation, or export
+[gemma]
+enabled = true
+base_url = "http://localhost:11434/v1"
+model_id = "gemma4:26b"
+timeout_seconds = 60
+max_retries = 2
+max_tokens = 1200
 
-Choose based on your needs:
-- Use **ranges only** when you need to know where tables are and want to submit to other tasks - for example, a downstream process to infer purpose / intent based on data content
-- Use **DataFrames** when you need to analyze or transform the actual data
+[vision]
+enabled = true
+mode = "fallback_only"
+max_proposal_crops = 4
+crop_margin_cells = 1
+```
 
-### Getting Table Ranges Only
+## CLI
+
+Validate your config first:
+
+```bash
+gridgulp doctor
+```
+
+Validate multimodal support explicitly against Ollama:
+
+```bash
+gridgulp --gemma-base-url http://localhost:11434/v1 --gemma-model-id gemma4:26b doctor
+```
+
+Schematize a file:
+
+```bash
+gridgulp schematize path/to/report.xlsx
+```
+
+Emit JSON:
+
+```bash
+gridgulp schematize path/to/report.xlsx --json
+```
+
+Keep the lower-level table detector available when you need raw table boundaries:
+
+```bash
+gridgulp detect path/to/report.xlsx --save-debug-images .gridgulp-debug
+```
+
+Process a directory:
+
+```bash
+gridgulp schematize path/to/reports --recursive
+```
+
+## Python API
+
+Gemma-first schematization:
 
 ```python
 from gridgulp import GridGulp
+from gridgulp.config import Config
 
-# Detect tables in a file (lightweight - just finds locations)
-porter = GridGulp()
-result = await porter.detect_tables("sales_report.xlsx")
+config = Config.from_toml("gridgulp.toml")
+gg = GridGulp(config=config)
 
-# Process results - no data loaded yet, just locations
-for sheet in result.sheets:
-    print(f"{sheet.name}: {len(sheet.tables)} tables found")
-    for table in sheet.tables:
-        print(f"  - Table at {table.range.excel_range}")
-        print(f"    Size: {table.shape[0]} rows × {table.shape[1]} columns")
-        print(f"    Confidence: {table.confidence:.1%}")
+result = gg.schematize_sync("sales_report.xlsx")
+print(result.total_entities)
+for entity in result.entities:
+    print(entity.suggested_name, entity.record_count_estimate)
+    for field in entity.fields:
+        print(" ", field.id, field.semantic_type, field.physical_type)
 ```
 
-### Getting DataFrames
-
-To extract the actual data as pandas DataFrames:
+Lower-level table debugging:
 
 ```python
 from gridgulp import GridGulp
-from gridgulp.extractors import DataFrameExtractor
-from gridgulp.readers import get_reader
+from gridgulp.config import Config, DetectionStrategy
 
-# Step 1: Detect table locations
-porter = GridGulp()
-result = await porter.detect_tables("sales_report.xlsx")
+config = Config(detection_strategy=DetectionStrategy.HEURISTIC_ONLY)
+gg = GridGulp(config=config)
 
-# Step 2: Read the file data
-reader = get_reader("sales_report.xlsx")
-file_data = reader.read_sync()
-
-# Step 3: Extract DataFrames from detected ranges
-extractor = DataFrameExtractor()
-for sheet_result in result.sheets:
-    sheet_data = next(s for s in file_data.sheets if s.name == sheet_result.name)
-
-    for table in sheet_result.tables:
-        df, metadata, quality = extractor.extract_dataframe(sheet_data, table.range)
-        if df is not None:
-            print(f"\n📊 Extracted table from {table.range.excel_range}")
-            print(f"   Shape: {df.shape} | Quality: {quality:.1%}")
-            print(f"   Headers: {', '.join(df.columns[:5])}{'...' if len(df.columns) > 5 else ''}")
-            # Now you have a pandas DataFrame to work with
-            print(df.head())
+result = gg.detect_tables_sync("sales_report.xlsx")
 ```
 
-### Processing Multiple Files
+## Schema Output
 
-GridGulp makes it easy to process entire directories of spreadsheets:
+The primary output is `WorkbookSchemaResult`, which includes:
 
-```python
-from gridgulp import GridGulp
+- workbook metadata
+- per-sheet classified regions
+- canonical entities
+- normalized fields
+- extracted record groups
+- inferred relationships
+- provenance and warnings
 
-# Create GridGulp instance
-gg = GridGulp()
+`DetectionResult` remains available as a lower-level primitive for debugging table boundaries.
 
-# Process all spreadsheets in a directory (recursively by default)
-results = await gg.detect_tables_in_directory("~/data")
+## Detection And Schematization Architecture
 
-# Summary statistics
-total_tables = sum(r.total_tables for r in results.values())
-print(f"Found {total_tables} tables across {len(results)} files")
+For `gemma_first`, GridGulp runs:
 
-# Process each file's results
-for file_path, result in results.items():
-    if result.total_tables > 0:
-        print(f"\n{file_path.name}:")
-        for sheet in result.sheets:
-            for table in sheet.tables:
-                print(f"  - {sheet.name}: {table.range.excel_range}")
+1. file typing and file reading
+2. deterministic proposal generation from the existing detector stack
+3. structured-text prompt construction from sheet maps, boundary context, merged cells, multi-row header hints, and semantic row patterns
+4. Gemma text reasoning over final `keep`, `merge`, `split`, `add`, and `reject` decisions
+5. multimodal Gemma fallback with rendered PNG overview/crops when the text pass is low-confidence or visually ambiguous
+6. post-processing into `TableInfo` objects with clipped ranges, deduplicated overlaps, header metadata, and semantic summaries
+7. canonical schematization into regions, entities, fields, records, and relationships
+
+## Supported Formats
+
+- `.xlsx`
+- `.xls`
+- `.xlsm`
+- `.csv`
+- `.tsv`
+- `.txt`
+
+`.xlsb` is detected but not supported for reading.
+
+## Development Workflow
+
+```bash
+gridgulp doctor
+gridgulp schematize examples/spreadsheets/simple/basic_table.csv --json
+pytest -q tests/test_detection_agent.py
 ```
 
-#### Directory Processing Options
+To compare Gemma-first schema output against the deterministic baseline, switch `detection_strategy` to `heuristic_only` in config or via env:
 
-```python
-# Process only Excel files
-results = await gg.detect_tables_in_directory(
-    "~/reports",
-    patterns=["*.xlsx", "*.xls"]
-)
-
-# Non-recursive (single directory only)
-results = await gg.detect_tables_in_directory(
-    "~/data",
-    recursive=False
-)
-
-# With progress tracking for large directories
-def show_progress(current, total):
-    print(f"Processing file {current} of {total}...")
-
-results = await gg.detect_tables_in_directory(
-    "~/large_dataset",
-    progress_callback=show_progress
-)
-
-# Sync version for Jupyter notebooks
-results = gg.detect_tables_in_directory_sync("~/data")
+```bash
+GRIDGULP_DETECTION_STRATEGY=heuristic_only gridgulp schematize file.xlsx --json
 ```
 
-#### Extracting DataFrames from Multiple Files
+## Docs
 
-```python
-from gridgulp.extractors import DataFrameExtractor
-from gridgulp.readers import get_reader
-
-# Process directory and extract all tables as DataFrames
-gg = GridGulp()
-extractor = DataFrameExtractor()
-
-results = gg.detect_tables_in_directory_sync("~/sales_data")
-
-all_dataframes = []
-for file_path, detection_result in results.items():
-    if detection_result.total_tables > 0:
-        # Read the file
-        reader = get_reader(file_path)
-        file_data = reader.read_sync()
-
-        # Extract each table
-        for sheet_result in detection_result.sheets:
-            sheet_data = next(s for s in file_data.sheets if s.name == sheet_result.name)
-
-            for table in sheet_result.tables:
-                df, metadata, quality = extractor.extract_dataframe(sheet_data, table.range)
-                if df is not None:
-                    # Add source info to the dataframe
-                    df['_source_file'] = file_path.name
-                    df['_source_sheet'] = sheet_result.name
-                    all_dataframes.append(df)
-
-print(f"Extracted {len(all_dataframes)} tables from {len(results)} files")
-
-# Combine all tables if they have the same structure
-import pandas as pd
-if all_dataframes:
-    combined_df = pd.concat(all_dataframes, ignore_index=True)
-    print(f"Combined dataset: {combined_df.shape}")
-```
-
-## Key Features
-
-- **Automatic Detection** - Finds all tables with sensible defaults
-- **Fully Configurable** - Customize detection thresholds and behavior
-- **Smart Headers** - Detects single and multi-row headers automatically
-- **Multiple Tables** - Handles sheets with multiple separate tables
-- **Quality Scoring** - Confidence scores for each detected table
-- **Fast** - Processes 1M+ cells/second for simple tables, 100K+ cells/second for complex tables
-
-## Documentation
-
-- [Full Usage Guide](docs/USAGE_GUIDE.md) - Detailed examples and configuration
-- [API Reference](docs/API_REFERENCE.md) - Complete API documentation
-- [Architecture](docs/ARCHITECTURE.md) - How GridGulp works internally
-- [Testing Guide](docs/TESTING_GUIDE.md) - Test spreadsheets in bulk with the unified test script
-
-## License
-
-MIT License - see [LICENSE](LICENSE) file.
+- [Usage Guide](/Users/bensonlee/dev/gridgulp/docs/USAGE_GUIDE.md)
+- [Semantic Understanding](/Users/bensonlee/dev/gridgulp/docs/SEMANTIC_UNDERSTANDING.md)
+- [Examples](/Users/bensonlee/dev/gridgulp/examples/README.md)

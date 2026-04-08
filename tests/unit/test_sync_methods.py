@@ -7,7 +7,20 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from gridgulp import GridGulp
-from gridgulp.models import DetectionResult, FileInfo, FileType, SheetResult, TableInfo, TableRange
+from gridgulp.models import (
+    DetectionResult,
+    EntitySchema,
+    ExtractionOrientation,
+    FileInfo,
+    FileType,
+    FieldSchema,
+    RecordGroup,
+    SheetResult,
+    SheetSchemaResult,
+    TableInfo,
+    TableRange,
+    WorkbookSchemaResult,
+)
 
 
 @pytest.fixture
@@ -36,6 +49,51 @@ def mock_detection_result():
         detection_time=0.5,
         methods_used=["simple_case"],
         metadata={"total_tables": 1},
+    )
+
+
+@pytest.fixture
+def mock_schema_result() -> WorkbookSchemaResult:
+    """Create a mock WorkbookSchemaResult for testing."""
+    return WorkbookSchemaResult(
+        file_info=FileInfo(path=Path("test.xlsx"), type=FileType.XLSX, size=1024),
+        workbook_metadata={"file_format": "xlsx"},
+        sheet_results=[SheetSchemaResult(sheet_name="Sheet1", entity_ids=["table_1"])],
+        entities=[
+            EntitySchema(
+                id="table_1",
+                suggested_name="Table 1",
+                source_regions=["Sheet1::table_1"],
+                sheet_names=["Sheet1"],
+                fields=[
+                    FieldSchema(
+                        id="name",
+                        display_name="Name",
+                        semantic_type="name",
+                        physical_type="string",
+                        confidence=0.9,
+                    )
+                ],
+                extraction_orientation=ExtractionOrientation.ROW_RECORDS,
+                record_groups=[
+                    RecordGroup(
+                        id="table_1::records",
+                        entity_id="table_1",
+                        orientation=ExtractionOrientation.ROW_RECORDS,
+                        record_count=1,
+                        records=[{"Name": "Alice"}],
+                        confidence=0.9,
+                    )
+                ],
+                record_count_estimate=1,
+                confidence=0.9,
+            )
+        ],
+        relationships=[],
+        warnings=[],
+        provenance_summary={},
+        schematization_time=0.4,
+        methods_used=["workbook_schematizer"],
     )
 
 
@@ -89,6 +147,16 @@ class TestSyncMethods:
         assert len(results) == 2
         assert all(r == mock_detection_result for r in results)
         gg.batch_detect.assert_called_once_with(["test1.xlsx", "test2.xlsx"])
+
+    def test_schematize_sync_no_event_loop(self, mock_schema_result):
+        """Test schematize_sync when no event loop is running."""
+        gg = GridGulp()
+        gg.schematize = AsyncMock(return_value=mock_schema_result)
+
+        result = gg.schematize_sync("test.xlsx")
+
+        assert result == mock_schema_result
+        gg.schematize.assert_called_once_with("test.xlsx")
 
     def test_batch_detect_sync_with_event_loop(self, mock_detection_result):
         """Test batch_detect_sync when event loop is already running."""

@@ -8,6 +8,12 @@ from gridgulp.config import Config
 from gridgulp.models.sheet_data import CellData, SheetData
 
 
+@pytest.fixture(autouse=True)
+def default_detection_strategy(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the legacy test suite on the explicit heuristic-only escape hatch."""
+    monkeypatch.setenv("GRIDGULP_DETECTION_STRATEGY", "heuristic_only")
+
+
 @pytest.fixture
 def sample_sheet_data() -> SheetData:
     """Create sample sheet data for testing."""
@@ -52,6 +58,7 @@ def large_sheet_data() -> SheetData:
 def test_config() -> Config:
     """Create test configuration."""
     return Config(
+        detection_strategy="heuristic_only",
         confidence_threshold=0.7,
         min_table_size=(2, 2),
         enable_simple_case_detection=True,
