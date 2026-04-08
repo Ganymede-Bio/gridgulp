@@ -1,6 +1,6 @@
 """File information models."""
 
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -18,7 +18,7 @@ class UnsupportedFormatError(Exception):
         super().__init__(self.reason)
 
 
-class FileType(str, Enum):
+class FileType(StrEnum):
     """Supported file types."""
 
     XLSX = "xlsx"

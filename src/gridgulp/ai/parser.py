@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import json
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-class GemmaDecisionAction(str, Enum):
+class GemmaDecisionAction(StrEnum):
     """Supported decision actions returned by Gemma."""
 
     KEEP = "keep"

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -12,7 +12,7 @@ from .file_info import FileInfo
 from .table import TableRange
 
 
-class RegionRole(str, Enum):
+class RegionRole(StrEnum):
     """Supported semantic region roles inside a worksheet."""
 
     DATA_TABLE = "data_table"
@@ -25,7 +25,7 @@ class RegionRole(str, Enum):
     UNKNOWN = "unknown"
 
 
-class ExtractionOrientation(str, Enum):
+class ExtractionOrientation(StrEnum):
     """Canonical record extraction orientation."""
 
     ROW_RECORDS = "row_records"
@@ -33,7 +33,7 @@ class ExtractionOrientation(str, Enum):
     MATRIX = "matrix"
 
 
-class RelationshipType(str, Enum):
+class RelationshipType(StrEnum):
     """Supported inter-entity relationship types."""
 
     LOOKUP_REFERENCE = "lookup_reference"

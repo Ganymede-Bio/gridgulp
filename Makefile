@@ -1,4 +1,4 @@
-.PHONY: help install install-dev test test-cov lint format type-check clean build publish bump-patch bump-minor bump-major doctor
+.PHONY: help install install-dev hooks-install hooks test test-cov lint format type-check clean build publish bump-patch bump-minor bump-major doctor
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -8,6 +8,12 @@ install: ## Install the package with uv
 
 install-dev: ## Install the package with development dependencies using uv
 	uv pip install -e ".[dev]"
+
+hooks-install: ## Install git pre-commit hooks
+	uv run pre-commit install
+
+hooks: ## Run pre-commit hooks across the repository
+	uv run pre-commit run --all-files
 
 test: ## Run tests
 	pytest
@@ -55,6 +61,6 @@ bump-major: ## Bump major version
 	python scripts/bump_version.py major
 
 dev: install-dev ## Set up development environment
-	pre-commit install
+	uv run pre-commit install
 
 check: lint type-check test ## Run all checks (lint, type-check, test)

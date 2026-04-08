@@ -5,21 +5,21 @@ from __future__ import annotations
 import os
 import tomllib
 from collections.abc import Mapping
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
 
-class DetectionStrategy(str, Enum):
+class DetectionStrategy(StrEnum):
     """Supported detection strategies."""
 
     GEMMA_FIRST = "gemma_first"
     HEURISTIC_ONLY = "heuristic_only"
 
 
-class VisionMode(str, Enum):
+class VisionMode(StrEnum):
     """Supported multimodal execution modes."""
 
     OFF = "off"
