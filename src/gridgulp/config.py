@@ -2,20 +2,14 @@
 
 from __future__ import annotations
 
-import importlib
 import os
-import sys
+import tomllib
 from collections.abc import Mapping
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
-
-if sys.version_info >= (3, 11):  # pragma: no branch
-    tomllib = importlib.import_module("tomllib")
-else:  # pragma: no cover - exercised on Python 3.10 only
-    tomllib = importlib.import_module("tomli")
 
 
 class DetectionStrategy(str, Enum):
